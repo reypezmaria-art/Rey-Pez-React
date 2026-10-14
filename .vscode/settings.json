@@ -1,0 +1,23 @@
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "files.insertFinalNewline": true,
+  "files.eol": "\n",
+  "files.exclude": {
+    "**/.DS_Store": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/compilado": true,
+    "**/datos-locales": true,
+    "**/resultados-pruebas": true,
+    "**/informe-pruebas": true
+  },
+  "prettier.configPath": "configuracion-formato.json",
+  "eslint.options": {
+    "overrideConfigFile": "configuracion-eslint.js"
+  }
+}

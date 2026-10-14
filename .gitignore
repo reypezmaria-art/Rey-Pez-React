@@ -1,0 +1,18 @@
+node_modules/
+compilado/
+.env
+.env.*
+!.env.ejemplo
+datos-locales/
+informe-pruebas/
+resultados-pruebas/
+.DS_Store
+*.log
+respaldo*.json
+empleados_rey_pez.csv
+asistencia_rey_pez.csv
+
+# Artefactos de versiones anteriores
+dist/
+test-results/
+playwright-report/

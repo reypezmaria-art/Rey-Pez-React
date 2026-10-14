@@ -1,0 +1,10 @@
+node_modules
+compilado
+datos-locales
+resultados-pruebas
+informe-pruebas
+
+# Artefactos de versiones anteriores
+dist/
+test-results/
+playwright-report/
