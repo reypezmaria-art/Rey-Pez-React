@@ -660,3 +660,92 @@ nav button.active {
     gap: 10px;
   }
 }
+
+.access-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: linear-gradient(140deg, #e7f4ff, #d4e4f5);
+}
+.access-screen > .panel {
+  width: min(100%, 490px);
+}
+.access-screen h1 {
+  font-size: 1.7rem;
+}
+.access-screen .brand-logo {
+  max-width: 170px;
+  height: 100px;
+  object-fit: contain;
+  display: block;
+  margin: auto;
+}
+.header-access {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.header-access .brand-logo {
+  width: 80px;
+  height: 55px;
+  object-fit: contain;
+}
+.capture-main {
+  max-width: 1100px;
+  margin: auto;
+  padding: 24px;
+}
+.permission-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+.permission-list label,
+.check-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.permission-list input,
+.check-field input {
+  width: auto;
+}
+.temperature-guide {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 16px 0;
+}
+.temperature-guide span {
+  padding: 12px 16px;
+  background: #e7f3ff;
+  border: 1px solid #c6a452;
+  border-radius: 12px;
+}
+.status.attention {
+  background: #fce4df;
+  color: #9d302a;
+}
+.panel form,
+.panel p,
+.panel a,
+.biginput {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 600px) {
+  .header-access span {
+    font-size: 12px;
+  }
+  .header-access .brand-logo {
+    width: 50px;
+  }
+  .header-access {
+    gap: 5px;
+  }
+  .capture-main {
+    padding: 12px;
+  }
+}

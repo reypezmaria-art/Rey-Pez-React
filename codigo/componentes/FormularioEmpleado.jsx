@@ -11,6 +11,12 @@ export default function FormularioEmpleado({ employee, onClose, onSaved }) {
     empresa_codigo: "ALLAN",
     puesto: "",
     curp: "",
+    tipo_puesto: "General",
+    telefono: "",
+    domicilio: "",
+    fecha_nacimiento: "",
+    contacto_emergencia: "",
+    funciones: "",
     nss: "",
     codigo_horario: "",
     estatus: "Activo",
@@ -57,6 +63,26 @@ export default function FormularioEmpleado({ employee, onClose, onSaved }) {
           required
           placeholder="Ej. Empleado general — descarga, limpieza..."
           {...field("puesto")}
+        />
+        <Campo label="Tipo de puesto" as="select" {...field("tipo_puesto")}>
+          <option>General</option>
+          <option>Administrativo</option>
+        </Campo>
+        <Campo label="Teléfono" type="tel" {...field("telefono")} />
+        <Campo label="Domicilio" {...field("domicilio")} />
+        <Campo
+          label="Fecha de nacimiento"
+          type="date"
+          {...field("fecha_nacimiento")}
+        />
+        <Campo
+          label="Contacto de emergencia"
+          {...field("contacto_emergencia")}
+        />
+        <Campo
+          label="Funciones específicas"
+          as="textarea"
+          {...field("funciones")}
         />
         <Campo
           label="CURP"

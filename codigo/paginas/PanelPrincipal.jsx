@@ -1,36 +1,53 @@
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import { EncabezadoPagina } from "../componentes/ElementosInterfaz.jsx";
 import { formatDateTime, isSameDay } from "../utilidades/fechas.js";
+import { pendingAbsences } from "../dominio/asistencia.js";
+import { pendingPrograms } from "../dominio/bitacoras.js";
 export default function PanelPrincipal({ navigate }) {
-  const { data } = useAplicacion();
+  const { data, clock } = useAplicacion();
+  const today = data.attendance.filter((a) => isSameDay(a.fecha_hora, clock)),
+    absences = pendingAbsences(data, clock),
+    due = pendingPrograms(data, clock);
+  const status = data.employees
+    .filter((e) => e.estatus !== "Baja")
+    .map((e) => {
+      const last = today.find(
+        (a) =>
+          a.id_empleado === e.id_empleado &&
+          a.movimiento !== "REVISION_ADMINISTRATIVA",
+      );
+      return last?.movimiento || "SIN_ENTRADA";
+    });
   const cards = [
     ["Empresas", 3, "Allan · Edgar · Estuardo"],
-    ["Empleados cargados", data.employees.length, "Lista de preparación"],
     [
-      "Registros de hoy",
-      data.attendance.filter((a) => isSameDay(a.fecha_hora)).length,
-      "Guardados en este navegador",
+      "Empleados cargados",
+      data.employees.length,
+      data.catalogSource || "Catálogo de demostración",
     ],
+    ["Registros de hoy", today.length, "Actualización en este navegador"],
     [
-      "Pendientes de sincronizar",
-      data.attendance.length,
-      "Este prototipo no tiene servidor",
+      "Alertas por revisar",
+      data.alerts.filter((a) => a.estado === "Pendiente").length +
+        absences.length +
+        due.length,
+      "Solo administración",
     ],
   ];
   return (
     <section>
       <EncabezadoPagina
         title="Panel principal"
-        subtitle="Resumen administrativo de Rey Pez"
+        subtitle="María · Supervisión de las tres empresas"
       >
         <button className="primary" onClick={() => navigate("attendance")}>
-          Registrar asistencia
+          Revisar asistencia
         </button>
       </EncabezadoPagina>
       <div className="note">
-        <b>Importante:</b> esta es una primera versión de prueba que guarda
-        datos en este navegador. No es todavía un sistema multiusuario seguro ni
-        un servicio en la nube. No la uses aún como registro laboral oficial.
+        Revisión local: guarda sin conexión en este navegador. La nube, la
+        sincronización entre dispositivos y la huella digital siguen pendientes
+        de configuración.
       </div>
       <div className="cards">
         {cards.map(([label, value, foot]) => (
@@ -41,36 +58,87 @@ export default function PanelPrincipal({ navigate }) {
           </div>
         ))}
       </div>
+      <div className="cards">
+        {[
+          [
+            "Con entrada",
+            status.filter((s) => ["ENTRADA", "REGRESO_DE_COMER"].includes(s))
+              .length,
+          ],
+          ["En comida", status.filter((s) => s === "SALIDA_A_COMER").length],
+          [
+            "Jornada finalizada",
+            status.filter((s) => s === "SALIDA_FINAL").length,
+          ],
+          ["Ausencias por revisar", absences.length],
+        ].map(([label, value]) => (
+          <div className="card" key={label}>
+            <div className="klabel">{label}</div>
+            <div className="kvalue">{value}</div>
+          </div>
+        ))}
+      </div>
       <div className="columns">
         <div className="panel">
-          <h2>Accesos rápidos</h2>
-          <div className="actions">
-            <button onClick={() => navigate("employees")}>
-              Revisar personal
-            </button>
-            <button onClick={() => navigate("attendance")}>Asistencia</button>
-            <button onClick={() => navigate("reports")}>Exportar CSV</button>
-          </div>
-          <p className="small">
-            Las secciones de bitácoras y configuración se muestran como
-            estructura inicial; se desarrollarán después de validar asistencia.
+          <h2>Pendientes administrativos</h2>
+          <p>{absences.length} ausencias pendientes de revisión</p>
+          <p>{due.length} revisiones de bitácoras pendientes</p>
+          <p>
+            {
+              data.logs.filter(
+                (l) => l.expiry && l.expiry < clock.toISOString().slice(0, 10),
+              ).length
+            }{" "}
+            certificados vencidos
           </p>
+          <div className="actions">
+            <button onClick={() => navigate("attendance")}>
+              Revisar ausencias
+            </button>
+            <button onClick={() => navigate("logs")}>Abrir bitácoras</button>
+            <button onClick={() => navigate("cold")}>Cuartos fríos</button>
+          </div>
         </div>
         <div className="panel">
           <h2>Actividad reciente</h2>
-          <div className="small">
-            {data.attendance.length
-              ? data.attendance.slice(0, 5).map((a, i) => (
-                  <p key={a.id_registro || i}>
-                    <b>{a.movimiento}</b> · {a.nombre_completo}
-                    <br />
-                    <span className="small">
-                      {formatDateTime(a.fecha_hora)}
-                    </span>
-                  </p>
-                ))
-              : "Todavía no hay registros de asistencia."}
-          </div>
+          {today.length ? (
+            today.slice(0, 5).map((a) => (
+              <p key={a.id_registro}>
+                <b>{a.movimiento.replaceAll("_", " ")}</b> · {a.nombre_completo}
+                <br />
+                {formatDateTime(a.fecha_hora)}
+              </p>
+            ))
+          ) : (
+            <p>Sin registros de hoy.</p>
+          )}
+        </div>
+        <div className="panel">
+          <h2>Personal por empresa</h2>
+          {["ALLAN", "EDGAR", "ESTUARDO"].map((company) => (
+            <p key={company}>
+              <b>{company}</b> ·{" "}
+              {
+                data.employees.filter((e) => e.empresa_codigo === company)
+                  .length
+              }{" "}
+              empleados ·{" "}
+              {
+                data.employees.filter(
+                  (e) => e.empresa_codigo === company && e.estatus === "Baja",
+                ).length
+              }{" "}
+              bajas
+            </p>
+          ))}
+          <p className="small">
+            Los 30 registros recuperados se conservan. Las diferencias con los
+            conteos posteriores quedan para revisión, sin eliminar ni inventar
+            empleados.
+          </p>
+          <button onClick={() => navigate("employees")}>
+            Administrar personal
+          </button>
         </div>
       </div>
     </section>

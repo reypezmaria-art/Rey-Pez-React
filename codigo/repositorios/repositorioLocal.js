@@ -1,8 +1,10 @@
 import { defaultSchedules } from "../datos/horariosIniciales.js";
 import { demoEmployees } from "../datos/empleadosDemostracion.js";
-
+import { baseOperation } from "../datos/operacionInicial.js";
+import { normalizeDate, localDate } from "../utilidades/fechas.js";
 export const STORAGE_KEY = "reypez_react_v1";
-function validateState(state) {
+export const BACKUP_KEY = "reypez_respaldos_v2";
+export function validateState(state) {
   if (
     !state ||
     !["employees", "attendance", "schedules", "alerts"].every(
@@ -14,43 +16,119 @@ function validateState(state) {
     throw Error(
       "Los datos locales no tienen un formato válido. Conserva el almacenamiento antes de recuperarlos.",
     );
+  for (const key of [
+    "logs",
+    "maintenance",
+    "rooms",
+    "areas",
+    "programs",
+    "terminals",
+    "holidays",
+    "absenceReviews",
+    "scheduleExceptions",
+    "audit",
+  ])
+    if (state[key] !== undefined && !Array.isArray(state[key]))
+      throw Error(`El respaldo tiene un campo inválido: ${key}.`);
+  if (
+    new Set(state.employees.map((e) => e.id_empleado)).size !==
+    state.employees.length
+  )
+    throw Error("El catálogo contiene IDs duplicados.");
   return state;
+}
+export function migrateState(state, catalog = []) {
+  const upgraded = {
+    ...structuredClone(baseOperation),
+    ...validateState(state),
+  };
+  upgraded.access = {
+    ...structuredClone(baseOperation.access),
+    ...state.access,
+  };
+  if (catalog.length) {
+    const merged = upgraded.employees.map((e) =>
+      /^EMPLEADO DEMO/.test(e.nombre_completo)
+        ? catalog.find((c) => c.id_empleado === e.id_empleado) || e
+        : e,
+    );
+    for (const e of catalog)
+      if (!merged.some((c) => c.id_empleado === e.id_empleado)) merged.push(e);
+    upgraded.employees = merged.filter(
+      (e) => !/^EMPLEADO DEMO/.test(e.nombre_completo),
+    );
+    upgraded.catalogSource = "CSV corregido · 30 empleados recuperados";
+  }
+  upgraded.employees = upgraded.employees.map((e) => ({
+    ...e,
+    fecha_ingreso: normalizeDate(e.fecha_ingreso),
+  }));
+  if (state.schemaVersion !== 2)
+    upgraded.schedules = upgraded.schedules.map((s) =>
+      s.codigo === "EDG-ROT"
+        ? { ...s, ...defaultSchedules.find((d) => d.codigo === "EDG-ROT") }
+        : s,
+    );
+  upgraded.schemaVersion = 2;
+  return upgraded;
 }
 export function createLocalRepository(storage = window.localStorage) {
   let initialState;
   const listeners = new Set();
-  function read() {
+  const read = () => {
     const stored = storage.getItem(STORAGE_KEY);
     return stored
       ? validateState(JSON.parse(stored))
       : structuredClone(initialState);
-  }
+  };
+  const snapshot = (state) => {
+    const entries = JSON.parse(storage.getItem(BACKUP_KEY) || "[]");
+    if (!entries.some((b) => b.date === localDate()))
+      storage.setItem(
+        BACKUP_KEY,
+        JSON.stringify([{ date: localDate(), state }, ...entries].slice(0, 7)),
+      );
+  };
   return {
     async load() {
-      if (storage.getItem(STORAGE_KEY)) return read();
-      let employees = demoEmployees;
-      if (import.meta.env?.DEV) {
+      let catalog = globalThis.__REY_PEZ_CATALOG__ || [];
+      if (import.meta.env?.DEV && !catalog.length) {
         const response = await fetch("/__local/empleados");
-        if (response.ok) employees = await response.json();
+        if (response.ok) catalog = await response.json();
       }
-      const legacy = (key, fallback) => {
-        const value = storage.getItem(key);
-        return value ? JSON.parse(value) : fallback;
-      };
-      initialState = validateState({
-        version: 1,
-        employees: legacy("reypez_employees_v1", employees),
-        attendance: legacy("reypez_attendance_v1", []),
-        schedules: legacy("reypez_schedules_v1", defaultSchedules),
-        alerts: legacy("reypez_admin_alerts_v1", []),
-      });
-      storage.setItem(STORAGE_KEY, JSON.stringify(initialState));
+      const stored = storage.getItem(STORAGE_KEY);
+      if (stored) {
+        const old = JSON.parse(stored);
+        initialState = migrateState(old, catalog);
+        if (JSON.stringify(old) !== JSON.stringify(initialState))
+          storage.setItem(STORAGE_KEY, JSON.stringify(initialState));
+      } else {
+        const legacy = (key, fallback) => {
+          const value = storage.getItem(key);
+          return value ? JSON.parse(value) : fallback;
+        };
+        initialState = migrateState(
+          {
+            version: 1,
+            employees: legacy(
+              "reypez_employees_v1",
+              catalog.length ? catalog : demoEmployees,
+            ),
+            attendance: legacy("reypez_attendance_v1", []),
+            schedules: legacy("reypez_schedules_v1", defaultSchedules),
+            alerts: legacy("reypez_admin_alerts_v1", []),
+          },
+          catalog,
+        );
+        storage.setItem(STORAGE_KEY, JSON.stringify(initialState));
+      }
       return structuredClone(initialState);
     },
     async transact(update) {
       const commit = () => {
-        const next = validateState(update(read()));
-        // Un único documento evita escrituras parciales entre empleados y asistencia.
+        const before = read();
+        const next = validateState(update(before));
+        snapshot(before);
         storage.setItem(STORAGE_KEY, JSON.stringify(next));
         listeners.forEach((listener) => listener(next));
         return next;
@@ -66,7 +144,7 @@ export function createLocalRepository(storage = window.localStorage) {
           try {
             listener(validateState(JSON.parse(event.newValue)));
           } catch {
-            /* No sustituir datos válidos por un evento corrupto. */
+            /* conservar el estado válido */
           }
         }
       };
@@ -76,5 +154,6 @@ export function createLocalRepository(storage = window.localStorage) {
         window.removeEventListener("storage", onStorage);
       };
     },
+    backups: () => JSON.parse(storage.getItem(BACKUP_KEY) || "[]"),
   };
 }

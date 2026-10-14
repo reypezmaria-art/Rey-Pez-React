@@ -1,3 +1,4 @@
+import OperacionConfiguracion from "./OperacionConfiguracion.jsx";
 import { useState } from "react";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import {
@@ -99,6 +100,7 @@ export default function Configuracion() {
         pueden editar. El horario rotativo de Edgar se conserva como nota y
         requiere reglas semanales más específicas antes de automatizarse.
       </p>
+      <OperacionConfiguracion />
     </section>
   );
 }

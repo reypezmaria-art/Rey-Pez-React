@@ -15,9 +15,11 @@
     "comprobar-formato": "prettier --config configuracion-formato.json --check .",
     "probar": "node --test pruebas/*.prueba.js",
     "probar:navegador": "playwright test --config configuracion-pruebas.js",
-    "verificar": "npm run comprobar-formato && npm run revisar-codigo && npm run probar && npm run compilar"
+    "verificar": "npm run comprobar-formato && npm run revisar-codigo && npm run probar && npm run compilar",
+    "vista-local": "npm run compilar && node herramientas/generarVistaLocal.js"
   },
   "dependencies": {
+    "qrcode": "^1.5.4",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },

@@ -1,5 +1,10 @@
 import { companyNames } from "../datos/constantes.js";
-import { scheduleForEmployee, scheduledEvent } from "./asistencia.js";
+import {
+  scheduleForEmployee,
+  scheduledEvent,
+  isWorkingDay,
+  timeToMinutes,
+} from "./asistencia.js";
 import { isSameDay, localDate } from "../utilidades/fechas.js";
 
 export function generateEmployeeId(employees) {
@@ -31,10 +36,30 @@ export function saveEmployee(state, employee, originalId) {
     curp: (employee.curp || "").trim().toUpperCase(),
     nss: (employee.nss || "").trim(),
     empresa_nombre: companyNames[employee.empresa_codigo],
-    tipo_puesto: /ADMIN/i.test(role) ? "Administrativo" : "General",
+    tipo_puesto:
+      employee.tipo_puesto ||
+      (/ADMIN/i.test(role) ? "Administrativo" : "General"),
   };
   return {
     ...state,
+    access:
+      originalId && originalId !== id && state.access
+        ? {
+            ...state.access,
+            workers: Object.fromEntries(
+              Object.entries(state.access.workers).map(([key, v]) => [
+                key === originalId ? id : key,
+                v,
+              ]),
+            ),
+            permissions: Object.fromEntries(
+              Object.entries(state.access.permissions).map(([key, v]) => [
+                key === originalId ? id : key,
+                v,
+              ]),
+            ),
+          }
+        : state.access,
     employees: originalId
       ? state.employees.map((e) => (e.id_empleado === originalId ? value : e))
       : [...state.employees, value],
@@ -73,7 +98,19 @@ export function saveSchedule(state, schedule, originalCode) {
     ...schedule,
     codigo: schedule.codigo.trim().toUpperCase(),
     nombre: schedule.nombre.trim(),
+    previousSchedule:
+      originalCode && schedule.vigente_desde
+        ? state.schedules.find((s) => s.codigo === originalCode)
+        : schedule.previousSchedule,
   };
+  if (
+    timeToMinutes(value.hora_inicio) === null ||
+    timeToMinutes(value.hora_fin) === null ||
+    timeToMinutes(value.hora_fin) <= timeToMinutes(value.hora_inicio)
+  )
+    throw Error("Completa un horario diurno válido de entrada y salida.");
+  if (value.rotativo && value.empresa_codigo !== "EDGAR")
+    throw Error("La rotación de tres turnos corresponde a Edgar.");
   if (!value.codigo || !value.nombre)
     throw Error("Completa código y nombre del horario.");
   if (
@@ -108,7 +145,13 @@ export function deleteSchedule(state, code) {
     schedules: state.schedules.filter((s) => s.codigo !== code),
   };
 }
-export function recordAttendance(state, id, password, now = new Date()) {
+export function recordAttendance(
+  state,
+  id,
+  password,
+  now = new Date(),
+  authenticated = false,
+) {
   const employee = state.employees.find(
     (e) => e.id_empleado === id.trim().toUpperCase(),
   );
@@ -117,15 +160,27 @@ export function recordAttendance(state, id, password, now = new Date()) {
     throw Error("No se encontró ese ID. Solicita apoyo a administración.");
   if ((employee.estatus || "Activo") !== "Activo")
     throw Error("La cuenta no está activa. Consulta a administración.");
-  if (password)
+  if (
+    state.access?.admin &&
+    !state.access?.workers?.[employee.id_empleado]?.hash
+  )
     throw Error(
-      "La contraseña aún no se valida en esta versión de prueba. Deja el campo vacío; no uses una contraseña real.",
+      "Solicita a María que asigne tu contraseña antes de registrar.",
+    );
+  if (state.access?.workers?.[employee.id_empleado]?.active === false)
+    throw Error("La cuenta no está activa. Consulta a administración.");
+  if (state.access?.workers?.[employee.id_empleado]?.hash && !authenticated)
+    throw Error("Verifica tu contraseña para registrar.");
+  if (password && !authenticated)
+    throw Error(
+      "La contraseña no está configurada. Consulta a administración.",
     );
   const event = scheduledEvent(
     employee,
     state.schedules,
     state.attendance,
     now,
+    state.scheduleExceptions || [],
   );
   const record = {
     id_registro: crypto.randomUUID(),
@@ -133,6 +188,12 @@ export function recordAttendance(state, id, password, now = new Date()) {
     nombre_completo: employee.nombre_completo,
     empresa_codigo: employee.empresa_codigo,
     movimiento: event.movement,
+    horario_aplicado: scheduleForEmployee(
+      employee,
+      state.schedules,
+      now,
+      state.scheduleExceptions || [],
+    ),
     fecha_hora: now.toISOString(),
     incidencia: "",
     estado_sincronizacion: "Local - no sincronizado",
@@ -158,7 +219,12 @@ export function recordAttendance(state, id, password, now = new Date()) {
       "Marcación repetida",
       "Registro repetido; requiere revisión administrativa.",
     );
-  if (!event.expected)
+  if (!isWorkingDay(now, state.holidays || []))
+    addAlert(
+      "Día no laborable",
+      "Registro en domingo o festivo; revisar autorización.",
+    );
+  if (!event.expected && event.movement !== "SALIDA_A_COMER")
     addAlert(
       "Revisión de horario",
       "Marcación fuera del intervalo previsto. Revisar contexto; no implica autorización automática de tiempo extra.",
@@ -188,7 +254,14 @@ export function saveManualIncident(state, form) {
     id_empleado: employee.id_empleado,
     nombre_completo: employee.nombre_completo,
     empresa_codigo: employee.empresa_codigo,
-    movimiento: "REVISION_ADMINISTRATIVA",
+    movimiento: [
+      "ENTRADA",
+      "SALIDA_A_COMER",
+      "REGRESO_DE_COMER",
+      "SALIDA_FINAL",
+    ].includes(form.movement)
+      ? form.movement
+      : "REVISION_ADMINISTRATIVA",
     fecha_hora: date.toISOString(),
     incidencia: `${form.type} — ${form.reason.trim()} | Revisó: ${form.reviewer.trim()}`,
     estado_sincronizacion: "Local - no sincronizado",

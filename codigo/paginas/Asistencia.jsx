@@ -1,3 +1,5 @@
+import RevisionAusencia from "../componentes/RevisionAusencia.jsx";
+import { pendingAbsences } from "../dominio/asistencia.js";
 import { useState } from "react";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import {
@@ -10,7 +12,7 @@ import FormularioIncidencia from "../componentes/FormularioIncidencia.jsx";
 import { formatDateTime } from "../utilidades/fechas.js";
 import { reviewAlerts } from "../dominio/operaciones.js";
 export default function Asistencia({ navigate, openKiosk }) {
-  const { data, commit, pending } = useAplicacion();
+  const { data, commit, pending, clock } = useAplicacion();
   const [error, setError] = useState("");
   const alerts = data.alerts
     .filter((a) => a.estado === "Pendiente")
@@ -31,6 +33,19 @@ export default function Asistencia({ navigate, openKiosk }) {
       >
         <button onClick={() => navigate("employees")}>Ver personal</button>
       </EncabezadoPagina>
+      <div className="panel">
+        <h2>Ausencias pendientes de revisión</h2>
+        <p className="small">
+          Lunes a sábado, después de la entrada y su tolerancia. Sin sanciones
+          ni descuentos automáticos.
+        </p>
+        {pendingAbsences(data, clock).map((employee) => (
+          <RevisionAusencia key={employee.id_empleado} employee={employee} />
+        ))}
+        {!pendingAbsences(data, clock).length && (
+          <p>Sin ausencias pendientes.</p>
+        )}
+      </div>
       <div className="columns">
         <div className="panel">
           <LogoMarca variant="attendance" />
@@ -100,9 +115,9 @@ export default function Asistencia({ navigate, openKiosk }) {
         </div>
       </div>
       <p className="small">
-        Esta versión usa horarios locales y reglas de prueba. Debe validarse con
-        los turnos reales antes de usarse oficialmente; la contraseña aún no
-        autentica.
+        Tolerancia de 10 minutos. La comida se mide desde la salida real. Las
+        revisiones no generan descuentos ni autorizan tiempo extra
+        automáticamente.
       </p>
     </section>
   );

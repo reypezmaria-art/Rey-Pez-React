@@ -1,4 +1,48 @@
 import { test, expect } from "@playwright/test";
+async function access(page) {
+  await expect(
+    page.getByRole("heading", {
+      name: /Configurar acceso de María|Acceso de María/,
+    }),
+  ).toBeVisible();
+  if (
+    await page
+      .getByRole("heading", { name: "Configurar acceso de María" })
+      .isVisible()
+  ) {
+    await page
+      .getByLabel("Crear contraseña", { exact: true })
+      .fill("RevisionLocal123");
+    await page
+      .getByLabel("Confirmar contraseña", { exact: true })
+      .fill("RevisionLocal123");
+    await page
+      .getByRole("button", { name: "Crear acceso y abrir panel" })
+      .click();
+  } else {
+    await page
+      .getByLabel("Contraseña", { exact: true })
+      .fill("RevisionLocal123");
+    await page.getByRole("button", { name: "Ingresar", exact: true }).click();
+  }
+  await expect(page.getByRole("navigation")).toBeVisible();
+  await nav(page, "Inicio").click();
+  await expect(
+    page.getByRole("heading", { name: "Panel principal" }),
+  ).toBeVisible();
+}
+async function credential(page, id) {
+  await nav(page, "Seguridad").click();
+  await page.getByLabel("Empleado", { exact: true }).selectOption(id);
+  await page
+    .getByLabel("Nueva contraseña", { exact: true })
+    .fill("Trabajador123");
+  await page
+    .getByLabel("Confirmar contraseña", { exact: true })
+    .fill("Trabajador123");
+  await page.getByRole("button", { name: "Guardar acceso" }).click();
+  await expect(page.getByRole("status")).toContainText("Acceso actualizado");
+}
 const nav = (page, name) =>
   page.getByRole("navigation").getByRole("button", { name, exact: true });
 test("flujo de personal, asistencia, incidencia y persistencia", async ({
@@ -7,6 +51,7 @@ test("flujo de personal, asistencia, incidencia y persistencia", async ({
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
+  await access(page);
   await expect(
     page.getByRole("heading", { name: "Panel principal" }),
   ).toBeVisible();
@@ -26,9 +71,11 @@ test("flujo de personal, asistencia, incidencia y persistencia", async ({
   await page
     .getByRole("button", { name: "Guardar empleado", exact: true })
     .click();
+  await credential(page, "RP-0001");
   await nav(page, "Asistencia 1 · Trabajador").click();
   await page.getByLabel("ID de empleado", { exact: true }).fill("RP-0001");
-  await page.getByRole("button", { name: "Ingresar" }).click();
+  await page.getByLabel("Contraseña", { exact: true }).fill("Trabajador123");
+  await page.getByRole("button", { name: "Registrar", exact: true }).click();
   await expect(
     page.getByRole("heading", {
       name: "¡Bienvenido a Rey Pez, PERSONA PRUEBA REACT!",
@@ -52,8 +99,10 @@ test("flujo de personal, asistencia, incidencia y persistencia", async ({
     .click();
   await expect(page.locator("tbody")).toContainText("Permiso de prueba");
   await page.reload();
+  await access(page);
   await expect(page.locator(".kvalue").nth(1)).toHaveText("31");
-  await expect(page.locator(".kvalue").nth(3)).toHaveText("2");
+  await nav(page, "Asistencia 2 · Administración").click();
+  await expect(page.locator("tbody")).toContainText("Permiso de prueba");
   await nav(page, "Personal").click();
   await page.getByLabel("Buscar personal").fill("PERSONA PRUEBA REACT");
   page.once("dialog", (dialog) => dialog.accept());
@@ -61,16 +110,16 @@ test("flujo de personal, asistencia, incidencia y persistencia", async ({
   await expect(page.locator("tbody .status")).toHaveText("Baja");
   await nav(page, "Asistencia 1 · Trabajador").click();
   await page.getByLabel("ID de empleado", { exact: true }).fill("RP-0001");
-  await page.getByRole("button", { name: "Ingresar" }).click();
+  await page.getByLabel("Contraseña", { exact: true }).fill("Trabajador123");
+  await page.getByRole("button", { name: "Registrar", exact: true }).click();
   await expect(page.getByRole("dialog").getByRole("status")).toContainText(
     "no está activa",
   );
   expect(errors).toEqual([]);
 });
-test("configuración, CSV, respaldo y seguridad de demostración", async ({
-  page,
-}) => {
+test("configuración, CSV, respaldo y seguridad local", async ({ page }) => {
   await page.goto("/");
+  await access(page);
   await nav(page, "Configuración").click();
   await page.getByRole("button", { name: "+ Agregar horario" }).click();
   await page.getByLabel("Código *", { exact: true }).fill("TEST");
@@ -117,16 +166,12 @@ test("configuración, CSV, respaldo y seguridad de demostración", async ({
   );
   await nav(page, "Seguridad").click();
   await page.getByLabel("Empleado", { exact: true }).selectOption("AL-01");
+  await page.getByLabel("Nueva contraseña", { exact: true }).fill("prueba123");
   await page
-    .getByLabel("Nueva contraseña temporal (solo maqueta)")
+    .getByLabel("Confirmar contraseña", { exact: true })
     .fill("prueba123");
-  await page.getByLabel("Confirmar contraseña").fill("prueba123");
-  await page
-    .getByRole("button", { name: "Guardar solicitud (demostración)" })
-    .click();
-  await expect(page.getByRole("alert")).toContainText(
-    "No se guardó contraseña ni se cambió el acceso",
-  );
+  await page.getByRole("button", { name: "Guardar acceso" }).click();
+  await expect(page.getByRole("status")).toContainText("Acceso actualizado");
   expect(
     await page.evaluate(() => localStorage.getItem("reypez_react_v1")),
   ).not.toContain("prueba123");
@@ -135,11 +180,14 @@ test("todas las pantallas adaptan su ancho al dispositivo", async ({
   page,
 }) => {
   await page.goto("/");
+  await access(page);
   for (const name of [
     "Inicio",
     "Personal",
     "Asistencia 2 · Administración",
-    "Bitácoras",
+    "Bitácoras y EPP",
+    "Cuartos fríos",
+    "Mantenimiento y compras",
     "Reportes y CSV",
     "Configuración",
     "Seguridad",
@@ -161,4 +209,91 @@ test("todas las pantallas adaptan su ancho al dispositivo", async ({
     path: `resultados-pruebas/registro-${test.info().project.name}.png`,
     fullPage: true,
   });
+});
+
+test("temperaturas, mantenimiento, QR, permisos y terminal aislada", async ({
+  page,
+  context,
+}) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/");
+  await access(page);
+  await nav(page, "Cuartos fríos").click();
+  await page.getByLabel("Cuarto frío", { exact: true }).selectOption("ALLAN-1");
+  await page.getByLabel("Temperatura (°C)").fill("-19");
+  await page.getByRole("button", { name: "Guardar revisión" }).click();
+  await expect(page.locator("tbody")).toContainText("Requiere atención");
+  await nav(page, "Mantenimiento y compras").click();
+  await page.getByLabel("Cuarto frío", { exact: true }).selectOption("ALLAN-1");
+  await page
+    .getByLabel("Descripción", { exact: true })
+    .fill("Revisión de compresor de prueba");
+  await page.getByLabel("Costo MXN (opcional)").fill("250");
+  await page.getByRole("button", { name: "Guardar actividad" }).click();
+  await expect(page.locator("tbody")).toContainText("250.00");
+  await credential(page, "ES-06");
+  await page.getByLabel("Temperaturas", { exact: true }).check();
+  await page.getByRole("button", { name: "Guardar permisos" }).click();
+  await expect(page.getByRole("status")).toContainText("Permisos guardados");
+  await nav(page, "Configuración").click();
+  await page.getByLabel("Área para QR").selectOption("ESTUARDO-1");
+  await expect(page.getByAltText("QR de captura del área")).toBeVisible();
+  await page.getByLabel("Nombre del equipo").fill("Entrada de prueba");
+  await page.getByRole("button", { name: "Vincular este navegador" }).click();
+  await expect(page.getByRole("status")).toContainText("vinculado");
+  const terminal = await context.newPage();
+  await terminal.goto("/#asistencia");
+  await expect(terminal.getByRole("dialog")).toBeVisible();
+  await expect(terminal.getByRole("navigation")).toHaveCount(0);
+  await terminal.keyboard.press("Escape");
+  await expect(terminal.getByRole("dialog")).toBeVisible();
+  await terminal.close();
+  await page.getByRole("button", { name: "Cerrar sesión" }).click();
+  await page.goto("/#captura?area=ESTUARDO-1");
+  await page.getByLabel("ID", { exact: true }).fill("ES-06");
+  await page.getByLabel("Contraseña", { exact: true }).fill("Trabajador123");
+  await page.getByRole("button", { name: "Ingresar", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Captura operativa autorizada" }),
+  ).toBeVisible();
+  await expect(page.getByRole("navigation")).toHaveCount(0);
+  await expect(
+    page.getByLabel("Tipo de bitácora").locator("option"),
+  ).toHaveCount(1);
+  await page.goto("/#captura?area=ALLAN-1");
+  await expect(
+    page.getByText(
+      "María debe autorizar las bitácoras de tu perfil para esta empresa.",
+    ),
+  ).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("respaldo completo, restauración e invalidación de sesión", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await access(page);
+  await nav(page, "Reportes y CSV").click();
+  const json = await page.evaluate(() =>
+    localStorage.getItem("reypez_react_v1"),
+  );
+  await page.getByLabel("Restaurar respaldo JSON").setInputFiles({
+    name: "invalido.json",
+    mimeType: "application/json",
+    buffer: Buffer.from('{"employees":[]}'),
+  });
+  await expect(page.getByRole("alert")).toContainText("formato válido");
+  page.once("dialog", (d) => d.accept());
+  await page.getByLabel("Restaurar respaldo JSON").setInputFiles({
+    name: "respaldo.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(json),
+  });
+  await expect(
+    page.getByRole("heading", { name: "Acceso de María" }),
+  ).toBeVisible();
+  await access(page);
+  await expect(page.locator(".kvalue").nth(1)).toHaveText("30");
 });

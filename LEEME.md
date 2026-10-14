@@ -1,130 +1,61 @@
-# Rey Pez · Control Administrativo
+# Sistema de Control Administrativo Rey Pez
 
-Aplicación en **React y JavaScript**, construida con Vite a partir del prototipo `Rey_Pez_Prototipo_v6_Doble_Asistencia_Azul_Dorado.html`. Conserva la distribución, la paleta azul/dorado y los módulos del original. Funciona en escritorio, tableta y móvil.
+Base única React y JavaScript para revisar la planificación de María. Los cambios están en `codex/revision-local`; `main` se mantiene intacta.
 
-## Continuar el desarrollo
+## Abrir en Windows
 
-Abre **la carpeta completa** en tu editor. La guía [GUIA_DE_TRABAJO.md](GUIA_DE_TRABAJO.md) explica cómo trabajar y dónde encontrar cada módulo. Las decisiones de asistencia se registran en [documentacion/reglas-pendientes.md](documentacion/reglas-pendientes.md); la responsable de definirlas es la esposa de Allan.
+La copia local entregada incluye `Rey_Pez_Revision.html`: ábrelo en Chrome con doble clic. En el primer inicio crea la contraseña de María (ID `MARIA`). Es una copia de revisión con datos guardados en ese navegador.
 
-La carpeta del escritorio `Rey-Pez-React` es la entrega para continuar el desarrollo. El servidor local se ejecuta desde esa carpeta. Si mantienes otra copia, evita editar ambas a la vez; los cambios nuevos no se sincronizan automáticamente entre carpetas.
-
-## Ejecutar en local
-
-El entorno de referencia es **Node.js 22, versión 22.13 o posterior dentro de esa rama**, y npm. `.nvmrc` permite seleccionarlo con `nvm use` si ya tienes nvm instalado. También se admite Node.js 24 o posterior según `package.json`.
+Para trabajar con el código, extrae el ZIP completo, instala Node.js 22.13+ o 24+ y abre `Iniciar_Windows.bat`, o ejecuta:
 
 ```bash
 npm ci
 npm run iniciar
 ```
 
-Abrir **http://127.0.0.1:5173**. Mantén la terminal abierta; `Ctrl+C` detiene el servidor. Si las dependencias ya están instaladas, solo necesitas `npm run iniciar`. También puedes abrir `Iniciar Rey Pez.command` desde Finder.
+Abre `http://127.0.0.1:5173` y conserva la terminal abierta. Usa siempre la misma dirección: puertos y perfiles distintos tienen datos independientes.
 
-La carpeta entregada incluye las dependencias instaladas. El archivo `package-lock.json` permite reinstalar exactamente las mismas versiones en otra computadora.
+## Personal real
 
-Para revisar el resultado compilado:
+La copia privada incluye `datos-locales/empleados.json`, recuperado del CSV corregido de 30 empleados. Este archivo está excluido de GitHub. La app carga el catálogo en desarrollo y la vista HTML lo incorpora de manera local. Se sustituyen registros de demostración y se agregan IDs faltantes conservando empleados ya editados e historial. María Guadalupe conserva fecha de ingreso 01/10/2026.
 
-```bash
-npm run compilar
-npm run previsualizar
-```
+Un clon público sin el archivo privado usa datos ficticios. No publiques empleados, expedientes, contraseñas, respaldos ni el HTML privado en el repositorio.
 
-## Probar la aplicación
+## Revisar los cambios
 
-1. En **Personal**, consulta los 30 empleados originales, filtra por empresa y agrega o modifica un empleado.
-2. Abre **Asistencia 1 · Trabajador**, escribe `AL-01` y deja la contraseña vacía. Se muestra la bienvenida y se registra el movimiento correspondiente. La pantalla se reinicia a los cinco segundos.
-3. En **Asistencia 2 · Administración**, consulta registros, captura una incidencia y revisa alertas.
-4. En **Configuración**, crea o modifica horarios. No se permite eliminar horarios utilizados.
-5. En **Reportes y CSV**, descarga personal, asistencia o un respaldo JSON.
-6. Recarga la página: los cambios permanecen en el mismo navegador y dirección.
+- Personal: agregar, modificar, dar de baja, identificación, contacto, funciones e importación CSV opcional.
+- Seguridad: asigna la contraseña de cada trabajador antes de registrar; autoriza su empresa y bitácoras. Brenda se limita a Estuardo; selecciona explícitamente qué puede capturar.
+- Asistencia: un botón Registrar; cuatro movimientos, 10 minutos de tolerancia, comida desde salida real, rotación semanal de Edgar y excepción fija de Pedro. Las alertas se muestran solo en administración.
+- Asistencia 2: revisar ausencias y registrar emergencias o correcciones con responsable y motivo, conservando registros originales.
+- Bitácoras y cuartos fríos: formularios generales, No aplica con motivo, adjuntos opcionales hasta 1 MB y programación editable. Para cerrar un aviso selecciona la revisión programada correspondiente.
+- Mantenimiento: reparaciones, piezas, equipo, proveedor, costo y comprobantes.
+- Configuración: horarios, excepciones, festivos/cierres, áreas, cuartos, programación, vinculación del navegador y QR por área.
+- Reportes: filtros por empresa/fechas, CSV, respaldo completo y restauración. Se conservan hasta siete respaldos diarios locales antes de cambios.
 
-Los datos se guardan en `localStorage`, no en Firebase todavía. `localhost` y `127.0.0.1` tienen almacenamientos distintos, al igual que los distintos puertos y perfiles de navegador. Usa siempre la misma dirección para tus pruebas.
+Para una terminal dedicada, vincula ese navegador en Configuración y abre `#asistencia`. La pantalla no muestra administración ni incidencias. La ruta `#captura?area=...` identifica el área y exige ID, contraseña y permisos. El QR abre esta ruta; un archivo local o localhost no es una dirección compartida con teléfonos.
 
-## Estructura
+## Alcance local
 
-```text
-codigo/
-  aplicacion/       Aplicación, navegación y estado compartido
-  componentes/     Formularios, tablas, mensajes y registro del trabajador
-  paginas/         Inicio, personal, asistencia, bitácoras, reportes y configuración
-  dominio/         Reglas de asistencia y operaciones del negocio
-  repositorios/    Persistencia local y futura conexión con Firebase
-  datos/           Empresas, horarios iniciales y empleados de demostración
-  estilos/         Diseño, tipografía, colores y adaptación móvil
-  utilidades/      Fechas, archivos CSV y descargas
-publico/identidad/ Logo transparente compartido
-datos-locales/     Catálogo original privado (excluido de Git)
-pruebas/           Pruebas de lógica y recorridos de navegador
-documentacion/     Arquitectura y decisiones de operación
-compilado/         Resultado de la compilación (excluido de Git)
-.github/workflows/ Verificación automática en GitHub
-```
+La aplicación guarda sin conexión después de cargar. Contraseñas derivadas con PBKDF2, sal y bloqueo protegen el flujo local de revisión. No hay servidor, sincronización entre equipos, autenticación centralizada ni integración de huella. No se presenta esta copia como un sistema listo para operación laboral oficial. Los formatos especializados deben cotejarse con los originales.
 
-## Alcance conservado
+Los acuerdos y pendientes concretos están en `documentacion/reglas-pendientes.md`. No se inventaron empleados, cuartos de Edgar, sanciones ni descuentos.
 
-- Alta, edición, búsqueda, filtros, baja e IDs permanentes de personal.
-- Importación CSV por nombre y empresa; asignación de IDs faltantes.
-- Horarios editables, vigencia y notas.
-- Secuencia de entrada, comida, regreso y salida; marcaciones fuera de intervalo permitidas con alertas internas.
-- Revisiones administrativas con responsable y motivo.
-- Revisión de alertas; exportación de CSV y respaldo JSON con alertas incluidas.
-- Seguridad como demostración: no guarda contraseñas ni cambia permisos.
-- Bitácoras como estructura inicial, igual que en el prototipo.
-
-La rotación semanal de Edgar, la aplicación automática de vigencias, turnos nocturnos, huella digital, autenticación real y sincronización siguen pendientes de definición e implementación. Las horas se interpretan en la zona horaria del navegador, como en el original.
-
-## Correcciones durante la migración
-
-- Se corrige la expresión regular que impedía interpretar las horas y la referencia a una función `close` que no estaba definida en el prototipo.
-- Las revisiones administrativas ya no interrumpen la secuencia de marcaciones.
-- Cambiar un ID actualiza las referencias de asistencia y alertas; cambiar un código de horario actualiza sus asignaciones.
-- Se evita eliminar horarios que también están asignados implícitamente por empresa/puesto.
-- Se validan duplicados en importaciones. Un archivo inválido no modifica parcialmente el catálogo.
-- Se admiten CSV con BOM, comillas y saltos de línea. Se exportan todas las columnas, aunque aparezcan solo en registros posteriores.
-- Los errores de persistencia se muestran sin confirmar falsamente un guardado.
-
-## Calidad
+## Verificar
 
 ```bash
-npm run verificar          # Formato + ESLint + pruebas unitarias + compilación
+npm run verificar
 npx playwright install chromium
-npm run probar:navegador       # Recorridos reales en tamaños escritorio y móvil
-npm run formatear        # Aplicar formato uniforme
-npm run comprobar-formato  # Revisar formato sin modificar archivos
+npm run probar:navegador
 ```
 
-Las pruebas E2E usan perfiles de navegador independientes, sin modificar tus datos de prueba cotidianos.
+Las pruebas usan perfiles separados. En entornos con navegador preinstalado se puede especificar `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`. Las dependencias, compilados, evidencias de prueba y catálogos privados quedan fuera de Git.
 
-## GitHub y datos originales
+## Generar la vista privada
 
-`datos-locales/empleados.json` conserva los 30 registros del HTML suministrado y está excluido por `.gitignore`. Vite lo sirve exclusivamente en desarrollo mediante `/__local/empleados`; nunca lo copia al directorio `compilado`. Si falta, se utilizan 30 empleados ficticios. Los datos ya guardados en el navegador tienen prioridad sobre el catálogo inicial.
-
-También están excluidos `node_modules`, `compilado`, `.env`, resultados de pruebas y respaldos locales. No añadas registros laborales ni contraseñas al repositorio. No se ha creado ni publicado un repositorio remoto.
-
-Para iniciar el repositorio desde la carpeta del escritorio cuando lo decidas:
+Después de compilar, ejecuta:
 
 ```bash
-git init
-git add .
-git status
-# Revisa los archivos antes de crear tu primer commit.
-git commit -m "Aplicación inicial Rey Pez en React"
+npm run vista-local
 ```
 
-## Próxima etapa: Firebase
-
-Lee [documentacion/arquitectura.md](documentacion/arquitectura.md). La capa de repositorios concentra el acceso a los datos; los componentes no acceden directamente a `localStorage`. `.env.ejemplo` reserva los nombres de configuración, pero no conecta servicios ni simula una integración activa.
-
-Referencias de herramientas: [React](https://react.dev/learn/creating-a-react-app) y [Vite](https://vite.dev/guide/).
-
-## Nombres de archivos y comandos
-
-Los archivos y carpetas propios utilizan nombres en español, sin acentos ni espacios (salvo el archivo de inicio para Finder). Los componentes utilizan `PascalCase` y las utilidades `camelCase`. Las configuraciones también tienen nombres en español y los comandos de npm indican a cada herramienta dónde encontrarlas.
-
-Se conservan los nombres reconocidos automáticamente por npm, Git, Vite y el editor: `package.json`, `package-lock.json`, `index.html`, `jsconfig.json`, `.gitignore`, `.editorconfig`, `.prettierignore`, `.nvmrc` y los archivos obligatorios dentro de `.vscode` y `.github/workflows`. Las dependencias instaladas conservan sus nombres originales.
-
-- `npm run iniciar`: abrir el servidor de desarrollo.
-- `npm run compilar`: generar la carpeta `compilado`.
-- `npm run previsualizar`: revisar la aplicación compilada.
-- `npm run formatear`: aplicar formato uniforme.
-- `npm run verificar`: comprobar formato, código, pruebas y compilación.
-- `npm run probar:navegador`: comprobar escritorio y móvil en un servidor de pruebas separado, en el puerto 5174.
+El resultado se escribe en `entrega-local/`, excluido de Git. Incluye el catálogo privado si está disponible y los dos logos; conserva la misma clave de almacenamiento de la aplicación.

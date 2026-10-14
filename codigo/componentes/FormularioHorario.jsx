@@ -14,6 +14,10 @@ export default function FormularioHorario({ schedule, onClose, onSaved }) {
     comida_fin: "",
     vigente_desde: "",
     notas: "",
+    tolerancia_minutos: 10,
+    comida_minutos: "",
+    rotativo: false,
+    rotacion_desde: "2026-09-28",
     ...schedule,
   });
   const [error, setError] = useState("");
@@ -59,6 +63,35 @@ export default function FormularioHorario({ schedule, onClose, onSaved }) {
         />
         <Campo label="Fin de comida" type="time" {...field("comida_fin")} />
         <Campo label="Vigente desde" type="date" {...field("vigente_desde")} />
+        <Campo
+          label="Tolerancia (minutos)"
+          type="number"
+          min="0"
+          max="60"
+          {...field("tolerancia_minutos")}
+        />
+        <Campo
+          label="Duración de comida (minutos; vacío = según horario)"
+          type="number"
+          min="1"
+          max="240"
+          {...field("comida_minutos")}
+        />
+        <label>
+          <input
+            type="checkbox"
+            checked={Boolean(form.rotativo)}
+            onChange={(e) => setForm({ ...form, rotativo: e.target.checked })}
+          />{" "}
+          Rotación semanal Edgar: 06–14, 09–17, 12–20
+        </label>
+        {form.rotativo && (
+          <Campo
+            label="Inicio del ciclo (semana 06–14)"
+            type="date"
+            {...field("rotacion_desde")}
+          />
+        )}
         <Campo label="Notas / rotación" {...field("notas")} />
       </div>
       <Mensaje error>{error}</Mensaje>
