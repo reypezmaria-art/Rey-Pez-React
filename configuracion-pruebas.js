@@ -9,6 +9,12 @@ export default defineConfig({
     locale: "es-MX",
     timezoneId: "America/Monterrey",
     trace: "retain-on-failure",
+    launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+      ? {
+          executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+          args: ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+        }
+      : {},
   },
   webServer: {
     command: "npm run iniciar -- --port 5174",

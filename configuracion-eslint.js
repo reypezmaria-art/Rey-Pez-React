@@ -31,7 +31,7 @@ export default [
     },
   },
   {
-    files: ["*.js", "pruebas/**/*.js"],
+    files: ["*.js", "pruebas/**/*.js", "herramientas/**/*.js"],
     languageOptions: { globals: globals.node },
   },
   {

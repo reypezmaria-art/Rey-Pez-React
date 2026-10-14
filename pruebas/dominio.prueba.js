@@ -199,13 +199,16 @@ test("importación inválida es atómica y evita duplicados o reasignaciones del
 });
 test("repositorio conserva datos anteriores cuando falla la escritura", async () => {
   const stored = new Map([[STORAGE_KEY, JSON.stringify(initial())]]);
+  let failWrite = false;
   const repository = createLocalRepository({
     getItem: (key) => stored.get(key),
-    setItem: () => {
-      throw Error("Sin espacio");
+    setItem: (key, value) => {
+      if (failWrite) throw Error("Sin espacio");
+      stored.set(key, value);
     },
   });
   await repository.load();
+  failWrite = true;
   await assert.rejects(
     repository.transact((state) => terminateEmployee(state, "AL-01")),
     /Sin espacio/,
@@ -213,5 +216,34 @@ test("repositorio conserva datos anteriores cuando falla la escritura", async ()
   assert.equal(
     JSON.parse(stored.get(STORAGE_KEY)).employees[0].estatus,
     "Activo",
+  );
+});
+
+test("tolerancia exacta de diez minutos y comida desde salida real", () => {
+  const state = initial();
+  assert.equal(
+    recordAttendance(state, "AL-01", "", time(9, 10)).state.alerts.length,
+    0,
+  );
+  assert.equal(
+    recordAttendance(state, "AL-01", "", time(9, 11)).state.alerts.length,
+    1,
+  );
+  const lateMeal = [
+    mark("ENTRADA", 9),
+    { ...mark("SALIDA_A_COMER", 13), fecha_hora: time(13, 20).toISOString() },
+  ];
+  assert.equal(
+    scheduledEvent(employee, defaultSchedules, lateMeal, time(14, 30)).expected,
+    true,
+  );
+  assert.equal(
+    scheduledEvent(employee, defaultSchedules, lateMeal, time(14, 31)).expected,
+    false,
+  );
+  assert.equal(
+    scheduledEvent(employee, defaultSchedules, [mark("ENTRADA", 9)], time(12))
+      .expected,
+    true,
   );
 });

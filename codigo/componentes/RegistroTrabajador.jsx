@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import LogoMarca from "./LogoMarca.jsx";
-import { recordAttendance } from "../dominio/operaciones.js";
-export default function RegistroTrabajador({ onClose }) {
-  const { commit, pending } = useAplicacion();
+export default function RegistroTrabajador({ onClose, terminal = false }) {
+  const { register, pending } = useAplicacion();
   const [id, setId] = useState(""),
     [password, setPassword] = useState(""),
     [error, setError] = useState(""),
@@ -37,11 +36,7 @@ export default function RegistroTrabajador({ onClose }) {
     event.preventDefault();
     setError("");
     try {
-      let result;
-      await commit((state) => {
-        result = recordAttendance(state, id, password);
-        return result.state;
-      });
+      const result = await register(id, password);
       setPassword("");
       setSuccess(result);
     } catch (err) {
@@ -54,10 +49,13 @@ export default function RegistroTrabajador({ onClose }) {
       ref={dialog}
       aria-labelledby="kiosk-title"
       aria-modal="true"
-      onCancel={onClose}
+      onCancel={(e) => {
+        if (terminal) e.preventDefault();
+        else onClose();
+      }}
     >
       <div className="kiosk-content">
-        <LogoMarca variant="kiosk" />
+        <LogoMarca variant="kiosk" official />
         <div className="kiosk-brand">REY PEZ</div>
         <div className="kiosk-subtitle">Control de asistencia y acceso</div>
         {success ? (
@@ -101,7 +99,7 @@ export default function RegistroTrabajador({ onClose }) {
               onChange={(e) => setPassword(e.target.value)}
             />
             <button className="attbtn kiosk-submit" disabled={pending}>
-              Ingresar ›
+              Registrar
             </button>
             <p className="kiosk-hint">
               La huella digital requiere un lector y una integración compatible.
@@ -111,9 +109,11 @@ export default function RegistroTrabajador({ onClose }) {
             </div>
           </form>
         )}
-        <button className="kiosk-exit" onClick={onClose}>
-          Salir de pantalla de trabajador
-        </button>
+        {!terminal && (
+          <button className="kiosk-exit" onClick={onClose}>
+            Salir de pantalla de trabajador
+          </button>
+        )}
         <p className="kiosk-footer">
           Prototipo local de pruebas · No usar aún como control laboral oficial
         </p>

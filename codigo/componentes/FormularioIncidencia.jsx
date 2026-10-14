@@ -9,7 +9,8 @@ export default function FormularioIncidencia() {
     employeeId: "",
     type: incidentTypes[0],
     when: "",
-    reviewer: "",
+    reviewer: "María",
+    movement: "",
     reason: "",
   });
   const [error, setError] = useState(""),
@@ -46,6 +47,23 @@ export default function FormularioIncidencia() {
         <Campo label="Tipo" as="select" {...field("type")}>
           {incidentTypes.map((type) => (
             <option key={type}>{type}</option>
+          ))}
+        </Campo>
+        <Campo
+          label="Movimiento a registrar (opcional)"
+          as="select"
+          {...field("movement")}
+        >
+          <option value="">Solo revisión / justificación</option>
+          {[
+            ["ENTRADA", "Entrada por emergencia"],
+            ["SALIDA_A_COMER", "Salida a comer"],
+            ["REGRESO_DE_COMER", "Regreso de comida"],
+            ["SALIDA_FINAL", "Salida de turno"],
+          ].map(([key, label]) => (
+            <option key={key} value={key}>
+              {label}
+            </option>
           ))}
         </Campo>
         <Campo
