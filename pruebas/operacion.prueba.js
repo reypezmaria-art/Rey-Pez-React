@@ -178,3 +178,14 @@ test("vigencia futura mantiene el horario anterior hasta la fecha acordada", () 
     "08:00",
   );
 });
+
+test("cambio de empresa invalida permisos de la empresa anterior", () => {
+  const s = state();
+  s.access.workers.TEST = { active: true };
+  s.access.permissions.TEST = { company: "EDGAR", logs: ["epp"] };
+  s.employees[0].empresa_codigo = "ALLAN";
+  assert.equal(
+    canCapture(s, { role: "worker", id: "TEST" }, "EDGAR", "epp"),
+    false,
+  );
+});

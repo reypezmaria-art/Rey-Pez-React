@@ -48,6 +48,7 @@ export function canCapture(state, session, company, type) {
   const permission = state.access?.permissions?.[session.id];
   return Boolean(
     e &&
+    e.empresa_codigo === company &&
     state.access.workers[session.id]?.active &&
     permission?.company === company &&
     permission.logs?.includes(type),
