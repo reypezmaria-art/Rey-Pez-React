@@ -39,6 +39,19 @@ export const initialAreas = [
     name,
   })),
 ];
+// Áreas confirmadas para los apartados separados de salud y EPP.
+initialAreas.push(
+  ...["ALLAN", "ESTUARDO"].flatMap((company) => [
+    { id: `${company}-Proceso`, company, name: "Proceso / carga y descarga" },
+    { id: `${company}-Oficina`, company, name: "Oficina" },
+    {
+      id: `${company}-SanitariosAdministrativos`,
+      company,
+      name: "Sanitarios administrativos",
+    },
+  ]),
+  { id: "EDGAR-Oficina", company: "EDGAR", name: "Oficina" },
+);
 export const initialPrograms = [
   ...initialRooms.map((room) => ({
     id: `temp-${room.id}`,

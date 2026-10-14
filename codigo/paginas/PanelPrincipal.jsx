@@ -95,8 +95,8 @@ export default function PanelPrincipal({ navigate }) {
             <button onClick={() => navigate("attendance")}>
               Revisar ausencias
             </button>
-            <button onClick={() => navigate("logs")}>Abrir bitácoras</button>
-            <button onClick={() => navigate("cold")}>Cuartos fríos</button>
+            <button onClick={() => navigate("logs")}>Bitácoras de salud</button>
+            <button onClick={() => navigate("epp")}>Bitácora de EPP</button>
           </div>
         </div>
         <div className="panel">

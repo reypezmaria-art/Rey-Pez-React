@@ -189,3 +189,9 @@ test("cambio de empresa invalida permisos de la empresa anterior", () => {
     false,
   );
 });
+
+test("contraseña de seis caracteres válida y cinco rechazada", async () => {
+  const c = await makeCredential("Clave6");
+  assert.equal(await verifyCredential(c, "Clave6"), true);
+  await assert.rejects(makeCredential("Corta"), /6 caracteres/);
+});

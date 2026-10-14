@@ -28,8 +28,8 @@ export async function passwordHash(password, salt) {
   );
 }
 export async function makeCredential(password) {
-  if (password.length < 8)
-    throw Error("La contraseña debe tener al menos 8 caracteres.");
+  if (password.length < 6)
+    throw Error("La contraseña debe tener al menos 6 caracteres.");
   const salt = bytesToHex(crypto.getRandomValues(new Uint8Array(16)));
   return { salt, hash: await passwordHash(password, salt), active: true };
 }

@@ -749,3 +749,41 @@ nav button.active {
     padding: 12px;
   }
 }
+
+.folder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+.folder-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 24px;
+  background: white;
+  border: 1px solid #d5e2f5;
+  border-top: 3px solid #c9a64c;
+  border-radius: 14px;
+  min-height: 150px;
+  box-shadow: 0 3px 12px #2038640a;
+}
+.folder-card:hover {
+  background: #eaf3ff;
+  border-color: #365da8;
+}
+.folder-card > span {
+  font-size: 24px;
+  color: #365da8;
+}
+.folder-card > small {
+  color: #64738d;
+}
+.folder-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}

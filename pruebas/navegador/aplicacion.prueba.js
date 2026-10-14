@@ -10,19 +10,15 @@ async function access(page) {
       .getByRole("heading", { name: "Configurar acceso de María" })
       .isVisible()
   ) {
-    await page
-      .getByLabel("Crear contraseña", { exact: true })
-      .fill("RevisionLocal123");
+    await page.getByLabel("Crear contraseña", { exact: true }).fill("Clave6");
     await page
       .getByLabel("Confirmar contraseña", { exact: true })
-      .fill("RevisionLocal123");
+      .fill("Clave6");
     await page
       .getByRole("button", { name: "Crear acceso y abrir panel" })
       .click();
   } else {
-    await page
-      .getByLabel("Contraseña", { exact: true })
-      .fill("RevisionLocal123");
+    await page.getByLabel("Contraseña", { exact: true }).fill("Clave6");
     await page.getByRole("button", { name: "Ingresar", exact: true }).click();
   }
   await expect(page.getByRole("navigation")).toBeVisible();
@@ -34,12 +30,8 @@ async function access(page) {
 async function credential(page, id) {
   await nav(page, "Seguridad").click();
   await page.getByLabel("Empleado", { exact: true }).selectOption(id);
-  await page
-    .getByLabel("Nueva contraseña", { exact: true })
-    .fill("Trabajador123");
-  await page
-    .getByLabel("Confirmar contraseña", { exact: true })
-    .fill("Trabajador123");
+  await page.getByLabel("Nueva contraseña", { exact: true }).fill("Trab06");
+  await page.getByLabel("Confirmar contraseña", { exact: true }).fill("Trab06");
   await page.getByRole("button", { name: "Guardar acceso" }).click();
   await expect(page.getByRole("status")).toContainText("Acceso actualizado");
 }
@@ -74,7 +66,7 @@ test("flujo de personal, asistencia, incidencia y persistencia", async ({
   await credential(page, "RP-0001");
   await nav(page, "Asistencia 1 · Trabajador").click();
   await page.getByLabel("ID de empleado", { exact: true }).fill("RP-0001");
-  await page.getByLabel("Contraseña", { exact: true }).fill("Trabajador123");
+  await page.getByLabel("Contraseña", { exact: true }).fill("Trab06");
   await page.getByRole("button", { name: "Registrar", exact: true }).click();
   await expect(
     page.getByRole("heading", {
@@ -110,7 +102,7 @@ test("flujo de personal, asistencia, incidencia y persistencia", async ({
   await expect(page.locator("tbody .status")).toHaveText("Baja");
   await nav(page, "Asistencia 1 · Trabajador").click();
   await page.getByLabel("ID de empleado", { exact: true }).fill("RP-0001");
-  await page.getByLabel("Contraseña", { exact: true }).fill("Trabajador123");
+  await page.getByLabel("Contraseña", { exact: true }).fill("Trab06");
   await page.getByRole("button", { name: "Registrar", exact: true }).click();
   await expect(page.getByRole("dialog").getByRole("status")).toContainText(
     "no está activa",
@@ -185,8 +177,9 @@ test("todas las pantallas adaptan su ancho al dispositivo", async ({
     "Inicio",
     "Personal",
     "Asistencia 2 · Administración",
-    "Bitácoras y EPP",
-    "Cuartos fríos",
+    "Bitácoras de salud",
+    "Bitácora de EPP",
+    "Normas de la Secretaría del Trabajo",
     "Mantenimiento y compras",
     "Reportes y CSV",
     "Configuración",
@@ -219,7 +212,10 @@ test("temperaturas, mantenimiento, QR, permisos y terminal aislada", async ({
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("/");
   await access(page);
-  await nav(page, "Cuartos fríos").click();
+  await nav(page, "Bitácoras de salud").click();
+  await page
+    .getByRole("button", { name: /^Temperaturas · cuartos fríos/ })
+    .click();
   await page.getByLabel("Cuarto frío", { exact: true }).selectOption("ALLAN-1");
   await page.getByLabel("Temperatura (°C)").fill("-19");
   await page.getByRole("button", { name: "Guardar revisión" }).click();
@@ -252,15 +248,17 @@ test("temperaturas, mantenimiento, QR, permisos y terminal aislada", async ({
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
   await page.goto("/#captura?area=ESTUARDO-1");
   await page.getByLabel("ID", { exact: true }).fill("ES-06");
-  await page.getByLabel("Contraseña", { exact: true }).fill("Trabajador123");
+  await page.getByLabel("Contraseña", { exact: true }).fill("Trab06");
   await page.getByRole("button", { name: "Ingresar", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Captura operativa autorizada" }),
   ).toBeVisible();
   await expect(page.getByRole("navigation")).toHaveCount(0);
-  await expect(
-    page.getByLabel("Tipo de bitácora").locator("option"),
-  ).toHaveCount(1);
+  await expect(page.locator(".folder-card")).toHaveCount(1);
+  await page
+    .getByRole("button", { name: /^Temperaturas · cuartos fríos/ })
+    .click();
+  await expect(page.getByLabel("Cuarto frío", { exact: true })).toBeDisabled();
   await page.goto("/#captura?area=ALLAN-1");
   await expect(
     page.getByText(
@@ -296,4 +294,52 @@ test("respaldo completo, restauración e invalidación de sesión", async ({
   ).toBeVisible();
   await access(page);
   await expect(page.locator(".kvalue").nth(1)).toHaveText("30");
+});
+
+test("tres carpetas independientes y temperaturas sin duplicación", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await access(page);
+  await expect(nav(page, "Cuartos fríos")).toHaveCount(0);
+  await nav(page, "Bitácoras de salud").click();
+  await expect(
+    page.getByRole("button", { name: /^Temperaturas · cuartos fríos/ }),
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: /^Certificados de salud/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Sanitarios administrativos/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^Limpieza y jabón · embolsado/ }),
+  ).toBeVisible();
+  await nav(page, "Bitácora de EPP").click();
+  await page.getByLabel("Empresa de carpeta").selectOption("EDGAR");
+  await expect(page.getByRole("button", { name: /^El Galileo/ })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /^María Guadalupe/ }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Cloro/ })).toHaveCount(0);
+  await page.getByRole("button", { name: /^Oficina/ }).click();
+  await expect(page.getByLabel("Área", { exact: true })).toHaveValue(
+    "EDGAR-Oficina",
+  );
+  await nav(page, "Normas de la Secretaría del Trabajo").click();
+  for (const c of ["ALLAN", "EDGAR", "ESTUARDO"]) {
+    await page.getByLabel("Empresa de carpeta").selectOption(c);
+    await expect(
+      page.getByRole("heading", { name: `Carpeta de ${c}` }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        "Carpeta vacía, pendiente de definir sus normas y documentos.",
+      ),
+    ).toBeVisible();
+  }
+  const images = await page
+    .locator("header img")
+    .evaluateAll((imgs) => imgs.map((i) => i.src));
+  expect(images.every((src) => src.endsWith("/logo-rey-pez.png"))).toBe(true);
 });

@@ -69,6 +69,12 @@ export function migrateState(state, catalog = []) {
         ? { ...s, ...defaultSchedules.find((d) => d.codigo === "EDG-ROT") }
         : s,
     );
+  if (upgraded.structureVersion !== 3) {
+    for (const area of baseOperation.areas)
+      if (!upgraded.areas.some((a) => a.id === area.id))
+        upgraded.areas.push(structuredClone(area));
+    upgraded.structureVersion = 3;
+  }
   upgraded.schemaVersion = 2;
   return upgraded;
 }

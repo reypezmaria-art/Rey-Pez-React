@@ -34,3 +34,9 @@ María es la administradora de las tres empresas. Los cambios se realizan en `co
 - Cuartos fríos de Edgar: cantidad pendiente. María puede agregar los confirmados en Configuración.
 - Turnos nocturnos y formatos especializados no definidos: esta implementación controla los turnos diurnos acordados.
 - Los permisos locales organizan el flujo de revisión; el contenido de un HTML local y su almacenamiento no son una barrera de confidencialidad de producción.
+
+## Corrección de carpetas · 14 de octubre de 2026
+
+María pidió tres entradas separadas en el menú: **Bitácoras de salud**, **Bitácora de EPP** y **Normas de la Secretaría del Trabajo**. Cada carpeta se organiza por empresa y apartados propios. Temperaturas/cuarto frío se registra únicamente dentro de Salud; se retira el acceso duplicado del menú. EPP en cuartos fríos es una revisión de equipo, no otra bitácora de temperaturas. Las carpetas de Normas permanecen vacías por empresa hasta definir sus documentos.
+
+Se reutiliza el logo PNG transparente ya existente en todas las vistas para quitar el recuadro negro, conservando la imagen. Las contraseñas nuevas admiten un mínimo de seis caracteres, tanto para María como trabajadores; las contraseñas y datos existentes se conservan.

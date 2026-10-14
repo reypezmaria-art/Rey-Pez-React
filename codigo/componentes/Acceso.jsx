@@ -54,7 +54,7 @@ export default function Acceso({ operational = false }) {
           onChange={(e) => setPassword(e.target.value)}
           autoComplete={first ? "new-password" : "current-password"}
           required
-          minLength={first ? 8 : undefined}
+          minLength={first ? 6 : undefined}
         />
         {first && (
           <Campo

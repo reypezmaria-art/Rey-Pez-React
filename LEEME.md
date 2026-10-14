@@ -4,7 +4,7 @@ Base única React y JavaScript para revisar la planificación de María. Los cam
 
 ## Abrir en Windows
 
-La copia local entregada incluye `Rey_Pez_Revision.html`: ábrelo en Chrome con doble clic. En el primer inicio crea la contraseña de María (ID `MARIA`). Es una copia de revisión con datos guardados en ese navegador.
+La copia local entregada incluye `Rey_Pez_Revision.html`: ábrelo en Chrome con doble clic. En el primer inicio crea la contraseña de María (mínimo 6 caracteres) (ID `MARIA`). Es una copia de revisión con datos guardados en ese navegador.
 
 Para trabajar con el código, extrae el ZIP completo, instala Node.js 22.13+ o 24+ y abre `Iniciar_Windows.bat`, o ejecuta:
 
@@ -27,7 +27,9 @@ Un clon público sin el archivo privado usa datos ficticios. No publiques emplea
 - Seguridad: asigna la contraseña de cada trabajador antes de registrar; autoriza su empresa y bitácoras. Brenda se limita a Estuardo; selecciona explícitamente qué puede capturar.
 - Asistencia: un botón Registrar; cuatro movimientos, 10 minutos de tolerancia, comida desde salida real, rotación semanal de Edgar y excepción fija de Pedro. Las alertas se muestran solo en administración.
 - Asistencia 2: revisar ausencias y registrar emergencias o correcciones con responsable y motivo, conservando registros originales.
-- Bitácoras y cuartos fríos: formularios generales, No aplica con motivo, adjuntos opcionales hasta 1 MB y programación editable. Para cerrar un aviso selecciona la revisión programada correspondiente.
+- Bitácoras de salud: formularios generales, No aplica con motivo, adjuntos opcionales hasta 1 MB y programación editable. Para cerrar un aviso selecciona la revisión programada correspondiente.
+- Bitácora de EPP: apartados de proceso/carga y descarga, oficina, barcos de Edgar y revisión de equipo en cuartos fríos donde corresponda.
+- Normas de la Secretaría del Trabajo: carpetas separadas por empresa, vacías hasta definir documentos.
 - Mantenimiento: reparaciones, piezas, equipo, proveedor, costo y comprobantes.
 - Configuración: horarios, excepciones, festivos/cierres, áreas, cuartos, programación, vinculación del navegador y QR por área.
 - Reportes: filtros por empresa/fechas, CSV, respaldo completo y restauración. Se conservan hasta siete respaldos diarios locales antes de cambios.

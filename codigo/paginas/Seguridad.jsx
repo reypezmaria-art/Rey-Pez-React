@@ -156,7 +156,7 @@ export default function Seguridad() {
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                minLength={8}
+                minLength={6}
                 required
               />
               <Campo
@@ -232,7 +232,7 @@ export default function Seguridad() {
           value={adminNew}
           onChange={(e) => setAdminNew(e.target.value)}
           required
-          minLength={8}
+          minLength={6}
         />
         <Campo
           label="Confirmar contraseña de María"

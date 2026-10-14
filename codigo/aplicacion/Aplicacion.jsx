@@ -6,7 +6,7 @@ import Asistencia from "../paginas/Asistencia.jsx";
 import Configuracion from "../paginas/Configuracion.jsx";
 import Reportes from "../paginas/Reportes.jsx";
 import Seguridad from "../paginas/Seguridad.jsx";
-import Bitacoras from "../paginas/Bitacoras.jsx";
+import CarpetasBitacoras from "../paginas/CarpetasBitacoras.jsx";
 import Mantenimiento from "../paginas/Mantenimiento.jsx";
 import LogoMarca from "../componentes/LogoMarca.jsx";
 import RegistroTrabajador from "../componentes/RegistroTrabajador.jsx";
@@ -16,7 +16,7 @@ const pages = {
   dashboard: PanelPrincipal,
   employees: Personal,
   attendance: Asistencia,
-  logs: Bitacoras,
+  logs: CarpetasBitacoras,
   reports: Reportes,
   settings: Configuracion,
   security: Seguridad,
@@ -27,8 +27,9 @@ const navigation = [
   ["employees", "♙", "Personal"],
   ["kiosk", "◉", "Asistencia 1 · Trabajador"],
   ["attendance", "◷", "Asistencia 2 · Administración"],
-  ["logs", "☷", "Bitácoras y EPP"],
-  ["cold", "❄", "Cuartos fríos"],
+  ["logs", "☷", "Bitácoras de salud"],
+  ["epp", "♙", "Bitácora de EPP"],
+  ["labor", "▤", "Normas de la Secretaría del Trabajo"],
   ["maintenance", "⚒", "Mantenimiento y compras"],
   ["reports", "▤", "Reportes y CSV"],
   ["settings", "⚙", "Configuración"],
@@ -89,7 +90,7 @@ export default function Aplicacion() {
           <button onClick={logout}>Cerrar sesión</button>
         </header>
         <main className="capture-main">
-          <Bitacoras key={route} operational />
+          <CarpetasBitacoras key={route} operational />
         </main>
       </>
     );
@@ -135,8 +136,11 @@ export default function Aplicacion() {
           ))}
         </nav>
         <main id="main">
-          {page === "cold" ? (
-            <Bitacoras onlyTemperature />
+          {["logs", "epp", "labor"].includes(page) ? (
+            <CarpetasBitacoras
+              key={page}
+              folder={page === "logs" ? "health" : page}
+            />
           ) : (
             <Page navigate={setPage} openKiosk={() => setKiosk(true)} />
           )}

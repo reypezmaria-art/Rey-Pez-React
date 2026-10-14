@@ -18,13 +18,17 @@ function nowInput() {
 }
 export default function Bitacoras({
   operational = false,
-  onlyTemperature = false,
+  fixedType,
+  fixedCompany,
+  fixedArea,
+  allowedAreaIds,
+  sectionTitle,
 }) {
   const { data, session, capture, pending, clock } = useAplicacion();
   const permission = data.access.permissions[session?.id];
   const [company, setCompany] = useState(permission?.company || "ALLAN"),
     [type, setType] = useState(
-      onlyTemperature ? "temperature" : permission?.logs?.[0] || "chlorine",
+      fixedType || permission?.logs?.[0] || "chlorine",
     ),
     [area, setArea] = useState(""),
     [when, setWhen] = useState(nowInput),
@@ -41,30 +45,43 @@ export default function Bitacoras({
     : null;
   const qr = data.areas.concat(data.rooms).find((a) => a.id === qrArea);
   const selectedCompany =
-    qr?.company || (session.role === "worker" ? permission?.company : company);
-  const selectedArea = qr?.id || area;
+    qr?.company ||
+    fixedCompany ||
+    (session.role === "worker" ? permission?.company : company);
+  const selectedArea = qr?.id || fixedArea || area;
   const types = Object.entries(logTypes).filter(
     ([key]) =>
-      (!onlyTemperature || key === "temperature") &&
+      (!fixedType || key === fixedType) &&
       canCapture(data, session, selectedCompany, key),
   );
   const selectedType = types.some(([key]) => key === type)
     ? type
     : types[0]?.[0];
   const areas = (
-    selectedType === "temperature" ? data.rooms : data.areas
-  ).filter((a) => a.company === selectedCompany && a.active !== false);
+    selectedType === "temperature"
+      ? data.rooms
+      : selectedType === "epp"
+        ? data.areas.concat(data.rooms)
+        : data.areas
+  ).filter(
+    (a) =>
+      a.company === selectedCompany &&
+      a.active !== false &&
+      (!allowedAreaIds || allowedAreaIds.includes(a.id)),
+  );
   const due = pendingPrograms(data, clock).filter(
     (p) =>
       p.company === selectedCompany &&
       p.type === selectedType &&
-      (!selectedArea || p.area === selectedArea),
+      (!selectedArea || p.area === selectedArea) &&
+      (!allowedAreaIds || allowedAreaIds.includes(p.area)),
   );
   const history = data.logs.filter(
     (l) =>
       l.company === selectedCompany &&
       (!selectedType || l.type === selectedType) &&
       (!selectedArea || l.area === selectedArea) &&
+      (!allowedAreaIds || allowedAreaIds.includes(l.area)) &&
       canCapture(data, session, l.company, l.type),
   );
   const field = (setter, current) => ({
@@ -117,9 +134,7 @@ export default function Bitacoras({
         title={
           operational
             ? "Captura operativa autorizada"
-            : onlyTemperature
-              ? "Cuartos fríos · temperaturas"
-              : "Bitácoras y EPP"
+            : sectionTitle || logTypes[selectedType]
         }
         subtitle="Registro por empresa, área y responsable. Las revisiones permanecen en el historial."
       />
@@ -130,7 +145,7 @@ export default function Bitacoras({
       ) : (
         <>
           <div className="toolbar">
-            {session.role === "admin" && !qr && (
+            {session.role === "admin" && !qr && !fixedCompany && (
               <select
                 aria-label="Empresa de bitácora"
                 value={company}
@@ -143,22 +158,24 @@ export default function Bitacoras({
                 <OpcionesEmpresa />
               </select>
             )}
-            <select
-              aria-label="Tipo de bitácora"
-              value={selectedType}
-              onChange={(e) => {
-                setType(e.target.value);
-                setArea("");
-                setValue("");
-                setProgramKey("");
-              }}
-            >
-              {types.map(([key, name]) => (
-                <option key={key} value={key}>
-                  {name}
-                </option>
-              ))}
-            </select>
+            {!fixedType && (
+              <select
+                aria-label="Tipo de bitácora"
+                value={selectedType}
+                onChange={(e) => {
+                  setType(e.target.value);
+                  setArea("");
+                  setValue("");
+                  setProgramKey("");
+                }}
+              >
+                {types.map(([key, name]) => (
+                  <option key={key} value={key}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           {selectedType === "temperature" && (
             <div className="temperature-guide">
@@ -167,10 +184,13 @@ export default function Bitacoras({
               <span>Atención ≥ −19 °C</span>
             </div>
           )}
-          {selectedType === "temperature" && !areas.length ? (
+          {!areas.length ? (
             <div className="note">
-              Los cuartos fríos de Edgar siguen pendientes de confirmación.
-              María puede registrarlos en Configuración cuando estén definidos.
+              {selectedType === "temperature" ||
+              (selectedType === "epp" && allowedAreaIds)
+                ? "Los cuartos fríos de esta empresa siguen pendientes de confirmación."
+                : "Este apartado no tiene áreas confirmadas todavía."}{" "}
+              María puede registrarlas en Configuración cuando estén definidas.
             </div>
           ) : (
             <form className="panel" onSubmit={submit}>
@@ -182,7 +202,7 @@ export default function Bitacoras({
                   }
                   as="select"
                   value={selectedArea}
-                  disabled={Boolean(qr)}
+                  disabled={Boolean(qr || fixedArea)}
                   onChange={(e) => {
                     setArea(e.target.value);
                     setProgramKey("");
