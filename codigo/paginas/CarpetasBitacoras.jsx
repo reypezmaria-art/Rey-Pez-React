@@ -1,9 +1,7 @@
+import IconoBitacora from "../componentes/IconoBitacora.jsx";
 import { useState } from "react";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
-import {
-  EncabezadoPagina,
-  OpcionesEmpresa,
-} from "../componentes/ElementosInterfaz.jsx";
+import { EncabezadoPagina } from "../componentes/ElementosInterfaz.jsx";
 import { logTypes } from "../datos/operacionInicial.js";
 import { canCapture } from "../dominio/seguridad.js";
 import Bitacoras from "./Bitacoras.jsx";
@@ -12,6 +10,28 @@ const folderNames = {
   epp: "Bitácora de EPP",
   labor: "Normas de la Secretaría del Trabajo",
 };
+function shortTitle(s) {
+  if (s.type === "temperature") return "Temperaturas";
+  if (s.type === "cleaning")
+    return s.title.includes("embolsado")
+      ? "Embolsado"
+      : s.title.includes("despique")
+        ? "Despique"
+        : "Limpieza · cocción";
+  if (s.type === "bathrooms")
+    return s.id.endsWith("admin") ? "Baños oficina" : "Baños";
+  if (s.type === "waste")
+    return s.id.endsWith("despique") ? "Residuos · despique" : "Residuos";
+  if (s.type === "health") return "Certificados";
+  if (s.type === "fumigation") return "Fumigación";
+  if (s.type === "epp")
+    return s.id === "epp-rooms"
+      ? "Cuartos fríos"
+      : s.title.includes("carga")
+        ? "Proceso"
+        : s.title;
+  return s.title;
+}
 function healthSections(company, areas) {
   const scoped = areas.filter(
     (a) => a.company === company && a.active !== false,
@@ -153,14 +173,16 @@ export default function CarpetasBitacoras({
     );
   return (
     <section>
-      <EncabezadoPagina
-        title={
-          operational
-            ? "Captura operativa autorizada"
-            : folderNames[currentFolder]
-        }
-        subtitle="Carpetas separadas por empresa. Cada apartado conserva sus registros e historial."
-      />
+      {(!current || operational) && (
+        <EncabezadoPagina
+          title={
+            operational
+              ? "Captura operativa autorizada"
+              : folderNames[currentFolder]
+          }
+          subtitle="Carpetas separadas por empresa. Cada apartado conserva sus registros e historial."
+        />
+      )}
       <div className="toolbar">
         {session.role === "admin" && !qr && (
           <select
@@ -171,7 +193,9 @@ export default function CarpetasBitacoras({
               setSelected(null);
             }}
           >
-            <OpcionesEmpresa />
+            {["ALLAN", "EDGAR", "ESTUARDO"].map((code) => (
+              <option key={code}>{code}</option>
+            ))}
           </select>
         )}
         {session.role === "worker" && (
@@ -235,12 +259,12 @@ export default function CarpetasBitacoras({
             <button
               className="folder-card"
               key={s.id}
+              aria-label={s.title}
+              title={s.title}
               onClick={() => setSelected(s.id)}
             >
-              <span aria-hidden="true">
-                {currentFolder === "epp" ? "♙" : "▣"}
-              </span>
-              <strong>{s.title}</strong>
+              <IconoBitacora type={s.type} />
+              <strong>{shortTitle(s)}</strong>
               <small>{selectedCompany} · Abrir apartado</small>
             </button>
           ))}

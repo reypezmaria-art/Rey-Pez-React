@@ -97,6 +97,16 @@ export function migrateState(state, catalog = []) {
       });
     upgraded.roomCatalogVersion = 1;
   }
+  if (upgraded.chlorineAreaVersion !== 1) {
+    upgraded.programs = upgraded.programs.map((p) =>
+      p.id === `chlorine-${p.company}` &&
+      p.type === "chlorine" &&
+      p.area === `${p.company}-Cocción`
+        ? { ...p, area: `${p.company}-Proceso` }
+        : p,
+    );
+    upgraded.chlorineAreaVersion = 1;
+  }
   upgraded.schemaVersion = 2;
   return upgraded;
 }

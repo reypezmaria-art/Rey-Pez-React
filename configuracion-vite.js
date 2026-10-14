@@ -30,7 +30,11 @@ function localEmployeeCatalog() {
 }
 export default defineConfig({
   publicDir: "publico",
-  build: { outDir: "compilado", assetsDir: "recursos" },
+  build: {
+    outDir: "compilado",
+    assetsDir: "recursos",
+    rolldownOptions: { output: { codeSplitting: false } },
+  },
   plugins: [react(), localEmployeeCatalog()],
   server: { port: 5173, strictPort: true },
 });

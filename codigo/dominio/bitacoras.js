@@ -1,3 +1,8 @@
+import {
+  checklistFor,
+  logAreas,
+  validateChecklist,
+} from "../datos/listasRevision.js";
 import { logTypes } from "../datos/operacionInicial.js";
 import { canCapture } from "./seguridad.js";
 import { localDate } from "../utilidades/fechas.js";
@@ -25,18 +30,51 @@ export function saveLog(state, form, session) {
   );
   if (
     !area ||
+    !logAreas(state, form.type, form.company).some((a) => a.id === form.area) ||
     (form.type === "temperature" &&
       !state.rooms.some((r) => r.id === form.area))
   )
     throw Error("Selecciona un área o cuarto autorizado.");
+  const template = checklistFor(state, form.type, form.area);
+  if (template && form.notApplicable)
+    throw Error("Revisa cada elemento con Cumplió o No cumplió y su motivo.");
+  const checks =
+    !form.notApplicable && template
+      ? validateChecklist(template, form.checks)
+      : [];
+  const subject = state.employees.find(
+    (e) =>
+      e.id_empleado === form.subjectEmployeeId &&
+      e.empresa_codigo === form.company &&
+      e.estatus !== "Baja",
+  );
+  if (form.type === "epp" && !form.notApplicable && !subject)
+    throw Error("Selecciona al empleado revisado de esta empresa.");
+  if (
+    form.type === "chlorine" &&
+    (!form.performedBy?.trim() || form.notApplicable)
+  )
+    throw Error("Completa quién realizó la revisión de cloro.");
   if (form.notApplicable && !form.notes.trim())
     throw Error("Indica el motivo de No aplica.");
   if (
     !form.notApplicable &&
+    !template &&
     (String(form.value).trim() === "" ||
       (form.type === "temperature" && !Number.isFinite(Number(form.value))))
   )
     throw Error("Captura el resultado de la revisión.");
+  if (form.type === "chlorine" && !form.programKey) {
+    const slot = pendingPrograms(state, date)
+      .filter(
+        (p) =>
+          p.company === form.company &&
+          p.type === form.type &&
+          p.area === form.area,
+      )
+      .sort((a, b) => b.time.localeCompare(a.time))[0];
+    if (slot) form = { ...form, programKey: slot.key };
+  }
   if (form.programKey) {
     const valid = state.programs.some(
       (p) =>
@@ -58,13 +96,20 @@ export function saveLog(state, form, session) {
         "Esa revisión programada ya fue registrada. Conserva su historial.",
       );
   }
-  const result = form.notApplicable
-    ? "No aplica"
-    : form.type === "temperature"
-      ? temperatureStatus(Number(form.value))
-      : String(form.value).trim();
+  const result = checks.length
+    ? checks.some((c) => c.status === "no")
+      ? "No cumplió"
+      : "Cumplió"
+    : form.notApplicable
+      ? "No aplica"
+      : form.type === "temperature"
+        ? temperatureStatus(Number(form.value))
+        : String(form.value).trim();
   const record = {
     ...form,
+    checks,
+    checklistId: template?.id || null,
+    subjectName: subject?.nombre_completo || "",
     id: crypto.randomUUID(),
     when: date.toISOString(),
     result,

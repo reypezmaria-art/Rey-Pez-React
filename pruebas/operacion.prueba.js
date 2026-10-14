@@ -26,7 +26,7 @@ const employee = {
 };
 const state = () => ({
   ...structuredClone(baseOperation),
-  employees: [employee],
+  employees: [{ ...employee }],
   attendance: [],
   alerts: [],
   schedules: structuredClone(defaultSchedules),
@@ -220,4 +220,91 @@ test("recuperación de un cuarto de Edgar sin duplicar equipos ya configurados",
   const kept = migrateState(custom);
   assert.equal(kept.rooms.filter((r) => r.company === "EDGAR").length, 1);
   assert.ok(kept.programs.some((p) => p.area === "edgar-local"));
+});
+
+test("listas fijas exigen respuestas completas y motivo por incumplimiento", async () => {
+  const { checklistFor, validateChecklist } =
+    await import("../codigo/datos/listasRevision.js");
+  const s = state();
+  const template = checklistFor(s, "epp", "EDGAR-Carga y descarga");
+  const checks = template.items.map((i) => ({
+    ...i,
+    status: "yes",
+    reason: "",
+  }));
+  assert.throws(() => validateChecklist(template, checks.slice(1)), /todos/);
+  const fail = checks.map((c, i) => (i === 1 ? { ...c, status: "no" } : c));
+  assert.throws(() => validateChecklist(template, fail), /por qué/);
+  fail[1].reason = "Botas rotas";
+  const record = saveLog(
+    s,
+    {
+      company: "EDGAR",
+      type: "epp",
+      area: "EDGAR-Carga y descarga",
+      when: "2026-10-14T12:00",
+      notes: "",
+      checks: fail,
+      subjectEmployeeId: "TEST",
+    },
+    admin,
+  ).logs[0];
+  assert.equal(record.result, "No cumplió");
+  assert.equal(record.checks[1].reason, "Botas rotas");
+  assert.throws(
+    () => saveLog(s, { ...record, subjectEmployeeId: "OTRO" }, admin),
+    /empleado revisado/,
+  );
+  assert.equal(
+    validateChecklist(
+      template,
+      checks.map((c) => ({ ...c, label: "alterado" })),
+    )[0].label,
+    template.items[0].label,
+  );
+});
+test("Cloro limita áreas y enlaza la revisión programada sin campos ajenos", () => {
+  const s = state();
+  const form = {
+    company: "ALLAN",
+    type: "chlorine",
+    area: "ALLAN-Proceso",
+    when: "2026-10-12T09:15",
+    value: "10 ml / 100 L",
+    notes: "",
+    performedBy: "Persona revisora",
+  };
+  assert.throws(
+    () => saveLog(s, { ...form, area: "ALLAN-Sanitarios" }, admin),
+    /área/,
+  );
+  assert.throws(
+    () => saveLog(s, { ...form, performedBy: "" }, admin),
+    /realizó/,
+  );
+  assert.equal(
+    saveLog(s, form, admin).logs[0].programKey,
+    "chlorine-ALLAN-2026-10-12-09:00",
+  );
+});
+test("PDF filtra días completos y conserva los motivos sin mezclar registros", async () => {
+  const { reportRows } = await import("../codigo/utilidades/reportesPdf.js");
+  const s = state();
+  const records = [
+    {
+      type: "epp",
+      when: "2026-10-01T00:00:00",
+      area: "EDGAR-Carga y descarga",
+      checks: [{ label: "Botas", status: "no", reason: "Rotas" }],
+    },
+    { when: "2026-10-02T00:00:00" },
+    { when: "2026-09-30T23:59:59" },
+  ];
+  const rows = reportRows(s, records, "epp", "2026-10-01", "2026-10-01");
+  assert.equal(rows.length, 1);
+  assert.match(rows[0][3], /Rotas/);
+  assert.throws(
+    () => reportRows(s, records, "epp", "2026-10-02", "2026-10-01"),
+    /rango válido/,
+  );
 });

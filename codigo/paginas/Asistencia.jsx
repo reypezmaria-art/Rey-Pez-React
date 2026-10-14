@@ -8,12 +8,25 @@ import {
   Mensaje,
 } from "../componentes/ElementosInterfaz.jsx";
 import LogoMarca from "../componentes/LogoMarca.jsx";
-import FormularioIncidencia from "../componentes/FormularioIncidencia.jsx";
+import ExportarPdf from "../componentes/ExportarPdf.jsx";
+import { companyNames } from "../datos/constantes.js";
 import { formatDateTime } from "../utilidades/fechas.js";
 import { reviewAlerts } from "../dominio/operaciones.js";
 export default function Asistencia({ navigate, openKiosk }) {
   const { data, commit, pending, clock } = useAplicacion();
   const [error, setError] = useState("");
+  const [company, setCompany] = useState("ALLAN");
+  const absences = pendingAbsences(data, clock);
+  const belongs = (r) =>
+    (r.empresa_codigo ||
+      data.employees.find(
+        (e) => e.id_empleado === (r.id_empleado || r.employeeId),
+      )?.empresa_codigo) === company;
+  const records = data.attendance.filter(belongs);
+  const pdfRecords = [
+    ...records,
+    ...(data.absenceReviews || []).filter(belongs),
+  ];
   const alerts = data.alerts
     .filter((a) => a.estado === "Pendiente")
     .slice(0, 50);
@@ -39,12 +52,68 @@ export default function Asistencia({ navigate, openKiosk }) {
           Lunes a sábado, después de la entrada y su tolerancia. Sin sanciones
           ni descuentos automáticos.
         </p>
-        {pendingAbsences(data, clock).map((employee) => (
-          <RevisionAusencia key={employee.id_empleado} employee={employee} />
+        {Object.keys(companyNames).map((code) => (
+          <details
+            key={code}
+            open={code === company}
+            className="company-incidents"
+          >
+            <summary>
+              {code} ·{" "}
+              {absences.filter((e) => e.empresa_codigo === code).length}{" "}
+              pendientes
+            </summary>
+            {absences
+              .filter((e) => e.empresa_codigo === code)
+              .map((employee) => (
+                <RevisionAusencia
+                  key={employee.id_empleado}
+                  employee={employee}
+                />
+              ))}
+            {!absences.some((e) => e.empresa_codigo === code) && (
+              <p>Sin ausencias pendientes.</p>
+            )}
+          </details>
         ))}
-        {!pendingAbsences(data, clock).length && (
-          <p>Sin ausencias pendientes.</p>
-        )}
+      </div>
+      <div className="toolbar">
+        <label>
+          Empresa de asistencia{" "}
+          <select
+            aria-label="Empresa de asistencia"
+            value={company}
+            onChange={(e) => setCompany(e.target.value)}
+          >
+            {Object.keys(companyNames).map((code) => (
+              <option key={code}>{code}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <ExportarPdf
+        data={data}
+        records={pdfRecords}
+        kind="attendance"
+        title="Asistencia e incidencias"
+        company={company}
+      />
+      <div className="panel">
+        <h2>Historial de incidencias · {company}</h2>
+        <Tabla
+          headings={["Fecha", "Empleado", "Clasificación", "Motivo", "Revisó"]}
+          count={(data.absenceReviews || []).filter(belongs).length}
+        >
+          {(data.absenceReviews || []).filter(belongs).map((r) => (
+            <tr key={r.id}>
+              <td>{r.date}</td>
+              <td>{r.name}</td>
+              <td>{r.classification}</td>
+              <td>{r.notes}</td>
+              <td>{r.by}</td>
+            </tr>
+          ))}
+        </Tabla>
       </div>
       <div className="columns">
         <div className="panel">
@@ -69,10 +138,10 @@ export default function Asistencia({ navigate, openKiosk }) {
               "Movimiento",
               "Incidencia",
             ]}
-            count={data.attendance.length}
+            count={records.length}
             empty="Sin registros todavía"
           >
-            {data.attendance.slice(0, 30).map((a, i) => (
+            {records.slice(0, 30).map((a, i) => (
               <tr key={a.id_registro || i}>
                 <td>{formatDateTime(a.fecha_hora)}</td>
                 <td>
@@ -86,7 +155,6 @@ export default function Asistencia({ navigate, openKiosk }) {
             ))}
           </Tabla>
         </div>
-        <FormularioIncidencia />
         <div className="panel">
           <h2>Alertas para administración</h2>
           <p className="small">

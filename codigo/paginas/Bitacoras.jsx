@@ -1,3 +1,6 @@
+import ExportarPdf from "../componentes/ExportarPdf.jsx";
+import ListaCumplimiento from "../componentes/ListaCumplimiento.jsx";
+import { checklistFor, logAreas, areaLabel } from "../datos/listasRevision.js";
 import { useState } from "react";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import {
@@ -39,7 +42,10 @@ export default function Bitacoras({
     [programKey, setProgramKey] = useState(""),
     [expiry, setExpiry] = useState(""),
     [message, setMessage] = useState(""),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [answers, setAnswers] = useState([]),
+    [subjectEmployeeId, setSubjectEmployeeId] = useState(""),
+    [performedBy, setPerformedBy] = useState("");
   const qrArea = operational
     ? new URLSearchParams(location.hash.split("?")[1] || "").get("area")
     : null;
@@ -57,18 +63,14 @@ export default function Bitacoras({
   const selectedType = types.some(([key]) => key === type)
     ? type
     : types[0]?.[0];
-  const areas = (
-    selectedType === "temperature"
-      ? data.rooms
-      : selectedType === "epp"
-        ? data.areas.concat(data.rooms)
-        : data.areas
-  ).filter(
-    (a) =>
-      a.company === selectedCompany &&
-      a.active !== false &&
-      (!allowedAreaIds || allowedAreaIds.includes(a.id)),
+  const areas = logAreas(data, selectedType, selectedCompany).filter(
+    (a) => !allowedAreaIds || allowedAreaIds.includes(a.id),
   );
+  const template = checklistFor(data, selectedType, selectedArea);
+  const checks = answers.filter((a) =>
+    template?.items.some((i) => i.id === a.id),
+  );
+  const isChlorine = selectedType === "chlorine";
   const due = pendingPrograms(data, clock).filter(
     (p) =>
       p.company === selectedCompany &&
@@ -104,11 +106,17 @@ export default function Bitacoras({
         evidence,
         programKey,
         expiry,
+        checks,
+        subjectEmployeeId,
+        performedBy,
       });
       setValue("");
       setNotes("");
       setEvidence(null);
       setProgramKey("");
+      setAnswers([]);
+      setSubjectEmployeeId("");
+      setPerformedBy("");
       setMessage("Registro guardado con responsable, fecha e historial.");
     } catch (err) {
       setError(err.message);
@@ -195,10 +203,15 @@ export default function Bitacoras({
           ) : (
             <form className="panel" onSubmit={submit}>
               <h2>Nueva revisión · {logTypes[selectedType]}</h2>
+              <p className="small">Revisó: {session.name}</p>
               <div className="formgrid">
                 <Campo
                   label={
-                    selectedType === "temperature" ? "Cuarto frío" : "Área"
+                    selectedType === "temperature"
+                      ? "Cuarto frío"
+                      : isChlorine
+                        ? "Lugar / área"
+                        : "Área"
                   }
                   as="select"
                   value={selectedArea}
@@ -206,13 +219,14 @@ export default function Bitacoras({
                   onChange={(e) => {
                     setArea(e.target.value);
                     setProgramKey("");
+                    setAnswers([]);
                   }}
                   required
                 >
                   <option value="">Selecciona…</option>
                   {areas.map((a) => (
                     <option key={a.id} value={a.id}>
-                      {a.name}
+                      {areaLabel(a, selectedType)}
                     </option>
                   ))}
                 </Campo>
@@ -222,38 +236,42 @@ export default function Bitacoras({
                   required
                   {...field(setWhen, when)}
                 />
-                <Campo
-                  label="Revisión programada (opcional)"
-                  as="select"
-                  {...field(setProgramKey, programKey)}
-                >
-                  <option value="">Captura adicional / no programada</option>
-                  {due.map((p) => (
-                    <option key={p.key} value={p.key}>
-                      {p.date} · {p.time} ·{" "}
-                      {
-                        data.areas
-                          .concat(data.rooms)
-                          .find((a) => a.id === p.area)?.name
-                      }
-                    </option>
-                  ))}
-                </Campo>
-                <label className="check-field">
-                  <input
-                    type="checkbox"
-                    checked={notApplicable}
-                    onChange={(e) => setNotApplicable(e.target.checked)}
-                  />
-                  No aplica (requiere motivo)
-                </label>
-                {!notApplicable && (
+                {!isChlorine && (
+                  <Campo
+                    label="Revisión programada (opcional)"
+                    as="select"
+                    {...field(setProgramKey, programKey)}
+                  >
+                    <option value="">Captura adicional / no programada</option>
+                    {due.map((p) => (
+                      <option key={p.key} value={p.key}>
+                        {p.date} · {p.time} ·{" "}
+                        {
+                          data.areas
+                            .concat(data.rooms)
+                            .find((a) => a.id === p.area)?.name
+                        }
+                      </option>
+                    ))}
+                  </Campo>
+                )}
+                {!isChlorine && !template && (
+                  <label className="check-field">
+                    <input
+                      type="checkbox"
+                      checked={notApplicable}
+                      onChange={(e) => setNotApplicable(e.target.checked)}
+                    />
+                    No aplica (requiere motivo)
+                  </label>
+                )}
+                {!notApplicable && !template && (
                   <Campo
                     label={
                       selectedType === "temperature"
                         ? "Temperatura (°C)"
                         : selectedType === "chlorine"
-                          ? "Resultado / concentración y unidad"
+                          ? "Valores de cloro en agua"
                           : "Resultado de revisión"
                     }
                     type={selectedType === "temperature" ? "number" : "text"}
@@ -270,29 +288,65 @@ export default function Bitacoras({
                   />
                 )}
                 {selectedType === "epp" && (
-                  <p className="small">
-                    Describe botas, cofia, guantes, faja y ropa térmica que
-                    correspondan al área; registra el estado y las reposiciones
-                    necesarias.
-                  </p>
+                  <Campo
+                    label="Empleado revisado"
+                    as="select"
+                    value={subjectEmployeeId}
+                    onChange={(e) => setSubjectEmployeeId(e.target.value)}
+                    required={!notApplicable}
+                  >
+                    <option value="">Selecciona…</option>
+                    {data.employees
+                      .filter(
+                        (e) =>
+                          e.empresa_codigo === selectedCompany &&
+                          e.estatus !== "Baja",
+                      )
+                      .map((e) => (
+                        <option key={e.id_empleado} value={e.id_empleado}>
+                          {e.nombre_completo}
+                        </option>
+                      ))}
+                  </Campo>
+                )}
+                {!notApplicable && template && (
+                  <ListaCumplimiento
+                    template={template}
+                    answers={checks}
+                    onChange={setAnswers}
+                  />
+                )}
+                {isChlorine && (
+                  <Campo
+                    label="Realizó"
+                    value={performedBy}
+                    onChange={(e) => setPerformedBy(e.target.value)}
+                    required
+                  />
                 )}
                 <Campo
-                  label="Observaciones / motivo de No aplica"
+                  label={
+                    isChlorine
+                      ? "Observaciones"
+                      : "Observaciones / motivo de No aplica"
+                  }
                   as="textarea"
                   rows={3}
                   required={notApplicable}
                   {...field(setNotes, notes)}
                 />
-                <Campo
-                  label="Evidencia opcional (máximo 1 MB)"
-                  type="file"
-                  accept={
-                    ["health", "fumigation"].includes(selectedType)
-                      ? "image/jpeg,image/png,image/webp,application/pdf"
-                      : "image/jpeg,image/png,image/webp"
-                  }
-                  onChange={attach}
-                />
+                {!isChlorine && (
+                  <Campo
+                    label="Evidencia opcional (máximo 1 MB)"
+                    type="file"
+                    accept={
+                      ["health", "fumigation"].includes(selectedType)
+                        ? "image/jpeg,image/png,image/webp,application/pdf"
+                        : "image/jpeg,image/png,image/webp"
+                    }
+                    onChange={attach}
+                  />
+                )}
                 {evidence && (
                   <p>
                     {evidence.name}{" "}
@@ -302,14 +356,19 @@ export default function Bitacoras({
                   </p>
                 )}
               </div>
-              <button className="primary" disabled={pending}>
+              <button
+                className="primary"
+                disabled={
+                  pending || (!notApplicable && Boolean(template?.pending))
+                }
+              >
                 Guardar revisión
               </button>
             </form>
           )}
           <Mensaje>{message}</Mensaje>
           <Mensaje error>{error}</Mensaje>
-          {session.role === "admin" && (
+          {session.role === "admin" && !isChlorine && (
             <div className="panel">
               <h2>Revisiones programadas pendientes: {due.length}</h2>
               {due.map((p) => (
@@ -329,16 +388,33 @@ export default function Bitacoras({
               </p>
             </div>
           )}
+          <ExportarPdf
+            data={data}
+            records={history}
+            kind={selectedType}
+            title={sectionTitle || logTypes[selectedType]}
+            company={selectedCompany}
+          />
           <div className="panel">
             <h2>Historial</h2>
             <Tabla
-              headings={[
-                "Fecha",
-                "Área",
-                "Responsable",
-                "Resultado",
-                "Observaciones / evidencia",
-              ]}
+              headings={
+                isChlorine
+                  ? [
+                      "Fecha y hora",
+                      "Lugar / área",
+                      "Realizó",
+                      "Valores de cloro en agua",
+                      "Observaciones",
+                    ]
+                  : [
+                      "Fecha",
+                      "Área",
+                      "Responsable",
+                      "Resultado",
+                      "Observaciones / evidencia",
+                    ]
+              }
               count={history.length}
             >
               {history.map((l) => (
@@ -350,7 +426,11 @@ export default function Bitacoras({
                         ?.name
                     }
                   </td>
-                  <td>{l.responsible}</td>
+                  <td>
+                    {isChlorine
+                      ? l.performedBy || l.responsible
+                      : l.responsible}
+                  </td>
                   <td>
                     <span
                       className={`status ${l.result === "Requiere atención" ? "attention" : ""}`}
@@ -360,6 +440,22 @@ export default function Bitacoras({
                         ? ` · ${l.value} °C`
                         : ""}
                     </span>
+                    {l.subjectName && <p>Empleado: {l.subjectName}</p>}
+                    {l.checks?.length > 0 && (
+                      <details>
+                        <summary>Ver elementos revisados</summary>
+                        {l.checks.map((c) => (
+                          <p key={c.id}>
+                            <b>{c.label}</b>:{" "}
+                            {c.status === "yes" ? "Cumplió" : "No cumplió"}
+                            {c.reason ? ` — ${c.reason}` : ""}
+                          </p>
+                        ))}
+                      </details>
+                    )}
+                    {!isChlorine && l.performedBy && (
+                      <p>Realizó: {l.performedBy}</p>
+                    )}
                     {l.expiry && <p>Vence: {l.expiry}</p>}
                   </td>
                   <td>

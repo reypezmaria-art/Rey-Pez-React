@@ -67,7 +67,7 @@ export const initialPrograms = [
     ["chlorine", "cleaning"].map((type) => ({
       id: `${type}-${company}`,
       company,
-      area: `${company}-Cocción`,
+      area: `${company}-${type === "chlorine" ? "Proceso" : "Cocción"}`,
       type,
       days: [1],
       times: ["09:00", "17:00"],
