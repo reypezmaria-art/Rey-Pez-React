@@ -15,7 +15,7 @@ María es la administradora de las tres empresas. Los cambios se realizan en `co
 | Excepciones autorizadas de turno                                     | Por empleado, fecha y horario; motivo obligatorio                                                                              |
 | Cloro y limpieza lunes mañana/tarde                                  | Programación editable con referencias iniciales 09:00 y 17:00; las horas exactas de ambos períodos se revisan en Configuración |
 | Temperaturas 09:00, 13:00, 17:00                                     | Programación y avisos por cuarto, con cierre explícito de revisión                                                             |
-| Cuartos fríos Allan 4 y Estuardo 2                                   | Implementado; Edgar permanece sin inventar cuartos                                                                             |
+| Cuartos fríos Allan 4, Edgar 1 y Estuardo 2                          | Implementado; Edgar confirmado con un cuarto por María                                                                         |
 | Temperatura óptimo ≤−25, observación −25 < T < −19, atención ≥−19 °C | Implementado como parámetro interno                                                                                            |
 | Bitácoras, EPP, evidencias, No aplica con motivo                     | Formularios generales implementados; falta cotejar formatos originales y campos especializados                                 |
 | Mantenimiento, reparaciones, compras, técnico, costo y comprobantes  | Implementado como módulo separado                                                                                              |
@@ -31,7 +31,7 @@ María es la administradora de las tres empresas. Los cambios se realizan en `co
 - Firebase u otro servidor no está conectado: no hay sincronización entre la PC y teléfonos/tabletas ni control de permisos de servidor.
 - Huella digital: falta lector y conexión compatible. No se simula una captura biométrica.
 - Catálogo laboral: se recuperan los 30 empleados del CSV corregido autorizado, no se publican en GitHub. Las cantidades del CSV (Allan 9, Edgar 14, Estuardo 7) difieren de conteos posteriores; María pidió conservar los 30 para revisión.
-- Cuartos fríos de Edgar: cantidad pendiente. María puede agregar los confirmados en Configuración.
+- Cuartos fríos: María confirmó un cuarto para Edgar el 14/10/2026. Se integra a temperaturas y EPP sin duplicar cuartos ya agregados localmente.
 - Turnos nocturnos y formatos especializados no definidos: esta implementación controla los turnos diurnos acordados.
 - Los permisos locales organizan el flujo de revisión; el contenido de un HTML local y su almacenamiento no son una barrera de confidencialidad de producción.
 

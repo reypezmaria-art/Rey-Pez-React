@@ -145,8 +145,8 @@ export default function OperacionConfiguracion() {
           />
           <button disabled={pending}>Agregar</button>
           <p className="small">
-            Allan: 4 cuartos confirmados. Estuardo: 2. Edgar: pendiente; agrega
-            solo cuartos que hayas confirmado.
+            Allan: 4 cuartos confirmados. Edgar: 1. Estuardo: 2. Agrega solo
+            cuartos que hayas confirmado.
           </p>
           {data.rooms
             .concat(data.areas)

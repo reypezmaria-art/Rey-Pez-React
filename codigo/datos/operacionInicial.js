@@ -10,6 +10,7 @@ export const logTypes = {
   epp: "Equipo de protección",
 };
 export const initialRooms = [
+  { id: "EDGAR-1", company: "EDGAR", name: "Cuarto 1", active: true },
   ...Array.from({ length: 4 }, (_, i) => ({
     id: `ALLAN-${i + 1}`,
     company: "ALLAN",

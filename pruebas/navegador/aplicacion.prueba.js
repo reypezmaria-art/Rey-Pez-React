@@ -343,3 +343,20 @@ test("tres carpetas independientes y temperaturas sin duplicación", async ({
     .evaluateAll((imgs) => imgs.map((i) => i.src));
   expect(images.every((src) => src.endsWith("/logo-rey-pez.png"))).toBe(true);
 });
+
+test("Edgar tiene un cuarto frío dentro de Salud", async ({ page }) => {
+  await page.goto("/");
+  await access(page);
+  await nav(page, "Bitácoras de salud").click();
+  await page.getByLabel("Empresa de carpeta").selectOption("EDGAR");
+  await page
+    .getByRole("button", { name: /^Temperaturas · cuartos fríos/ })
+    .click();
+  await expect(
+    page.getByLabel("Cuarto frío", { exact: true }).locator("option"),
+  ).toHaveCount(2);
+  await page.getByLabel("Cuarto frío", { exact: true }).selectOption("EDGAR-1");
+  await page.getByLabel("Temperatura (°C)").fill("-26");
+  await page.getByRole("button", { name: "Guardar revisión" }).click();
+  await expect(page.locator("tbody")).toContainText("Óptimo");
+});

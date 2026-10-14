@@ -195,3 +195,29 @@ test("contraseña de seis caracteres válida y cinco rechazada", async () => {
   assert.equal(await verifyCredential(c, "Clave6"), true);
   await assert.rejects(makeCredential("Corta"), /6 caracteres/);
 });
+
+test("recuperación de un cuarto de Edgar sin duplicar equipos ya configurados", () => {
+  const s = state();
+  s.rooms = s.rooms.filter((r) => r.company !== "EDGAR");
+  s.programs = s.programs.filter((p) => p.company !== "EDGAR");
+  const restored = migrateState(s);
+  assert.equal(restored.rooms.filter((r) => r.company === "EDGAR").length, 1);
+  assert.equal(
+    restored.programs.filter(
+      (p) => p.company === "EDGAR" && p.type === "temperature",
+    ).length,
+    1,
+  );
+  const custom = state();
+  custom.rooms = custom.rooms.filter((r) => r.company !== "EDGAR");
+  custom.rooms.push({
+    id: "edgar-local",
+    company: "EDGAR",
+    name: "Cuarto existente",
+    active: true,
+  });
+  custom.programs = custom.programs.filter((p) => p.company !== "EDGAR");
+  const kept = migrateState(custom);
+  assert.equal(kept.rooms.filter((r) => r.company === "EDGAR").length, 1);
+  assert.ok(kept.programs.some((p) => p.area === "edgar-local"));
+});

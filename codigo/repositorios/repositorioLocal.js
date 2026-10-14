@@ -75,6 +75,28 @@ export function migrateState(state, catalog = []) {
         upgraded.areas.push(structuredClone(area));
     upgraded.structureVersion = 3;
   }
+  if (upgraded.roomCatalogVersion !== 1) {
+    let room = upgraded.rooms.find((r) => r.company === "EDGAR");
+    if (!room) {
+      room = structuredClone(
+        baseOperation.rooms.find((r) => r.id === "EDGAR-1"),
+      );
+      upgraded.rooms.push(room);
+    }
+    if (
+      !upgraded.programs.some(
+        (p) => p.type === "temperature" && p.area === room.id,
+      )
+    )
+      upgraded.programs.push({
+        ...structuredClone(
+          baseOperation.programs.find((p) => p.area === "EDGAR-1"),
+        ),
+        id: `temp-${room.id}`,
+        area: room.id,
+      });
+    upgraded.roomCatalogVersion = 1;
+  }
   upgraded.schemaVersion = 2;
   return upgraded;
 }
