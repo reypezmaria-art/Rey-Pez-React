@@ -1,6 +1,6 @@
 # Guía de trabajo · Rey Pez
 
-Trabajar en `codex/revision-local`. No modificar ni fusionar `main` sin instrucción de María. La revisión local y el código provienen de la misma base; evitar mantener variantes independientes.
+Trabajar en `main`. María autorizó unificar la revisión con la rama principal el 14/10/2026; `codex/revision-local` queda como referencia histórica. La revisión local y el código provienen de la misma base; evitar mantener variantes independientes.
 
 Lee `LEEME.md` para iniciar y `documentacion/reglas-pendientes.md` para los acuerdos aprobados. No completar nombres, conteos, equipos o reglas desconocidas por suposición. El catálogo de 30 empleados se recupera en la copia privada y queda excluido del repositorio público.
 

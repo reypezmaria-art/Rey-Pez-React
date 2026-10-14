@@ -1,6 +1,6 @@
 # Acuerdos integrados · 14 de octubre de 2026
 
-María es la administradora de las tres empresas. Los cambios se realizan en `codex/revision-local`; `main` se conserva. La usuaria autorizó integrar la planificación y recuperar los 30 registros del CSV corregido, sin bajas ni altas inventadas por diferencias en los conteos.
+María es la administradora de las tres empresas. María autorizó integrar `codex/revision-local` en `main` el 14/10/2026; el trabajo continúa en la rama principal. La usuaria autorizó integrar la planificación y recuperar los 30 registros del CSV corregido, sin bajas ni altas inventadas por diferencias en los conteos.
 
 | Acuerdo                                                              | Estado en esta rama                                                                                                                                                          |
 | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

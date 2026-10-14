@@ -1,6 +1,6 @@
 # Sistema de Control Administrativo Rey Pez
 
-Base única React y JavaScript para revisar la planificación de María. Los cambios están en `codex/revision-local`; `main` se mantiene intacta.
+Base única React y JavaScript para revisar la planificación de María. La revisión se integró en `main` por autorización de María el 14/10/2026. El trabajo continúa en la rama principal.
 
 ## Abrir en Windows
 
