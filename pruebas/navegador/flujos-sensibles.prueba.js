@@ -24,7 +24,7 @@ async function prepararAdministracion(page) {
   await page.goto("/");
   await expect(
     page.getByRole("heading", {
-      name: /Configurar acceso de María|Acceso de María/,
+      name: /Configurar acceso de María|Bienvenido a Rey Pez/,
     }),
   ).toBeVisible();
   if (
@@ -64,8 +64,14 @@ async function intentarIngreso(page, id, clave) {
 async function cerrarSesion(page) {
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
   await expect(
-    page.getByRole("heading", { name: "Acceso de María" }),
+    page.getByRole("heading", { name: "Bienvenido a Rey Pez", exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".access-screen .small")).toHaveCount(0);
+  await expect(
+    page.getByText(
+      /se guardan en Firebase|sesión se cierra al recargar|Copia local de revisión|Firebase Authentication|El acceso se comprueba/,
+    ),
+  ).toHaveCount(0);
 }
 
 async function asignarClave(page, id) {
@@ -160,7 +166,7 @@ test("rechaza ingresos fallidos y respeta el bloqueo manual del acceso", async (
   await expect(page.getByText("Estado: Bloqueado")).toBeVisible();
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Acceso de María" }),
+    page.getByRole("heading", { name: "Bienvenido a Rey Pez", exact: true }),
   ).toBeVisible();
   await intentarIngreso(page, TRABAJADORA_ESTUARDO, CLAVE_TRABAJO);
   await expect(page.getByRole("alert")).toHaveText(
@@ -466,7 +472,7 @@ test("exporta el respaldo JSON, rechaza copias inválidas y restaura la descarga
   });
   expect(await confirmacion).toContain("Se cerrará la sesión");
   await expect(
-    page.getByRole("heading", { name: "Acceso de María", exact: true }),
+    page.getByRole("heading", { name: "Bienvenido a Rey Pez", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Configurar acceso de María" }),
