@@ -12,20 +12,21 @@ service firebase.storage {
       return cuentaExiste()
         && cuenta().rol == 'admin'
         && cuenta().activo == true
-        && cuenta().idEmpleado == 'MARIA';
+        && cuenta().idEmpleado == 'MARIA'
+        && firestore.exists(/databases/(default)/documents/indiceCuentas/MARIA)
+        && firestore.get(/databases/(default)/documents/indiceCuentas/MARIA).data.uid == request.auth.uid;
+    }
+    function esTrabajadorDe(empresa) {
+      return cuentaExiste()
+        && cuenta().activo == true
+        && cuenta().rol == 'trabajador'
+        && cuenta().empresa == empresa;
     }
     match /evidencias/{empresa}/{id}/{archivo} {
-      allow read: if esAdmin()
-        || (cuentaExiste()
-          && cuenta().activo == true
-          && (cuenta().rol == 'terminal' || cuenta().empresa == empresa));
+      allow read: if esAdmin() || esTrabajadorDe(empresa);
       allow write: if request.resource.size < 2 * 1024 * 1024
         && request.resource.contentType.matches('image/.*|application/pdf')
-        && (esAdmin()
-          || (cuentaExiste()
-            && cuenta().activo == true
-            && cuenta().rol == 'trabajador'
-            && cuenta().empresa == empresa));
+        && (esAdmin() || esTrabajadorDe(empresa));
     }
   }
 }

@@ -68,16 +68,32 @@ La marca local `reypez_firebase_migracion_v1` evita repetir la subida.
 
 ## 5. Reglas de acceso
 
-| Quién                | Qué puede                                                                                                             |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| María (`rol: admin`) | Leer y escribir toda la operación, las cuentas y las reglas de permisos                                               |
-| Trabajador           | Leer su empresa y crear bitácoras solo de los tipos autorizados; crear su propia asistencia                           |
-| Terminal vinculada   | Leer catálogo, horarios y asistencia; crear marcajes y alertas. No lee bitácoras, mantenimiento, auditoría ni cuentas |
+| Quién                | Qué puede                                                                                                                                 |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| María (`rol: admin`) | Leer y escribir toda la operación, las cuentas y las reglas de permisos. Su `uid` tiene que coincidir con `indiceCuentas/MARIA`           |
+| Trabajador           | Leer su empresa y crear bitácoras solo de los tipos autorizados; crear su propia asistencia en el paso que sigue del turno                |
+| Terminal vinculada   | Leer catálogo, horarios y asistencia; crear marcajes y alertas. No lee bitácoras, mantenimiento, auditoría, cuentas ni fotos de evidencia |
 
 El permiso vive en `cuentas/{uid}` (`empresa`, `bitacoras`, `activo`). La
 interfaz sigue comprobando antes de guardar; si alguien modifica el JavaScript,
 Firestore rechaza el documento. Bloquear en Seguridad pone `activo: false` y
 las reglas niegan la siguiente lectura o escritura.
+
+La primera cuenta de María y `indiceCuentas/MARIA` se crean en el **mismo lote**.
+Hasta ese momento nadie puede darse de alta como admin: hace falta el correo
+`maria@…` y que el índice no exista. Una cuenta suelta, sin ese índice, no
+administra. Un usuario autenticado con otro correo tampoco puede escribir
+`cuentas/{su uid}` como admin.
+
+Los marcajes de trabajador y terminal tienen que seguir la secuencia del día:
+entrada, salida a comer, regreso y salida. Después de la entrada también se
+acepta la salida final, porque las reglas no recalculan el horario rotativo:
+el atajo de la última hora del turno sigue decidiéndolo la pantalla. La fecha
+del marcaje tiene que caer en las últimas 20 horas (y no más de 15 minutos en
+el futuro), para que un registro sin red siga subiendo y no se pueda fechar un
+día viejo. Una corrección anterior la hace María; la revisión administrativa
+no la puede crear el trabajador ni la terminal. El cursor
+`secuenciaAsistencia/{id}` se actualiza en el mismo lote que el marcaje.
 
 Un trabajador solo ve en memoria la empresa y las bitácoras que las reglas le
 dejan consultar. Por eso una captura hecha en otro equipo no se borra al
@@ -103,6 +119,11 @@ Copia la URL HTTPS de la función en `VITE_FIREBASE_FUNCION_CONTRASENA`. Sin
 esa variable, la app avisa el límite y no finge haber cambiado la contraseña.
 María sí puede cambiar la suya desde Seguridad, porque es la sesión activa.
 
+La función responde 401 solo si falta el token o no es válido, 403 si no es
+María, 400 si la contraseña no cumple, 404 si el trabajador no tiene cuenta y
+500 si Firestore o el Admin SDK fallan. Un fallo interno no se disfraza de
+sesión inválida.
+
 El plan Blaze es necesario para desplegar Cloud Functions. Hasta entonces se
 puede restablecer la contraseña del usuario en Authentication → Users, buscando
 el correo `al-01@usuarios.reypez.local`.
@@ -110,12 +131,20 @@ el correo `al-01@usuarios.reypez.local`.
 ## 7. Terminal de asistencia
 
 En la tableta, entra María a Configuración y pulsa **Vincular este navegador**.
-Eso crea una cuenta `terminal-…` y guarda su clave solo en ese navegador. Al
-abrir `#asistencia`, la tableta entra con esa cuenta. Desvincular pone
-`activo: false`.
+Eso crea una cuenta `terminal-…` e inicia su sesión en ese navegador. La
+contraseña no se guarda: Firebase Auth conserva el refresh token en su almacén
+(IndexedDB), igual que la sesión de María. En `localStorage` solo queda el
+correo y el uid, para saber qué equipo está vinculado. Al abrir `#asistencia`,
+la tableta reutiliza esa sesión. Desvincular pone `activo: false` y cierra la
+sesión de la terminal.
+
+Si se borran los datos del sitio, hay que vincular otra vez. Como la contraseña
+ya no está en el navegador, ese segundo vínculo rota la clave con la función
+`restablecerContrasena` (o, si no está desplegada, desde Authentication →
+Users). La primera vinculación no necesita la función.
 
 La terminal ve el catálogo porque tiene que reconocer cualquier ID. No puede
-leer bitácoras ni comprobantes.
+leer bitácoras, comprobantes ni las fotos de evidencia de ninguna empresa.
 
 ## 8. Fotos y el límite de 1 MB
 
@@ -177,7 +206,15 @@ dejes `VITE_FIREBASE_EMULADOR` activo contra el proyecto real.
 ## Decisiones y límites
 
 - La sesión de Firebase permanece al recargar y se borra con **Cerrar sesión**.
-  En el modo local, recargar sigue pidiendo la contraseña.
+  En el modo local, recargar sigue pidiendo la contraseña. La terminal usa otra
+  sesión persistida, sin copiar su contraseña a `localStorage`.
+- El alta de María es un solo lote (cuenta + índice). Las reglas exigen que el
+  correo sea `maria@…` y que el índice apunte a ese uid. Así un usuario cualquiera
+  no puede nombrarse admin mientras el índice no exista.
+- La secuencia de cuatro marcajes se exige en `firestore.rules`. El horario
+  rotativo y la ventana de la última hora no caben en las reglas sin duplicar
+  el cálculo de turnos: por eso, tras la entrada, la salida final también está
+  permitida. La pantalla sigue proponiendo el paso que toca según el horario.
 - No hay custom claims: harían falta el Admin SDK en cada alta. Las reglas
   leen `cuentas/{uid}`. Un usuario creado a mano, sin ese documento, no lee
   datos.

@@ -73,27 +73,61 @@ async function blobADataUrl(blob) {
   return bytesADataUrl(buffer, blob.type || "application/octet-stream");
 }
 
+function esperarAuth(authInstancia) {
+  if (authInstancia.currentUser)
+    return Promise.resolve(authInstancia.currentUser);
+  return new Promise((resolve) => {
+    const detener = onAuthStateChanged(authInstancia, (usuario) => {
+      detener();
+      resolve(usuario);
+    });
+  });
+}
+
+function conectarEmuladores(
+  configuracion,
+  authInstancia,
+  dbInstancia,
+  storage,
+) {
+  if (!configuracion.emulador) return;
+  connectAuthEmulator(authInstancia, configuracion.authEmulatorUrl, {
+    disableWarnings: true,
+  });
+  connectFirestoreEmulator(
+    dbInstancia,
+    configuracion.firestoreEmuladorHost,
+    configuracion.firestoreEmuladorPuerto,
+  );
+  connectStorageEmulator(
+    storage,
+    configuracion.storageEmuladorHost,
+    configuracion.storageEmuladorPuerto,
+  );
+}
+
 export async function crearClienteFirebase(configuracion) {
   const aplicacion = initializeApp(configuracion.firebase);
+  const aplicacionTerminal = initializeApp(
+    configuracion.firebase,
+    "reypez-terminal",
+  );
   const auth = getAuth(aplicacion);
+  const authTerminal = getAuth(aplicacionTerminal);
   const db = crearBase(aplicacion);
+  const dbTerminal = crearBase(aplicacionTerminal);
   const storage = getStorage(aplicacion);
-  if (configuracion.emulador) {
-    connectAuthEmulator(auth, configuracion.authEmulatorUrl, {
-      disableWarnings: true,
-    });
-    connectFirestoreEmulator(
-      db,
-      configuracion.firestoreEmuladorHost,
-      configuracion.firestoreEmuladorPuerto,
-    );
-    connectStorageEmulator(
-      storage,
-      configuracion.storageEmuladorHost,
-      configuracion.storageEmuladorPuerto,
-    );
-  }
+  const storageTerminal = getStorage(aplicacionTerminal);
+  conectarEmuladores(configuracion, auth, db, storage);
+  conectarEmuladores(configuracion, authTerminal, dbTerminal, storageTerminal);
   await setPersistence(auth, browserLocalPersistence);
+  await setPersistence(authTerminal, browserLocalPersistence);
+  let modoTerminal = false;
+  const recursos = () =>
+    modoTerminal
+      ? { db: dbTerminal, storage: storageTerminal }
+      : { db, storage };
+  const authActivo = () => (modoTerminal ? authTerminal : auth);
 
   async function conSecundaria(accion) {
     const secundaria = initializeApp(
@@ -115,38 +149,53 @@ export async function crearClienteFirebase(configuracion) {
 
   return {
     async leerDocumento(coleccion, id) {
-      const instantanea = await getDoc(doc(db, coleccion, id));
+      const instantanea = await getDoc(doc(recursos().db, coleccion, id));
       return instantanea.exists() ? instantanea.data() : null;
     },
     async leerColeccion(nombre, restricciones = []) {
-      const instantanea = await getDocs(consulta(db, nombre, restricciones));
+      const instantanea = await getDocs(
+        consulta(recursos().db, nombre, restricciones),
+      );
       return instantanea.docs.map((item) => ({
         id: item.id,
         datos: item.data(),
       }));
     },
     escucharDocumento(coleccion, id, callback) {
-      return onSnapshot(doc(db, coleccion, id), (instantanea) => {
+      return onSnapshot(doc(recursos().db, coleccion, id), (instantanea) => {
         callback(instantanea.exists() ? instantanea.data() : null);
       });
     },
     escucharColeccion(nombre, restricciones, callback) {
-      return onSnapshot(consulta(db, nombre, restricciones), () => callback());
+      return onSnapshot(consulta(recursos().db, nombre, restricciones), () =>
+        callback(),
+      );
     },
     async crearDocumento(coleccion, id, datos) {
-      const referencia = doc(db, coleccion, id);
+      const referencia = doc(recursos().db, coleccion, id);
       const actual = await getDoc(referencia);
-      if (actual.exists()) throw Error("Ya existe.");
+      if (actual.exists()) {
+        const error = Error("Ya existe.");
+        error.code = "already-exists";
+        throw error;
+      }
       await setDoc(referencia, datos);
     },
+    async crearDocumentosAtomicos(escrituras) {
+      const lote = writeBatch(recursos().db);
+      for (const item of escrituras)
+        lote.create(doc(recursos().db, item.coleccion, item.id), item.datos);
+      await lote.commit();
+    },
     async escribirDocumento(coleccion, id, datos) {
-      await setDoc(doc(db, coleccion, id), datos, { merge: true });
+      await setDoc(doc(recursos().db, coleccion, id), datos, { merge: true });
     },
     async aplicarLote(cambios) {
+      const base = recursos().db;
       for (let inicio = 0; inicio < cambios.length; inicio += LOTE) {
-        const lote = writeBatch(db);
+        const lote = writeBatch(base);
         for (const cambio of cambios.slice(inicio, inicio + LOTE)) {
-          const referencia = doc(db, cambio.coleccion, cambio.id);
+          const referencia = doc(base, cambio.coleccion, cambio.id);
           if (cambio.tipo === "borrar") lote.delete(referencia);
           else lote.set(referencia, cambio.datos);
         }
@@ -159,21 +208,24 @@ export async function crearClienteFirebase(configuracion) {
         throw Error(
           "La evidencia sigue siendo demasiado grande después de comprimirla.",
         );
-      await uploadBytes(ref(storage, ruta), bytes, { contentType: tipo });
+      await uploadBytes(ref(recursos().storage, ruta), bytes, {
+        contentType: tipo,
+      });
     },
     async leerArchivo(ruta) {
       try {
-        return await blobADataUrl(await getBlob(ref(storage, ruta)));
+        return await blobADataUrl(await getBlob(ref(recursos().storage, ruta)));
       } catch {
         return null;
       }
     },
     auth: {
       usuario: () => {
-        const actual = auth.currentUser;
+        const actual = authActivo().currentUser;
         return actual ? { uid: actual.uid, email: actual.email } : null;
       },
       async entrar(correo, contrasena) {
+        modoTerminal = false;
         const credencial = await signInWithEmailAndPassword(
           auth,
           correo,
@@ -210,7 +262,26 @@ export async function crearClienteFirebase(configuracion) {
         });
       },
       async salir() {
+        modoTerminal = false;
         await signOut(auth);
+      },
+      async persistirTerminal(correo, contrasena) {
+        await signInWithEmailAndPassword(authTerminal, correo, contrasena);
+      },
+      async tieneTerminal() {
+        if (authTerminal.currentUser) return true;
+        await esperarAuth(authTerminal);
+        return Boolean(authTerminal.currentUser);
+      },
+      async adoptarTerminal() {
+        if (!authTerminal.currentUser) await esperarAuth(authTerminal);
+        if (!authTerminal.currentUser) return false;
+        modoTerminal = true;
+        return true;
+      },
+      async cerrarTerminal() {
+        modoTerminal = false;
+        await signOut(authTerminal);
       },
       async cambiarContrasena(contrasena) {
         if (!auth.currentUser) throw Error("No hay sesión activa.");

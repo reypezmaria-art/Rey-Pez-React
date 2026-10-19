@@ -18,6 +18,7 @@ export function crearClienteMemoria() {
   const oyentesDatos = new Set();
   const oyentesAuth = new Set();
   let sesion = null;
+  let terminal = null;
   let secuencia = 1;
 
   const notificarDatos = () => {
@@ -70,9 +71,27 @@ export function crearClienteMemoria() {
     },
     async crearDocumento(coleccion, id, datos) {
       const clave = claveDocumento(coleccion, id);
-      if (documentos.has(clave)) throw Error("Ya existe.");
+      if (documentos.has(clave)) {
+        const error = Error("Ya existe.");
+        error.code = "already-exists";
+        throw error;
+      }
       documentos.set(clave, structuredClone(datos));
       notificarDatos();
+    },
+    async crearDocumentosAtomicos(escrituras) {
+      const preparados = escrituras.map((item) => ({
+        clave: claveDocumento(item.coleccion, item.id),
+        datos: item.datos,
+      }));
+      if (preparados.some((item) => documentos.has(item.clave))) {
+        const error = Error("Ya existe.");
+        error.code = "already-exists";
+        throw error;
+      }
+      for (const item of preparados)
+        documentos.set(item.clave, structuredClone(item.datos));
+      if (preparados.length) notificarDatos();
     },
     async escribirDocumento(coleccion, id, datos) {
       const clave = claveDocumento(coleccion, id);
@@ -134,6 +153,26 @@ export function crearClienteMemoria() {
       async salir() {
         sesion = null;
         notificarAuth();
+      },
+      async persistirTerminal(correo, contrasena) {
+        terminal = exigirUsuario(correo, contrasena);
+      },
+      async tieneTerminal() {
+        return Boolean(terminal);
+      },
+      async adoptarTerminal() {
+        if (!terminal) return false;
+        sesion = terminal;
+        notificarAuth();
+        return true;
+      },
+      async cerrarTerminal() {
+        const uid = terminal?.uid;
+        terminal = null;
+        if (sesion?.uid === uid) {
+          sesion = null;
+          notificarAuth();
+        }
       },
       async cambiarContrasena(contrasena) {
         if (!sesion) throw Error("No hay sesión activa.");

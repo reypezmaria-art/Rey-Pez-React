@@ -1,5 +1,15 @@
 import { baseOperation } from "../datos/operacionInicial.js";
+import { localDate } from "../utilidades/fechas.js";
 import { migrateState } from "./repositorioLocal.js";
+
+export const MOVIMIENTOS_ASISTENCIA = [
+  "ENTRADA",
+  "SALIDA_A_COMER",
+  "REGRESO_DE_COMER",
+  "SALIDA_FINAL",
+];
+const VENTANA_PASADA_MS = 20 * 60 * 60 * 1000;
+const VENTANA_FUTURA_MS = 15 * 60 * 1000;
 
 export const COLECCIONES = [
   { clave: "employees", coleccion: "empleados", id: "id_empleado" },
@@ -145,14 +155,21 @@ export function puedeEscribir(cuenta, cambio) {
   if (!cuenta?.activo) return false;
   if (cuenta.rol === "admin" && cuenta.idEmpleado === "MARIA") return true;
   if (cambio.tipo === "borrar") return false;
-  if (cuenta.rol === "terminal")
+  if (cuenta.rol === "terminal") {
+    if (cambio.coleccion === "secuenciaAsistencia")
+      return cambio.tipo === "poner";
     return (
       cambio.tipo === "poner" &&
-      ["asistencia", "alertas"].includes(cambio.coleccion) &&
-      !cambio.existia
+      !cambio.existia &&
+      (cambio.coleccion === "alertas" ||
+        (cambio.coleccion === "asistencia" &&
+          MOVIMIENTOS_ASISTENCIA.includes(cambio.datos?.movimiento)))
     );
+  }
   if (cuenta.rol !== "trabajador") return false;
   const datos = cambio.datos || {};
+  if (cambio.coleccion === "secuenciaAsistencia")
+    return cambio.tipo === "poner" && cambio.id === cuenta.idEmpleado;
   if (cambio.coleccion === "bitacoras" && !cambio.existia)
     return (
       datos.company === cuenta.empresa &&
@@ -162,7 +179,8 @@ export function puedeEscribir(cuenta, cambio) {
   if (cambio.coleccion === "asistencia" && !cambio.existia)
     return (
       datos.id_empleado === cuenta.idEmpleado &&
-      datos.empresa_codigo === cuenta.empresa
+      datos.empresa_codigo === cuenta.empresa &&
+      MOVIMIENTOS_ASISTENCIA.includes(datos.movimiento)
     );
   if (cambio.coleccion === "auditoria" && !cambio.existia)
     return (
@@ -171,6 +189,161 @@ export function puedeEscribir(cuenta, cambio) {
   if (cambio.coleccion === "alertas" && !cambio.existia)
     return datos.id_empleado === cuenta.idEmpleado;
   return false;
+}
+
+export function fechaLocalDe(iso) {
+  const fecha = new Date(iso);
+  if (Number.isNaN(fecha.getTime())) return "";
+  return localDate(fecha);
+}
+
+export function cursorDeEmpleado(attendance, idEmpleado) {
+  let elegido = null;
+  for (const registro of attendance || []) {
+    if (registro.id_empleado !== idEmpleado) continue;
+    if (!MOVIMIENTOS_ASISTENCIA.includes(registro.movimiento)) continue;
+    const ms = new Date(registro.fecha_hora).getTime();
+    if (!Number.isFinite(ms)) continue;
+    if (!elegido || ms >= elegido.ms) elegido = { registro, ms };
+  }
+  if (!elegido) return null;
+  return {
+    ultimo: elegido.registro.movimiento,
+    fecha: fechaLocalDe(elegido.registro.fecha_hora),
+    registroId: elegido.registro.id_registro,
+    ms: elegido.ms,
+  };
+}
+
+export function marcajePermitido(cursor, registro) {
+  const movimiento = registro?.movimiento;
+  if (!MOVIMIENTOS_ASISTENCIA.includes(movimiento)) return false;
+  const fecha = fechaLocalDe(registro.fecha_hora);
+  if (!fecha) return false;
+  if (!cursor || cursor.fecha !== fecha || cursor.ultimo === "SALIDA_FINAL")
+    return movimiento === "ENTRADA";
+  if (cursor.ultimo === "ENTRADA")
+    return movimiento === "SALIDA_A_COMER" || movimiento === "SALIDA_FINAL";
+  if (cursor.ultimo === "SALIDA_A_COMER")
+    return movimiento === "REGRESO_DE_COMER";
+  if (cursor.ultimo === "REGRESO_DE_COMER")
+    return movimiento === "SALIDA_FINAL";
+  return false;
+}
+
+export function marcajeVigente(registro, ahora = Date.now()) {
+  const ms = new Date(registro?.fecha_hora).getTime();
+  return (
+    Number.isFinite(ms) &&
+    ms <= ahora + VENTANA_FUTURA_MS &&
+    ms >= ahora - VENTANA_PASADA_MS
+  );
+}
+
+function quitarMetadatosMarcaje(datos, id) {
+  const copia = { ...datos };
+  delete copia.fecha_local;
+  delete copia.fecha_ms;
+  if (!copia.id_registro && id) copia.id_registro = id;
+  return copia;
+}
+
+export function anexarSecuencia({
+  cuenta,
+  antes,
+  cambios,
+  ahora = Date.now(),
+}) {
+  const nuevas = cambios.filter(
+    (cambio) =>
+      cambio.coleccion === "asistencia" &&
+      cambio.tipo === "poner" &&
+      !cambio.existia,
+  );
+  if (!nuevas.length) return cambios;
+  const admin = cuenta?.rol === "admin" && cuenta?.idEmpleado === "MARIA";
+  const simulada = [...(antes?.attendance || [])];
+  const ordenadas = [...nuevas].sort(
+    (a, b) =>
+      new Date(a.datos?.fecha_hora).getTime() -
+      new Date(b.datos?.fecha_hora).getTime(),
+  );
+  const reales = ordenadas.filter(
+    (cambio) => cambio.datos?.movimiento !== "REVISION_ADMINISTRATIVA",
+  );
+  if (!admin && reales.length > 1) throw Error("Registra un marcaje a la vez.");
+  for (const cambio of ordenadas) {
+    const datos = cambio.datos || {};
+    const id = datos.id_empleado;
+    if (!id) throw Error("El marcaje no indica el empleado.");
+    const revision = datos.movimiento === "REVISION_ADMINISTRATIVA";
+    if (revision && !admin)
+      throw Error("Solo María puede registrar una revisión administrativa.");
+    if (!revision && !admin) {
+      const cursor = cursorDeEmpleado(simulada, id);
+      if (!marcajePermitido(cursor, datos))
+        throw Error(
+          "Ese marcaje no sigue la secuencia del día: entrada, salida a comer, regreso y salida.",
+        );
+      if (!marcajeVigente(datos, ahora))
+        throw Error(
+          "La fecha del marcaje queda fuera del turno que se puede registrar.",
+        );
+      if (cursor && new Date(datos.fecha_hora).getTime() < cursor.ms)
+        throw Error(
+          "La fecha del marcaje queda fuera del turno que se puede registrar.",
+        );
+      const empleado = (antes?.employees || []).find(
+        (item) => item.id_empleado === id,
+      );
+      if (!empleado)
+        throw Error("No se encontró ese ID. Solicita apoyo a administración.");
+      if ((empleado.estatus || "Activo") !== "Activo")
+        throw Error("La cuenta no está activa. Consulta a administración.");
+      if (datos.empresa_codigo !== empleado.empresa_codigo)
+        throw Error("El marcaje no corresponde a la empresa del empleado.");
+      if (cuenta.rol === "trabajador" && id !== cuenta.idEmpleado)
+        throw Error("No tienes permiso para guardar ese cambio.");
+    }
+    const ms = new Date(datos.fecha_hora).getTime();
+    cambio.datos = {
+      ...datos,
+      fecha_local: fechaLocalDe(datos.fecha_hora),
+      fecha_ms: Number.isFinite(ms) ? ms : null,
+    };
+    simulada.push(cambio.datos);
+  }
+  const extras = [];
+  for (const id of new Set(
+    ordenadas.map((cambio) => cambio.datos.id_empleado),
+  )) {
+    const cursor = admin
+      ? cursorDeEmpleado(simulada, id)
+      : {
+          ultimo: ordenadas.find((cambio) => cambio.datos.id_empleado === id)
+            ?.datos.movimiento,
+          fecha: ordenadas.find((cambio) => cambio.datos.id_empleado === id)
+            ?.datos.fecha_local,
+          registroId: ordenadas.find(
+            (cambio) => cambio.datos.id_empleado === id,
+          )?.id,
+        };
+    if (!cursor?.ultimo || !MOVIMIENTOS_ASISTENCIA.includes(cursor.ultimo))
+      continue;
+    extras.push({
+      tipo: "poner",
+      coleccion: "secuenciaAsistencia",
+      id,
+      datos: {
+        ultimo: cursor.ultimo,
+        fecha: cursor.fecha,
+        registroId: cursor.registroId,
+        idEmpleado: id,
+      },
+      existia: true,
+    });
+  }
+  return [...cambios, ...extras];
 }
 
 export function prepararEstadoNube(estado) {
@@ -309,6 +482,8 @@ export function armarEstado(principal, documentos, cuenta, cuentas = []) {
     if (!definicion) continue;
     estado[definicion.clave] = lista.map(({ id, datos }) => {
       if (definicion.clave === "scheduleExceptions") return datos;
+      if (definicion.clave === "attendance")
+        return quitarMetadatosMarcaje(datos, id);
       return datos[definicion.id] ? datos : { ...datos, [definicion.id]: id };
     });
   }
@@ -327,11 +502,13 @@ export function estadoDesdeDocumentos(principal, documentos) {
   for (const [coleccion, lista] of Object.entries(documentos || {})) {
     const definicion = definicionDe(coleccion);
     if (!definicion) continue;
-    estado[definicion.clave] = lista.map(({ id, datos }) =>
-      definicion.clave === "scheduleExceptions" || datos[definicion.id]
+    estado[definicion.clave] = lista.map(({ id, datos }) => {
+      if (definicion.clave === "attendance")
+        return quitarMetadatosMarcaje(datos, id);
+      return definicion.clave === "scheduleExceptions" || datos[definicion.id]
         ? datos
-        : { ...datos, [definicion.id]: id },
-    );
+        : { ...datos, [definicion.id]: id };
+    });
   }
   return estado;
 }
@@ -484,13 +661,14 @@ export function decidirMigracion({
   remotoVacio,
   origenRemoto,
   remotoSinOperacion,
+  manual = false,
 }) {
-  if (!localAporta || marca === "hecha" || marca === "omitida") return "omitir";
+  if (!localAporta) return "omitir";
+  if (!manual && (marca === "hecha" || marca === "omitida")) return "omitir";
   if (remotoVacio) return "subir";
   if (origenRemoto === "semilla" && remotoSinOperacion)
     return "sustituir-semilla";
-  if (origenRemoto === "semilla") return "conflicto";
-  return "omitir";
+  return "conflicto";
 }
 
 export function listaEvidencias(estado) {

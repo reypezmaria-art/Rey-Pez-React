@@ -10,6 +10,7 @@ import {
   validateState,
 } from "./repositorioLocal.js";
 import {
+  anexarSecuencia,
   consultasDe,
   decidirMigracion,
   diferencias,
@@ -102,6 +103,7 @@ export function createFirestoreRepository({
   let escuchas = [];
   let generacion = 0;
   let escribiendo = 0;
+  let epoca = 0;
   let cola = Promise.resolve();
   let aviso = "";
   const emitir = () => {
@@ -125,7 +127,7 @@ export function createFirestoreRepository({
     try {
       return deviceId();
     } catch {
-      return "";
+      return almacenamiento.getItem("reypez_device_id") || "";
     }
   }
 
@@ -216,10 +218,14 @@ export function createFirestoreRepository({
     const listo = await prepararEvidencias(prepararEstadoNube(estado));
     const remoto = await piezas();
     const antes = estadoDesdeDocumentos(remoto.principal, remoto.documentos);
-    const cambios = diferencias(
-      quitarDatosEvidencia(antes),
-      quitarDatosEvidencia(listo),
-    );
+    const cambios = anexarSecuencia({
+      cuenta: { rol: "admin", idEmpleado: "MARIA", activo: true },
+      antes,
+      cambios: diferencias(
+        quitarDatosEvidencia(antes),
+        quitarDatosEvidencia(listo),
+      ),
+    });
     const revision = (remoto.principal?.revision || 0) + 1;
     cambios.push({
       tipo: "poner",
@@ -247,11 +253,12 @@ export function createFirestoreRepository({
       return "semilla";
     }
     const decision = decidirMigracion({
-      marca: manual ? "" : almacenamiento.getItem(MARCA),
+      marca: almacenamiento.getItem(MARCA),
       localAporta: aporta,
       remotoVacio: !principal,
       origenRemoto: principal?.origen || "",
       remotoSinOperacion: principal ? await remotoSinOperacion() : true,
+      manual,
     });
     if (decision === "subir" || decision === "sustituir-semilla") {
       await escribirEstadoCompleto(local, "navegador");
@@ -295,15 +302,18 @@ export function createFirestoreRepository({
     if (escribiendo || !cuentaActual) return;
     const uid = cliente.auth.usuario()?.uid;
     if (!uid) return;
+    const ticket = ++epoca;
     void (async () => {
       const cuenta = await cliente.leerDocumento("cuentas", uid);
-      if (!cuenta?.activo || escribiendo) return;
+      if (ticket !== epoca || escribiendo || !cuenta?.activo) return;
       const filtrosCambiaron =
         JSON.stringify(cuenta.bitacoras || []) !==
           JSON.stringify(cuentaActual?.bitacoras || []) ||
         cuenta.empresa !== cuentaActual?.empresa;
+      const siguiente = await cargarEstado(cuenta);
+      if (ticket !== epoca || escribiendo) return;
       cuentaActual = cuenta;
-      cache = await cargarEstado(cuenta);
+      cache = siguiente;
       emitir();
       if (filtrosCambiaron) {
         generacion += 1;
@@ -383,6 +393,10 @@ export function createFirestoreRepository({
     return cache;
   }
 
+  function guardarTerminalLocal(correo, uid) {
+    almacenamiento.setItem(CLAVE_TERMINAL, JSON.stringify({ correo, uid }));
+  }
+
   async function entrarTerminalSiCorresponde() {
     if (cliente.auth.usuario()) return;
     let hash;
@@ -393,15 +407,24 @@ export function createFirestoreRepository({
     }
     if (!hash.startsWith("#asistencia")) return;
     const crudo = almacenamiento.getItem(CLAVE_TERMINAL);
-    if (!crudo) return;
-    const credencial = JSON.parse(crudo);
+    let credencial;
     try {
-      await cliente.auth.entrar(credencial.correo, credencial.contrasena);
+      credencial = crudo ? JSON.parse(crudo) : null;
     } catch {
+      credencial = null;
+    }
+    if (credencial?.contrasena && credencial.correo) {
+      await cliente.auth.persistirTerminal(
+        credencial.correo,
+        credencial.contrasena,
+      );
+      guardarTerminalLocal(credencial.correo, credencial.uid || "");
+    }
+    if (!credencial?.correo && !(await cliente.auth.tieneTerminal())) return;
+    if (!(await cliente.auth.adoptarTerminal()))
       throw Error(
         "No se pudo abrir la terminal vinculada. Pide a María que la vuelva a vincular.",
       );
-    }
   }
 
   async function sincronizarAcceso(estado) {
@@ -455,44 +478,49 @@ export function createFirestoreRepository({
       const previa = previas.get(terminal.id);
       if (terminal.kind !== "asistencia") continue;
       const indiceId = `terminal-${terminal.id}`;
-      if (terminal.active && !previa?.active && terminal.id === dispositivo) {
-        const correo = correoDeIdentificador(indiceId, dominio);
-        let indice = await cliente.leerDocumento("indiceCuentas", indiceId);
-        let contrasena = JSON.parse(
-          almacenamiento.getItem(CLAVE_TERMINAL) || "{}",
-        ).contrasena;
-        if (!indice) {
-          contrasena = contrasenaDeTerminal();
-          const creado = await cliente.auth.registrarSecundario(
-            correo,
-            contrasena,
-          );
-          await cliente.escribirDocumento("cuentas", creado.uid, {
-            rol: "terminal",
-            idEmpleado: indiceId,
-            terminalId: terminal.id,
-            activo: true,
-            correo,
-            empresa: null,
-            bitacoras: [],
-          });
-          await cliente.crearDocumento("indiceCuentas", indiceId, {
-            uid: creado.uid,
-            correo,
-          });
-        } else {
-          await cliente.escribirDocumento("cuentas", indice.uid, {
-            activo: true,
-          });
-          if (!contrasena) {
-            contrasena = contrasenaDeTerminal();
+      const correo = correoDeIdentificador(indiceId, dominio);
+      if (terminal.active && terminal.id === dispositivo) {
+        const recienActivada = !previa?.active;
+        const haySesion = await cliente.auth.tieneTerminal();
+        if (recienActivada || !haySesion) {
+          const indice = await cliente.leerDocumento("indiceCuentas", indiceId);
+          const contrasena = contrasenaDeTerminal();
+          let uid = indice?.uid;
+          if (!indice) {
+            const creado = await cliente.auth.registrarSecundario(
+              correo,
+              contrasena,
+            );
+            uid = creado.uid;
+            await cliente.crearDocumentosAtomicos([
+              {
+                coleccion: "cuentas",
+                id: uid,
+                datos: {
+                  rol: "terminal",
+                  idEmpleado: indiceId,
+                  terminalId: terminal.id,
+                  activo: true,
+                  correo,
+                  empresa: null,
+                  bitacoras: [],
+                },
+              },
+              {
+                coleccion: "indiceCuentas",
+                id: indiceId,
+                datos: { uid, correo },
+              },
+            ]);
+          } else {
+            await cliente.escribirDocumento("cuentas", indice.uid, {
+              activo: true,
+            });
             await restablecerContrasena(indiceId, correo, contrasena);
           }
+          await cliente.auth.persistirTerminal(correo, contrasena);
+          guardarTerminalLocal(correo, uid);
         }
-        almacenamiento.setItem(
-          CLAVE_TERMINAL,
-          JSON.stringify({ correo, contrasena }),
-        );
       }
       if (!terminal.active && previa?.active) {
         const indice = await cliente.leerDocumento("indiceCuentas", indiceId);
@@ -500,9 +528,47 @@ export function createFirestoreRepository({
           await cliente.escribirDocumento("cuentas", indice.uid, {
             activo: false,
           });
-        if (terminal.id === dispositivo)
+        if (terminal.id === dispositivo) {
           almacenamiento.removeItem(CLAVE_TERMINAL);
+          await cliente.auth.cerrarTerminal();
+        }
       }
+    }
+  }
+
+  async function enviarCambios(cambios) {
+    const marcas = cambios
+      .filter(
+        (cambio) =>
+          cambio.coleccion === "asistencia" &&
+          cambio.tipo === "poner" &&
+          !cambio.existia,
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.datos.fecha_hora).getTime() -
+          new Date(b.datos.fecha_hora).getTime(),
+      );
+    if (cuentaActual?.rol === "admin" || marcas.length <= 1) {
+      await cliente.aplicarLote(cambios);
+      return;
+    }
+    const resto = cambios.filter(
+      (cambio) =>
+        !(
+          cambio.coleccion === "asistencia" &&
+          cambio.tipo === "poner" &&
+          !cambio.existia
+        ) && cambio.coleccion !== "secuenciaAsistencia",
+    );
+    if (resto.length) await cliente.aplicarLote(resto);
+    for (const marca of marcas) {
+      const secuencia = cambios.find(
+        (cambio) =>
+          cambio.coleccion === "secuenciaAsistencia" &&
+          cambio.id === marca.datos.id_empleado,
+      );
+      await cliente.aplicarLote(secuencia ? [marca, secuencia] : [marca]);
     }
   }
 
@@ -529,6 +595,7 @@ export function createFirestoreRepository({
     return encolar(async () => {
       if (!cuentaActual?.activo) throw Error("Inicia sesión para guardar.");
       escribiendo += 1;
+      epoca += 1;
       try {
         const actual = structuredClone(
           cache || (await cargarEstado(cuentaActual)),
@@ -541,10 +608,14 @@ export function createFirestoreRepository({
           }),
         );
         const preparado = await prepararEvidencias(next);
-        const cambios = diferencias(
-          quitarDatosEvidencia(actual),
-          quitarDatosEvidencia(preparado),
-        );
+        const cambios = anexarSecuencia({
+          cuenta: cuentaActual,
+          antes: actual,
+          cambios: diferencias(
+            quitarDatosEvidencia(actual),
+            quitarDatosEvidencia(preparado),
+          ),
+        });
         for (const cambio of cambios) {
           if (!puedeEscribir(cuentaActual, cambio))
             throw Error("No tienes permiso para guardar ese cambio.");
@@ -562,7 +633,7 @@ export function createFirestoreRepository({
             }),
           });
         }
-        await cliente.aplicarLote(cambios);
+        await enviarCambios(cambios);
         await sincronizarAcceso(preparado);
         await provisionarTerminales(actual, preparado);
         respaldar(actual);
@@ -658,18 +729,34 @@ export function createFirestoreRepository({
         (await cliente.leerDocumento("indiceCuentas", "MARIA"))
       )
         throw Error("La administración ya está configurada.");
-      await cliente.escribirDocumento("cuentas", uid, {
-        rol: "admin",
-        idEmpleado: "MARIA",
-        activo: true,
-        correo,
-        empresa: null,
-        bitacoras: [],
-      });
       try {
-        await cliente.crearDocumento("indiceCuentas", "MARIA", { uid, correo });
+        await cliente.crearDocumentosAtomicos([
+          {
+            coleccion: "cuentas",
+            id: uid,
+            datos: {
+              rol: "admin",
+              idEmpleado: "MARIA",
+              activo: true,
+              correo,
+              empresa: null,
+              bitacoras: [],
+            },
+          },
+          {
+            coleccion: "indiceCuentas",
+            id: "MARIA",
+            datos: { uid, correo },
+          },
+        ]);
       } catch (error) {
-        if (!String(error.message).includes("Ya existe")) throw error;
+        if (error.code !== "already-exists") throw error;
+        const indice = await cliente.leerDocumento("indiceCuentas", "MARIA");
+        const cuenta = await cliente.leerDocumento("cuentas", uid);
+        if (indice?.uid !== uid || cuenta?.rol !== "admin")
+          throw Error("La administración ya está configurada.", {
+            cause: error,
+          });
       }
       await cliente.escribirDocumento("estado", "publico", {
         adminConfigurado: true,
@@ -692,18 +779,25 @@ export function createFirestoreRepository({
             correo,
             contrasena,
           );
-          await cliente.escribirDocumento("cuentas", creado.uid, {
-            rol: "trabajador",
-            idEmpleado: id,
-            empresa: cache?.access?.permissions?.[id]?.company || null,
-            bitacoras: cache?.access?.permissions?.[id]?.logs || [],
-            activo: true,
-            correo,
-          });
-          await cliente.crearDocumento("indiceCuentas", id, {
-            uid: creado.uid,
-            correo,
-          });
+          await cliente.crearDocumentosAtomicos([
+            {
+              coleccion: "cuentas",
+              id: creado.uid,
+              datos: {
+                rol: "trabajador",
+                idEmpleado: id,
+                empresa: cache?.access?.permissions?.[id]?.company || null,
+                bitacoras: cache?.access?.permissions?.[id]?.logs || [],
+                activo: true,
+                correo,
+              },
+            },
+            {
+              coleccion: "indiceCuentas",
+              id,
+              datos: { uid: creado.uid, correo },
+            },
+          ]);
         } catch (error) {
           if (error.code !== "auth/email-already-in-use")
             throw mensajeAuth(error);

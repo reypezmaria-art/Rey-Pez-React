@@ -9,10 +9,13 @@ import {
   leerConfiguracionFirebase,
 } from "../codigo/repositorios/firebaseConfiguracion.js";
 import { crearClienteMemoria } from "../codigo/repositorios/clienteMemoria.js";
+import { responderRestablecer } from "../funciones/restablecer.js";
 import {
+  anexarSecuencia,
   decidirMigracion,
   diferencias,
   localAportaDatos,
+  marcajePermitido,
   puedeEscribir,
   separarEvidencias,
 } from "../codigo/repositorios/modeloFirestore.js";
@@ -155,6 +158,27 @@ test("la migración sube datos locales y no pisa operación ya compartida", () =
     }),
     "omitir",
   );
+  assert.equal(
+    decidirMigracion({
+      marca: "",
+      localAporta: true,
+      remotoVacio: false,
+      origenRemoto: "navegador",
+      remotoSinOperacion: false,
+    }),
+    "conflicto",
+  );
+  assert.equal(
+    decidirMigracion({
+      marca: "hecha",
+      localAporta: true,
+      remotoVacio: false,
+      origenRemoto: "navegador",
+      remotoSinOperacion: false,
+      manual: true,
+    }),
+    "conflicto",
+  );
   assert.equal(localAportaDatos(null), false);
 });
 
@@ -188,9 +212,21 @@ test("las reglas de escritura reflejan a María, la terminal y la empresa del tr
   assert.equal(
     puedeEscribir(
       { rol: "terminal", activo: true },
-      { tipo: "poner", coleccion: "asistencia", existia: false, datos: {} },
+      {
+        tipo: "poner",
+        coleccion: "asistencia",
+        existia: false,
+        datos: { movimiento: "ENTRADA" },
+      },
     ),
     true,
+  );
+  assert.equal(
+    puedeEscribir(
+      { rol: "terminal", activo: true },
+      { tipo: "poner", coleccion: "asistencia", existia: false, datos: {} },
+    ),
+    false,
   );
   assert.equal(
     puedeEscribir(
@@ -213,10 +249,18 @@ test("las reglas de escritura reflejan a María, la terminal y la empresa del tr
     "esTerminal",
     "bitacoras",
     "empresa",
+    "existsAfter",
+    "getAfter",
+    "maria@",
+    "secuenciaAsistencia",
+    "fecha_ms",
+    "SALIDA_A_COMER",
   ])
     assert.match(reglas, new RegExp(texto));
   assert.match(storage, /evidencias/);
   assert.match(storage, /2 \* 1024 \* 1024/);
+  assert.doesNotMatch(storage, /terminal/);
+  assert.match(storage, /indiceCuentas\/MARIA/);
 });
 
 test("sin navegador la compresión no altera la evidencia", async () => {
@@ -346,4 +390,323 @@ test("Firestore de memoria migra, autentica y limita a la empresa autorizada", a
   await repo.cambiarEstadoTrabajador("AL-01", false);
   await repo.cerrarSesion();
   await assert.rejects(repo.autenticar("AL-01", "Nueva7"), /bloqueada/);
+});
+
+test("la secuencia de marcajes rechaza saltos y fechas fuera del turno", () => {
+  assert.equal(
+    marcajePermitido(null, {
+      movimiento: "SALIDA_FINAL",
+      fecha_hora: "2026-10-19T15:00:00.000Z",
+    }),
+    false,
+  );
+  const entrada = { ultimo: "ENTRADA", fecha: "2026-10-19" };
+  assert.equal(
+    marcajePermitido(entrada, {
+      movimiento: "SALIDA_A_COMER",
+      fecha_hora: "2026-10-19T18:00:00.000Z",
+    }),
+    true,
+  );
+  assert.equal(
+    marcajePermitido(entrada, {
+      movimiento: "SALIDA_FINAL",
+      fecha_hora: "2026-10-19T22:00:00.000Z",
+    }),
+    true,
+  );
+  assert.equal(
+    marcajePermitido(
+      { ultimo: "SALIDA_A_COMER", fecha: "2026-10-19" },
+      { movimiento: "SALIDA_FINAL", fecha_hora: "2026-10-19T22:00:00.000Z" },
+    ),
+    false,
+  );
+  const cambios = anexarSecuencia({
+    cuenta: brenda,
+    antes: {
+      employees: [
+        { id_empleado: "ES-06", empresa_codigo: "ESTUARDO", estatus: "Activo" },
+      ],
+      attendance: [],
+    },
+    cambios: [
+      {
+        tipo: "poner",
+        coleccion: "asistencia",
+        id: "marca-1",
+        existia: false,
+        datos: {
+          id_registro: "marca-1",
+          id_empleado: "ES-06",
+          empresa_codigo: "ESTUARDO",
+          movimiento: "ENTRADA",
+          fecha_hora: new Date().toISOString(),
+        },
+      },
+    ],
+  });
+  assert.equal(
+    cambios.some(
+      (cambio) =>
+        cambio.coleccion === "secuenciaAsistencia" &&
+        cambio.datos.ultimo === "ENTRADA",
+    ),
+    true,
+  );
+});
+
+function configuracionDePrueba() {
+  return leerConfiguracionFirebase({
+    ...entornoCompleto(),
+    VITE_FIREBASE_AUTH_EMAIL_DOMAIN: "usuarios.reypez.local",
+  });
+}
+
+test("la subida manual avisa cuando la nube y este navegador ya tienen datos", async () => {
+  const local = memoria();
+  const inicial = await createLocalRepository(local).load();
+  inicial.attendance.push({
+    id_registro: "previo",
+    id_empleado: "AL-01",
+    nombre_completo: "PERSONA REAL",
+    empresa_codigo: "ALLAN",
+    movimiento: "ENTRADA",
+    fecha_hora: "2026-10-12T15:00:00.000Z",
+    incidencia: "",
+    estado_sincronizacion: "Local - no sincronizado",
+  });
+  local.setItem(STORAGE_KEY, JSON.stringify(inicial));
+  const cliente = crearClienteMemoria();
+  const altas = [];
+  const original = cliente.crearDocumentosAtomicos.bind(cliente);
+  cliente.crearDocumentosAtomicos = async (escrituras) => {
+    altas.push(escrituras.map((item) => `${item.coleccion}/${item.id}`));
+    return original(escrituras);
+  };
+  const repo = createFirestoreRepository({
+    configuracion: configuracionDePrueba(),
+    cliente,
+    almacenamiento: local,
+  });
+  await repo.configurarAdministrador("Clave6");
+  const altaMaria = altas.find((alta) => alta.includes("indiceCuentas/MARIA"));
+  assert.ok(altaMaria);
+  assert.equal(
+    altaMaria.some((ruta) => ruta.startsWith("cuentas/")),
+    true,
+  );
+  assert.equal(
+    altas.filter((alta) => alta.includes("indiceCuentas/MARIA")).length,
+    1,
+  );
+  await assert.rejects(repo.subirDatosLocales(), /también en este navegador/);
+});
+
+test("vincular la terminal no deja la contraseña en el navegador", async () => {
+  const local = memoria();
+  local.setItem("reypez_device_id", "tableta-1");
+  const cliente = crearClienteMemoria();
+  let restablecimientos = 0;
+  const original = cliente.auth.restablecer.bind(cliente.auth);
+  cliente.auth.restablecer = async (...args) => {
+    restablecimientos += 1;
+    return original(...args);
+  };
+  const repo = createFirestoreRepository({
+    configuracion: configuracionDePrueba(),
+    cliente,
+    almacenamiento: local,
+  });
+  await repo.configurarAdministrador("Clave6");
+  await repo.transact((state) => ({
+    ...state,
+    terminals: [
+      {
+        id: "tableta-1",
+        name: "Recepción",
+        kind: "asistencia",
+        active: true,
+        by: "MARIA",
+      },
+    ],
+  }));
+  const guardado = JSON.parse(local.getItem("reypez_terminal_firebase_v1"));
+  assert.equal(Object.hasOwn(guardado, "contrasena"), false);
+  assert.equal(guardado.correo, "terminal-tableta-1@usuarios.reypez.local");
+  assert.equal(await cliente.auth.tieneTerminal(), true);
+  assert.equal(restablecimientos, 0);
+  await repo.transact((state) => ({
+    ...state,
+    terminals: state.terminals.map((item) =>
+      item.id === "tableta-1" ? { ...item, name: "Recepción 2" } : item,
+    ),
+  }));
+  assert.equal(restablecimientos, 0);
+  assert.equal(
+    JSON.parse(local.getItem("reypez_terminal_firebase_v1")).contrasena,
+    undefined,
+  );
+});
+
+test("un trabajador solo puede marcar el siguiente paso de su turno", async () => {
+  const local = memoria();
+  const cliente = crearClienteMemoria();
+  const repo = createFirestoreRepository({
+    configuracion: configuracionDePrueba(),
+    cliente,
+    almacenamiento: local,
+  });
+  await repo.configurarAdministrador("Clave6");
+  await repo.transact((state) => ({
+    ...state,
+    access: {
+      ...state.access,
+      permissions: {
+        ...state.access.permissions,
+        "AL-01": { company: "ALLAN", logs: ["epp"] },
+      },
+    },
+  }));
+  await repo.asignarContrasena("AL-01", "Trab06");
+  await repo.cerrarSesion();
+  await repo.autenticar("AL-01", "Trab06");
+  const marcar = (movimiento, cuando) =>
+    repo.transact((state) => ({
+      ...state,
+      attendance: [
+        {
+          id_registro: `${movimiento}-${cuando.getTime()}`,
+          id_empleado: "AL-01",
+          nombre_completo: "EMPLEADO DEMO ALLAN 1",
+          empresa_codigo: "ALLAN",
+          movimiento,
+          fecha_hora: cuando.toISOString(),
+          incidencia: "",
+          estado_sincronizacion: "Sincronizado",
+        },
+        ...state.attendance,
+      ],
+    }));
+  await assert.rejects(
+    marcar("ENTRADA", new Date("2020-01-01T15:00:00.000Z")),
+    /turno/,
+  );
+  await assert.rejects(marcar("SALIDA_FINAL", new Date()), /secuencia/);
+  const ahora = new Date();
+  await marcar("ENTRADA", ahora);
+  const cursor = await cliente.leerDocumento("secuenciaAsistencia", "AL-01");
+  assert.equal(cursor.ultimo, "ENTRADA");
+  await assert.rejects(
+    marcar("ENTRADA", new Date(ahora.getTime() + 60000)),
+    /secuencia/,
+  );
+  await marcar("SALIDA_FINAL", new Date(ahora.getTime() + 120000));
+  await marcar("ENTRADA", new Date(ahora.getTime() + 180000));
+  await assert.rejects(
+    marcar("REGRESO_DE_COMER", new Date(ahora.getTime() + 240000)),
+    /secuencia/,
+  );
+});
+
+test("restablecerContrasena no convierte fallos internos en 401", async () => {
+  const servicios = {
+    verificarToken: async (token) => {
+      if (token !== "bueno") throw Error("token");
+      return { uid: "uid-maria" };
+    },
+    leerCuenta: async () => ({
+      rol: "admin",
+      idEmpleado: "MARIA",
+      activo: true,
+    }),
+    leerIndice: async () => ({ uid: "uid-al" }),
+    actualizarContrasena: async () => {},
+  };
+  const solicitud = {
+    method: "POST",
+    token: "bueno",
+    body: { idEmpleado: "AL-01", contrasena: "Trab06" },
+  };
+  assert.equal(
+    (await responderRestablecer({ ...solicitud, method: "GET" }, servicios))
+      .status,
+    405,
+  );
+  assert.equal(
+    (await responderRestablecer({ ...solicitud, token: "" }, servicios)).status,
+    401,
+  );
+  assert.equal(
+    (await responderRestablecer({ ...solicitud, token: "malo" }, servicios))
+      .status,
+    401,
+  );
+  assert.equal(
+    (
+      await responderRestablecer(solicitud, {
+        ...servicios,
+        leerCuenta: async () => ({
+          rol: "trabajador",
+          idEmpleado: "AL-01",
+          activo: true,
+        }),
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await responderRestablecer(
+        { ...solicitud, body: { idEmpleado: "AL-01", contrasena: "123" } },
+        servicios,
+      )
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await responderRestablecer(solicitud, {
+        ...servicios,
+        leerIndice: async () => null,
+      })
+    ).status,
+    404,
+  );
+  assert.equal((await responderRestablecer(solicitud, servicios)).status, 200);
+  const debil = Error("débil");
+  debil.code = "auth/weak-password";
+  assert.equal(
+    (
+      await responderRestablecer(solicitud, {
+        ...servicios,
+        actualizarContrasena: async () => {
+          throw debil;
+        },
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await responderRestablecer(solicitud, {
+        ...servicios,
+        leerCuenta: async () => {
+          throw Error("firestore no disponible");
+        },
+      })
+    ).status,
+    500,
+  );
+  assert.equal(
+    (
+      await responderRestablecer(solicitud, {
+        ...servicios,
+        actualizarContrasena: async () => {
+          throw Error("fallo del admin sdk");
+        },
+      })
+    ).status,
+    500,
+  );
 });
