@@ -26,11 +26,7 @@ export default function PanelPrincipal({ navigate }) {
     });
   const cards = [
     ["Empresas", 3, "Allan · Edgar · Estuardo"],
-    [
-      "Empleados cargados",
-      data.employees.length,
-      data.catalogSource || "Catálogo de demostración",
-    ],
+    ["Empleados cargados", data.employees.length, "Personal registrado"],
     [
       "Registros de hoy",
       today.length,
@@ -56,11 +52,6 @@ export default function PanelPrincipal({ navigate }) {
           Revisar asistencia
         </button>
       </EncabezadoPagina>
-      <div className="note">
-        {usaFirebase
-          ? "Los cambios guardados se comparten entre los equipos conectados a Rey Pez."
-          : "Revisión local: los datos se guardan únicamente en este navegador."}
-      </div>
       <div className="cards">
         {cards.map(([label, value, foot]) => (
           <div className="card" key={label}>
