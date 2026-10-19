@@ -11,6 +11,7 @@ export const COLECCIONES = [
   { estado: "maintenance", coleccion: "mantenimiento", id: "id" },
   { estado: "absenceReviews", coleccion: "revisiones", id: "id" },
   { estado: "audit", coleccion: "auditoria", id: "id" },
+  { estado: "securityAlerts", coleccion: "alertasSeguridad", id: "id_alerta" },
 ];
 export const CAMPOS_OPERACION = [
   "rooms",
@@ -171,6 +172,7 @@ export function armarEstado({
       RECIENTES.absenceReviews,
     ),
     audit: porReciente(listas.audit || [], RECIENTES.audit),
+    securityAlerts: porReciente(listas.securityAlerts || [], "fecha_hora"),
     access: {
       admin: adminUid ? { active: true, uid: adminUid } : null,
       workers: trabajadoresDesde(usuarios),

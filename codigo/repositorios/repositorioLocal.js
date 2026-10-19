@@ -54,6 +54,7 @@ export function validateState(state) {
     "absenceReviews",
     "scheduleExceptions",
     "audit",
+    "securityAlerts",
   ])
     if (state[key] !== undefined && !Array.isArray(state[key]))
       throw Error(`El respaldo tiene un campo inválido: ${key}.`);

@@ -4,7 +4,9 @@ service firebase.storage {
     function admin() {
       return request.auth != null
         && firestore.exists(/databases/(default)/documents/acceso/admin)
-        && firestore.get(/databases/(default)/documents/acceso/admin).data.uid == request.auth.uid;
+        && firestore.get(/databases/(default)/documents/acceso/admin).data.uid == request.auth.uid
+        && (!firestore.exists(/databases/(default)/documents/controlAccesos/MARIA)
+          || firestore.get(/databases/(default)/documents/controlAccesos/MARIA).data.bloqueado != true);
     }
     function ficha() {
       return firestore.get(/databases/(default)/documents/usuarios/$(request.auth.uid)).data;
@@ -17,6 +19,8 @@ service firebase.storage {
         && ficha().rol == "trabajador"
         && ficha().activo == true
         && ficha().idEmpleado is string
+        && (!firestore.exists(/databases/(default)/documents/controlAccesos/$(ficha().idEmpleado))
+          || firestore.get(/databases/(default)/documents/controlAccesos/$(ficha().idEmpleado)).data.bloqueado != true)
         && permiso().company == empresa
         && tipo in permiso().logs;
     }

@@ -7,7 +7,9 @@ service cloud.firestore {
     function esAdmin() {
       return firmado()
         && exists(/databases/$(database)/documents/acceso/admin)
-        && get(/databases/$(database)/documents/acceso/admin).data.uid == request.auth.uid;
+        && get(/databases/$(database)/documents/acceso/admin).data.uid == request.auth.uid
+        && (!exists(/databases/$(database)/documents/controlAccesos/MARIA)
+          || get(/databases/$(database)/documents/controlAccesos/MARIA).data.bloqueado != true);
     }
     function ficha() {
       return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
@@ -16,7 +18,9 @@ service cloud.firestore {
       return firmado()
         && ficha().rol == "trabajador"
         && ficha().activo == true
-        && ficha().idEmpleado is string;
+        && ficha().idEmpleado is string
+        && (!exists(/databases/$(database)/documents/controlAccesos/$(ficha().idEmpleado))
+          || get(/databases/$(database)/documents/controlAccesos/$(ficha().idEmpleado)).data.bloqueado != true);
     }
     function esTerminal() {
       return firmado()
@@ -123,7 +127,7 @@ service cloud.firestore {
 
     match /empleados/{id} {
       allow read: if esAdmin() || esTerminal()
-        || (esTrabajador() && resource.data.empresa_codigo == permiso().company);
+        || (esTrabajador() && (resource.data.id_empleado == ficha().idEmpleado || resource.data.empresa_codigo == permiso().company));
       allow write: if esAdmin();
     }
     match /horarios/{id} {
@@ -186,6 +190,14 @@ service cloud.firestore {
           && request.resource.data.id_empleado is string
           && empleadoActivo(request.resource.data.id_empleado));
       allow update, delete: if esAdmin();
+    }
+    match /alertasSeguridad/{id} {
+      allow read, update: if esAdmin();
+      allow create, delete: if false;
+    }
+    match /controlAccesos/{id} {
+      allow read: if esAdmin();
+      allow write: if false;
     }
     match /operacion/config {
       allow read: if esAdmin() || esTrabajador() || esTerminal();

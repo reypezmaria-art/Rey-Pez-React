@@ -10,9 +10,15 @@ import {
 import { recordAttendance } from "../dominio/operaciones.js";
 import { saveLog } from "../dominio/bitacoras.js";
 import {
+  alertaSeguridad,
+  errorBloqueo,
+  registrarIntentoLocal,
+} from "../dominio/controlAcceso.js";
+import {
   adoptarTerminal,
   iniciarSesion,
   verificarTrabajador,
+  registrarDenegacion,
 } from "../firebase/sesion.js";
 export default function ProveedorAplicacion({ children }) {
   const [data, setData] = useState(null),
@@ -21,6 +27,7 @@ export default function ProveedorAplicacion({ children }) {
     [session, setSession] = useState(null),
     [aviso, setAviso] = useState(""),
     [avisoNube, setAvisoNube] = useState(""),
+    [avisoAcceso, setAvisoAcceso] = useState(null),
     [clock, setClock] = useState(() => new Date());
   useEffect(() => {
     if (typeof repository.observarAviso !== "function") return undefined;
@@ -63,7 +70,7 @@ export default function ProveedorAplicacion({ children }) {
   async function login(id, password) {
     const key = id.trim().toUpperCase();
     if (usaFirebase) {
-      await iniciarSesion(key, password);
+      await autenticar(() => iniciarSesion(key, password));
       const state = await repository.load();
       setData(state);
       if (key === "MARIA") {
@@ -84,8 +91,7 @@ export default function ProveedorAplicacion({ children }) {
       return;
     }
     if (key === "MARIA") {
-      if (!(await verifyCredential(data.access.admin, password)))
-        throw Error("ID o contraseña incorrectos.");
+      await validarLocal(key, password);
       setAviso("");
       setSession({ id: "MARIA", name: "María", role: "admin" });
       return;
@@ -93,13 +99,80 @@ export default function ProveedorAplicacion({ children }) {
     const employee = data.employees.find(
       (e) => e.id_empleado === key && e.estatus !== "Baja",
     );
-    if (
-      !employee ||
-      !(await verifyCredential(data.access.workers[key], password))
-    )
-      throw Error("ID o contraseña incorrectos.");
+    await validarLocal(key, password);
+    if (!employee) throw Error("ID o contraseña incorrectos.");
     setAviso("");
     setSession({ id: key, name: employee.nombre_completo, role: "worker" });
+  }
+  async function autenticar(accion) {
+    try {
+      return await accion();
+    } catch (err) {
+      if (err.code === "acceso/bloqueado")
+        setAvisoAcceso({ tipo: "bloqueado" });
+      throw err;
+    }
+  }
+  async function validarLocal(key, password) {
+    let valido = false,
+      bloqueado = false;
+    // La verificación ocurre antes de la transacción; dentro se valida que la cuenta no cambió.
+    const actual = await repository.load();
+    const cuenta =
+      key === "MARIA" ? actual.access.admin : actual.access.workers[key];
+    valido = await verifyCredential(cuenta, password);
+    await mutate((state) => {
+      const vigente =
+        key === "MARIA" ? state.access.admin : state.access.workers[key];
+      if (vigente?.hash !== cuenta?.hash)
+        throw Error("El acceso cambió. Intenta de nuevo.");
+      const resultado = registrarIntentoLocal(state, key, valido);
+      bloqueado = resultado.bloqueado;
+      return resultado.state;
+    });
+    if (bloqueado) {
+      setAvisoAcceso({ tipo: "bloqueado" });
+      throw errorBloqueo();
+    }
+    if (!valido) throw Error("ID o contraseña incorrectos.");
+  }
+  async function denegarAcceso(modulo) {
+    if (!session) return;
+    setAvisoAcceso({ tipo: "denegado" });
+    try {
+      if (usaFirebase) await registrarDenegacion({ modulo });
+      else
+        await mutate((state) => ({
+          ...state,
+          securityAlerts: [
+            alertaSeguridad(
+              state,
+              session.id,
+              "Acceso denegado",
+              "Intento de abrir una sección sin autorización.",
+              modulo,
+            ),
+            ...(state.securityAlerts || []),
+          ],
+        }));
+    } catch {
+      setAvisoAcceso(
+        (actual) =>
+          actual && {
+            ...actual,
+            detalle:
+              "El acceso está bloqueado, pero no se pudo guardar la alerta. Revisa la conexión.",
+          },
+      );
+    }
+  }
+  function volverInicio() {
+    setAvisoAcceso(null);
+    if (session?.role === "admin") return;
+    setSession(null);
+    repository.cerrarSesion?.();
+    if (!location.hash.startsWith("#asistencia"))
+      location.hash = "#administracion";
   }
   async function setup(password) {
     if (usaFirebase) {
@@ -126,7 +199,7 @@ export default function ProveedorAplicacion({ children }) {
         throw Error(
           "Solicita a María que asigne tu contraseña antes de registrar.",
         );
-      await verificarTrabajador(key, password);
+      await autenticar(() => verificarTrabajador(key, password));
       let result;
       await mutate((state) => {
         result = recordAttendance(state, id, password, new Date(), true);
@@ -135,11 +208,8 @@ export default function ProveedorAplicacion({ children }) {
       return result;
     }
     const credential = data.access.workers[key];
-    const authenticated = credential?.hash
-      ? await verifyCredential(credential, password)
-      : false;
-    if (credential?.hash && !authenticated)
-      throw Error("ID o contraseña incorrectos.");
+    if (credential?.hash) await validarLocal(key, password);
+    const authenticated = Boolean(credential?.hash);
     let result;
     await mutate((state) => {
       if (state.access.workers[key]?.hash !== credential?.hash)
@@ -177,6 +247,9 @@ export default function ProveedorAplicacion({ children }) {
         session,
         clock,
         aviso,
+        avisoAcceso,
+        volverInicio,
+        denegarAcceso,
         avisar: setAviso,
         login,
         setup,

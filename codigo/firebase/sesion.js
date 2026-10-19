@@ -42,6 +42,12 @@ const MENSAJES = {
 let servicios;
 
 export function mensajeFirebase(error) {
+  if (error?.code === "acceso/bloqueado") return error;
+  if (error?.details?.bloqueado || error?.code === "auth/user-disabled")
+    return Object.assign(
+      Error("Demasiados intentos. Comunícate con el personal autorizado."),
+      { code: "acceso/bloqueado" },
+    );
   const bruto = String(error?.message || "");
   const embebido = bruto.match(/auth\/[a-z0-9-]+/i)?.[0] || "";
   const codigo = error?.code || embebido;
@@ -123,11 +129,8 @@ export async function crearCuentaMaria(password) {
 export async function iniciarSesion(id, password) {
   const { auth } = obtenerServicios();
   try {
-    await signInWithEmailAndPassword(
-      auth,
-      correoDeCuenta(id, dominioAcceso()),
-      password,
-    );
+    const { token } = await autenticarCuenta(id, password);
+    await signInWithCustomToken(auth, token);
   } catch (error) {
     throw mensajeFirebase(error);
   }
@@ -137,15 +140,35 @@ export async function iniciarSesion(id, password) {
 export async function verificarTrabajador(id, password) {
   const auth = authSecundaria();
   try {
-    await signInWithEmailAndPassword(
-      auth,
-      correoDeCuenta(id, dominioAcceso()),
-      password,
-    );
+    await setPersistence(auth, inMemoryPersistence);
+    const { token } = await autenticarCuenta(id, password);
+    await signInWithCustomToken(auth, token);
   } catch (error) {
     throw mensajeFirebase(error);
   } finally {
     if (auth.currentUser) await signOut(auth);
+  }
+}
+async function autenticarCuenta(id, contrasena) {
+  const { app } = obtenerServicios();
+  try {
+    const resultado = await httpsCallable(
+      getFunctions(app),
+      "autenticarCuenta",
+    )({ id, contrasena });
+    return resultado.data;
+  } catch (error) {
+    throw mensajeFirebase(error);
+  }
+}
+export async function registrarDenegacion(datos) {
+  const { app } = obtenerServicios();
+  try {
+    return (
+      await httpsCallable(getFunctions(app), "registrarAccesoDenegado")(datos)
+    ).data;
+  } catch (error) {
+    throw mensajeFirebase(error);
   }
 }
 export async function cambiarContrasenaMaria(password) {

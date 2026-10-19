@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAplicacion } from "./ContextoAplicacion.js";
 import PanelPrincipal from "../paginas/PanelPrincipal.jsx";
 import Personal from "../paginas/Personal.jsx";
@@ -12,6 +12,8 @@ import LogoMarca from "../componentes/LogoMarca.jsx";
 import Encabezado from "../componentes/Encabezado.jsx";
 import RegistroTrabajador from "../componentes/RegistroTrabajador.jsx";
 import Acceso from "../componentes/Acceso.jsx";
+import AvisoAcceso from "../componentes/AvisoAcceso.jsx";
+import { destinoRestringido } from "../dominio/controlAcceso.js";
 import { deviceId } from "../utilidades/dispositivo.js";
 import { fraseDelDia } from "../datos/frasesDiarias.js";
 const pages = {
@@ -38,7 +40,8 @@ const navigation = [
   ["security", "🔐", "Seguridad"],
 ];
 export default function Aplicacion() {
-  const { data, session, logout, clock } = useAplicacion();
+  const { data, session, logout, clock, avisoAcceso, volverInicio } =
+    useAplicacion();
   const frase = fraseDelDia(clock);
   const [page, setPage] = useState("dashboard"),
     [kiosk, setKiosk] = useState(false),
@@ -53,6 +56,15 @@ export default function Aplicacion() {
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
+  if (avisoAcceso)
+    return (
+      <main className="access-screen">
+        <AvisoAcceso {...avisoAcceso} onInicio={volverInicio} />
+      </main>
+    );
+  const restringido = destinoRestringido(data, session, route);
+  if (restringido)
+    return <RutaDenegada key={`${session.id}-${route}`} modulo={restringido} />;
   if (mode === "asistencia") {
     const linked = data.terminals.some(
       (t) => t.id === deviceId() && t.kind === "asistencia" && t.active,
@@ -143,4 +155,16 @@ export default function Aplicacion() {
       </footer>
     </>
   );
+}
+
+function RutaDenegada({ modulo }) {
+  const { denegarAcceso } = useAplicacion();
+  const enviado = useRef(false);
+  useEffect(() => {
+    if (!enviado.current) {
+      enviado.current = true;
+      denegarAcceso(modulo);
+    }
+  }, [modulo, denegarAcceso]);
+  return <main role="status">Comprobando permisos…</main>;
 }

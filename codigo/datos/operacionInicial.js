@@ -87,4 +87,5 @@ export const baseOperation = {
   absenceReviews: [],
   scheduleExceptions: [],
   audit: [],
+  securityAlerts: [],
 };

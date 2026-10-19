@@ -288,6 +288,45 @@ test("las reglas separan a María, la empresa y la secuencia", async () => {
         "data_url",
       ),
     );
+    await entorno.withSecurityRulesDisabled(async (contexto) => {
+      await setDoc(doc(contexto.firestore(), "alertasSeguridad", "intento"), {
+        tipo: "Acceso denegado",
+        estado: "Pendiente",
+      });
+      await setDoc(doc(contexto.firestore(), "controlAccesos", "ES-01"), {
+        bloqueado: true,
+        intentos: 4,
+      });
+    });
+    await assertSucceeds(
+      getDoc(doc(maria.firestore(), "alertasSeguridad", "intento")),
+    );
+    await assertFails(getDoc(doc(dbTerminal, "alertasSeguridad", "intento")));
+    await assertFails(getDoc(doc(dbTrabajo, "alertasSeguridad", "intento")));
+    await assertFails(
+      setDoc(doc(dbTrabajo, "controlAccesos", "ES-01"), {
+        bloqueado: false,
+        intentos: 0,
+      }),
+    );
+    await assertFails(
+      setDoc(doc(maria.firestore(), "controlAccesos", "ES-01"), {
+        bloqueado: false,
+        intentos: 0,
+      }),
+    );
+    await assertFails(
+      setDoc(doc(dbTrabajo, "alertasSeguridad", "falsa"), { tipo: "Falsa" }),
+    );
+    await assertFails(getDoc(doc(dbTrabajo, "bitacoras", "suya")));
+    await assertFails(getBytes(fotoPropia));
+    await entorno.withSecurityRulesDisabled(async (contexto) => {
+      await setDoc(doc(contexto.firestore(), "controlAccesos", "MARIA"), {
+        bloqueado: true,
+        intentos: 4,
+      });
+    });
+    await assertFails(getDoc(doc(maria.firestore(), "bitacoras", "suya")));
     assert.equal(entorno.projectId, "demo-rey-pez");
   } finally {
     await entorno.cleanup();

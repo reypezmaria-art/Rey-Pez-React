@@ -63,6 +63,8 @@ async function ingresarComoAdmin(page) {
 }
 
 async function intentarIngreso(page, id, clave) {
+  if (!new URL(page.url()).hash.startsWith("#captura"))
+    await page.goto("/#captura");
   await page.getByLabel("ID", { exact: true }).fill(id);
   await page.getByLabel("Contraseña", { exact: true }).fill(clave);
   await page.getByRole("button", { name: "Ingresar", exact: true }).click();
@@ -70,6 +72,7 @@ async function intentarIngreso(page, id, clave) {
 
 async function cerrarSesion(page) {
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
+  await page.goto("/#administracion");
   await expect(
     page.getByRole("heading", { name: "Bienvenido a Rey Pez", exact: true }),
   ).toBeVisible();
@@ -157,11 +160,9 @@ test("rechaza ingresos fallidos y respeta el bloqueo manual del acceso", async (
 
   await intentarIngreso(page, TRABAJADORA_ESTUARDO, CLAVE_TRABAJO);
   await expect(
-    page.getByRole("heading", { name: "Captura operativa autorizada" }),
+    page.getByRole("heading", { name: "¡ACCESO DENEGADO!" }),
   ).toBeVisible();
-  await expect(page.getByText(NOMBRE_ESTUARDO)).toBeVisible();
-  await expect(page.getByRole("navigation")).toHaveCount(0);
-  await cerrarSesion(page);
+  await page.getByRole("button", { name: "Volver al inicio" }).click();
   await ingresarComoAdmin(page);
 
   await navegacion(page, "Seguridad").click();
@@ -177,11 +178,11 @@ test("rechaza ingresos fallidos y respeta el bloqueo manual del acceso", async (
     page.getByRole("heading", { name: "Bienvenido a Rey Pez", exact: true }),
   ).toBeVisible();
   await intentarIngreso(page, TRABAJADORA_ESTUARDO, CLAVE_TRABAJO);
-  await expect(page.getByRole("alert")).toHaveText(
-    "ID o contraseña incorrectos.",
-  );
+  await expect(
+    page.getByRole("heading", { name: "¡DEMASIADOS INTENTOS!" }),
+  ).toBeVisible();
   await expect(page.getByRole("navigation")).toHaveCount(0);
-
+  await page.getByRole("button", { name: "Volver al inicio" }).click();
   await ingresarComoAdmin(page);
   await navegacion(page, "Seguridad").click();
   await page
@@ -193,7 +194,7 @@ test("rechaza ingresos fallidos y respeta el bloqueo manual del acceso", async (
   await cerrarSesion(page);
   await intentarIngreso(page, TRABAJADORA_ESTUARDO, CLAVE_TRABAJO);
   await expect(
-    page.getByRole("heading", { name: "Captura operativa autorizada" }),
+    page.getByRole("heading", { name: "¡ACCESO DENEGADO!" }),
   ).toBeVisible();
   expect(errores).toEqual([]);
 });
@@ -208,21 +209,11 @@ test("la trabajadora de demostración de Estuardo solo ve su empresa y bitácora
   await cerrarSesion(page);
   await intentarIngreso(page, TRABAJADORA_ESTUARDO, CLAVE_TRABAJO);
   await expect(
-    page.getByRole("heading", { name: "Captura operativa autorizada" }),
-  ).toBeVisible();
-  await expect(page.getByText("Empresa autorizada: Pendiente")).toBeVisible();
-  await expect(
-    page.getByText(
-      "María debe autorizar las bitácoras de tu perfil para esta empresa.",
-    ),
+    page.getByRole("heading", { name: "¡ACCESO DENEGADO!" }),
   ).toBeVisible();
   await expect(page.locator(".folder-card")).toHaveCount(0);
   await expect(page.getByRole("navigation")).toHaveCount(0);
-  await expect(page.getByLabel("Empresa de carpeta")).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Personal", exact: true }),
-  ).toHaveCount(0);
-  await cerrarSesion(page);
+  await page.getByRole("button", { name: "Volver al inicio" }).click();
   await ingresarComoAdmin(page);
 
   await navegacion(page, "Seguridad").click();
@@ -312,14 +303,12 @@ test("la trabajadora de demostración de Estuardo solo ve su empresa y bitácora
     location.hash = "#captura?area=ALLAN-1";
   });
   await expect(
-    page.getByText(
-      "María debe autorizar las bitácoras de tu perfil para esta empresa.",
-    ),
+    page.getByRole("heading", { name: "¡ACCESO DENEGADO!" }),
   ).toBeVisible();
   await expect(page.locator(".folder-card")).toHaveCount(0);
-  await page.evaluate(() => {
-    location.hash = "#captura?area=ESTUARDO-1";
-  });
+  await page.getByRole("button", { name: "Volver al inicio" }).click();
+  await page.goto("/#captura?area=ESTUARDO-1");
+  await intentarIngreso(page, TRABAJADORA_ESTUARDO, CLAVE_TRABAJO);
   await expect(page.locator(".folder-card")).toHaveCount(2);
   await page
     .getByRole("button", { name: /^Temperaturas · cuartos fríos/ })

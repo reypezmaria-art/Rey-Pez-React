@@ -27,6 +27,7 @@ async function access(page) {
       .getByRole("button", { name: "Crear acceso y abrir panel" })
       .click();
   } else {
+    await page.getByLabel("ID", { exact: true }).fill("MARIA");
     await page.getByLabel("Contraseña", { exact: true }).fill("Clave6");
     await page.getByRole("button", { name: "Ingresar", exact: true }).click();
   }
@@ -355,9 +356,7 @@ test("temperaturas, mantenimiento, QR, permisos y terminal aislada", async ({
   await expect(page.getByLabel("Cuarto frío", { exact: true })).toBeDisabled();
   await page.goto("/#captura?area=ALLAN-1");
   await expect(
-    page.getByText(
-      "María debe autorizar las bitácoras de tu perfil para esta empresa.",
-    ),
+    page.getByRole("heading", { name: "¡ACCESO DENEGADO!" }),
   ).toBeVisible();
   expect(errors).toEqual([]);
 });

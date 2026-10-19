@@ -6,7 +6,7 @@ import { usaFirebase } from "../repositorios/repositorio.js";
 export default function Acceso({ operational = false }) {
   const { data, login, setup, pending, aviso } = useAplicacion();
   const first = !data.access.admin && !operational;
-  const [id, setId] = useState(operational ? "" : "MARIA"),
+  const [id, setId] = useState(""),
     [password, setPassword] = useState(""),
     [confirmation, setConfirmation] = useState(""),
     [error, setError] = useState("");

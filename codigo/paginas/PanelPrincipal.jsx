@@ -37,6 +37,8 @@ export default function PanelPrincipal({ navigate }) {
     [
       "Alertas por revisar",
       data.alerts.filter((a) => a.estado === "Pendiente").length +
+        (data.securityAlerts || []).filter((a) => a.estado === "Pendiente")
+          .length +
         absences.length +
         due.length,
       "Solo administración",
@@ -82,6 +84,15 @@ export default function PanelPrincipal({ navigate }) {
         ))}
       </div>
       <div className="columns">
+        {(data.securityAlerts || []).some((a) => a.estado === "Pendiente") && (
+          <div className="panel">
+            <h2>Alertas de seguridad</h2>
+            <p>Hay cuentas bloqueadas o intentos de entrar sin permiso.</p>
+            <button onClick={() => navigate("security")}>
+              Revisar alertas de seguridad
+            </button>
+          </div>
+        )}
         <div className="panel">
           <h2>Pendientes administrativos</h2>
           <p>

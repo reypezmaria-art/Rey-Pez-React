@@ -937,3 +937,84 @@ header .header-access button:hover {
   align-items: start;
   margin-bottom: 16px;
 }
+
+/* Avisos de acceso: el texto queda separado de la ilustración animada. */
+.access-notice {
+  width: min(100%, 900px);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #07374d;
+  color: #effdff;
+}
+.access-notice-scene {
+  position: relative;
+  container-type: inline-size;
+  aspect-ratio: 1408 / 820;
+  background: #086987;
+}
+.access-notice canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.access-notice-message {
+  position: absolute;
+  inset: 4% 3% auto;
+  padding: 6px 4px 10px;
+  text-align: center;
+  pointer-events: none;
+  color: #ffe49a;
+  text-shadow:
+    0 2px 2px #002f49,
+    1px 0 #002f49,
+    -1px 0 #002f49;
+  overflow: visible;
+}
+.access-notice-message h1 {
+  display: block;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  white-space: normal;
+  font-family: Arial, sans-serif;
+  font-size: clamp(16px, 4.8cqw, 38px);
+  font-weight: 800;
+  line-height: 1.4;
+  letter-spacing: 0;
+  margin: 0;
+  padding: 3px 0 5px;
+  color: inherit;
+}
+.access-notice-message p {
+  height: auto;
+  overflow: visible;
+  white-space: normal;
+  font-family: Arial, sans-serif;
+  font-size: clamp(11px, 2.6cqw, 21px);
+  font-weight: 700;
+  margin: 0;
+  padding: 2px 4px 6px;
+  line-height: 1.5;
+  color: inherit;
+}
+.access-notice-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.access-notice-bar button {
+  background: #f6cb65;
+  color: #18354a;
+  border-color: #f6cb65;
+  white-space: normal;
+  line-height: 1.5;
+}
+.access-notice-detail {
+  margin: 0;
+  padding: 0 16px 16px;
+  color: #effdff;
+}

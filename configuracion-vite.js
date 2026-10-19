@@ -30,6 +30,7 @@ function localEmployeeCatalog() {
 }
 export default defineConfig({
   publicDir: "publico",
+  optimizeDeps: { entries: ["index.html"] },
   build: {
     outDir: "compilado",
     assetsDir: "recursos",

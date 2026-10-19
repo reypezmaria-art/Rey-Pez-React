@@ -129,7 +129,17 @@ export function createFirebaseRepository() {
         estado: coleccion.estado,
         referencia: collection(db, coleccion.coleccion),
       }));
-    if (perfil.rol !== "trabajador" || !perfil.permiso?.company) return [];
+    if (perfil.rol !== "trabajador") return [];
+    if (!perfil.permiso?.company)
+      return [
+        {
+          estado: "employees",
+          referencia: query(
+            collection(db, "empleados"),
+            where("id_empleado", "==", perfil.idEmpleado),
+          ),
+        },
+      ];
     const fuentes = [
       {
         estado: "employees",

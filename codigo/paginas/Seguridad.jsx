@@ -15,6 +15,7 @@ import {
 } from "../dominio/seguridad.js";
 import { usaFirebase } from "../repositorios/repositorio.js";
 import { gestionarPanelAdmin, gestionarAcceso } from "../firebase/sesion.js";
+import { formatDateTime } from "../utilidades/fechas.js";
 export default function Seguridad() {
   const { data, commit, pending } = useAplicacion();
   const [employeeId, setEmployeeId] = useState(""),
@@ -104,6 +105,11 @@ export default function Seguridad() {
                 [employeeId]: credential || {
                   ...state.access.workers[employeeId],
                   active: action === "enable",
+                  locked: action !== "enable",
+                  failedAttempts:
+                    action === "enable"
+                      ? 0
+                      : state.access.workers[employeeId]?.failedAttempts || 0,
                 },
               },
             },
@@ -192,6 +198,79 @@ export default function Seguridad() {
       <EncabezadoPagina title="Seguridad y permisos" />
       <Mensaje>{message}</Mensaje>
       <Mensaje error>{error}</Mensaje>
+      <section className="panel" aria-label="Alertas de seguridad">
+        <h2>Alertas de seguridad</h2>
+        <p>
+          El bloqueo afecta únicamente a esa cuenta. Selecciona al empleado y
+          usa «Habilitar acceso» o restablece su contraseña para desbloquearlo.
+        </p>
+        {(data.securityAlerts || []).length ? (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha y hora</th>
+                  <th>Cuenta</th>
+                  <th>Aviso</th>
+                  <th>Sección</th>
+                  <th>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(data.securityAlerts || []).map((a) => (
+                  <tr key={a.id_alerta}>
+                    <td>{formatDateTime(a.fecha_hora)}</td>
+                    <td>
+                      {data.employees.find(
+                        (e) => e.id_empleado === a.id_empleado,
+                      )?.nombre_completo || a.id_empleado}
+                    </td>
+                    <td>
+                      {a.tipo}
+                      <br />
+                      {a.detalle}
+                    </td>
+                    <td>{a.modulo}</td>
+                    <td>
+                      {a.estado === "Pendiente" ? (
+                        <button
+                          disabled={pending}
+                          onClick={async () => {
+                            try {
+                              await commit((state) => ({
+                                ...state,
+                                securityAlerts: state.securityAlerts.map(
+                                  (item) =>
+                                    item.id_alerta === a.id_alerta
+                                      ? {
+                                          ...item,
+                                          estado: "Revisada",
+                                          revisadaPor: "MARIA",
+                                          revisadaEn: new Date().toISOString(),
+                                        }
+                                      : item,
+                                ),
+                              }));
+                            } catch (err) {
+                              setError(err.message);
+                            }
+                          }}
+                        >
+                          Marcar revisada
+                        </button>
+                      ) : (
+                        "Revisada"
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p>Sin alertas de seguridad.</p>
+        )}
+      </section>
       <div className="columns security-columns">
         <form className="panel" onSubmit={submit}>
           <h2>Acceso del trabajador</h2>
