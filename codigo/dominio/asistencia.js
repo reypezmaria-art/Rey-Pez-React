@@ -17,8 +17,12 @@ export function scheduleForEmployee(
   const eligible = schedules
     .map((s) => {
       let current = s;
-      while (current?.vigente_desde && current.vigente_desde > date)
+      const seen = new Set();
+      while (current?.vigente_desde && current.vigente_desde > date) {
+        if (seen.has(current)) break;
+        seen.add(current);
         current = current.previousSchedule;
+      }
       return current;
     })
     .filter(Boolean);
@@ -94,7 +98,10 @@ export function scheduledEvent(
   if (!last || last.movimiento === "SALIDA_FINAL")
     return { movement: "ENTRADA", label: "Entrada", expected: within(start) };
   if (last.movimiento === "ENTRADA") {
-    if (end !== null && current >= end - 60)
+    // La comida es flexible durante el turno. Solo la ventana de tolerancia
+    // de la salida se interpreta como fin de jornada; si no, el turno 06–14
+    // registraba la comida de las 13:00 como salida.
+    if (end !== null && current >= end - tolerance)
       return {
         movement: "SALIDA_FINAL",
         label: "Salida de turno",

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Campo, Mensaje } from "./ElementosInterfaz.jsx";
 import { localDate } from "../utilidades/fechas.js";
+import { concordar } from "../utilidades/textos.js";
 import { downloadReport } from "../utilidades/reportesPdf.js";
 export default function ExportarPdf({ data, records, kind, title, company }) {
   const [from, setFrom] = useState(() => `${localDate().slice(0, 7)}-01`);
@@ -21,7 +22,9 @@ export default function ExportarPdf({ data, records, kind, title, company }) {
         from,
         to,
       });
-      setMessage(`PDF generado: ${count} registros del período seleccionado.`);
+      setMessage(
+        `PDF generado: ${concordar(count, "registro", "registros")} del período seleccionado.`,
+      );
     } catch (err) {
       setError(err.message);
     }

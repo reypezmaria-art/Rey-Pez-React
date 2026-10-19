@@ -148,20 +148,16 @@ export default function CarpetasBitacoras({
             title: a.name,
             area: a.id,
           }))
-          .concat(
-            selectedCompany !== "ESTUARDO"
-              ? [
-                  {
-                    id: "epp-rooms",
-                    type: "epp",
-                    title: "Cuartos fríos · equipo de protección",
-                    allowedAreaIds: data.rooms
-                      .filter((r) => r.company === selectedCompany && r.active)
-                      .map((r) => r.id),
-                  },
-                ]
-              : [],
-          )
+          .concat([
+            {
+              id: "epp-rooms",
+              type: "epp",
+              title: "Cuartos fríos · equipo de protección",
+              allowedAreaIds: data.rooms
+                .filter((r) => r.company === selectedCompany && r.active)
+                .map((r) => r.id),
+            },
+          ])
   ).filter((s) => canCapture(data, session, selectedCompany, s.type));
   const current = sections.find((s) => s.id === selected);
   const allowedQr =

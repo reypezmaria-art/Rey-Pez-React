@@ -341,7 +341,7 @@ test("exporta el PDF del rango elegido con el nombre y el contenido del período
   );
   await expect(
     page.getByRole("status").filter({ hasText: "PDF generado" }),
-  ).toHaveText("PDF generado: 1 registros del período seleccionado.");
+  ).toHaveText("PDF generado: 1 registro del período seleccionado.");
   const textoIncluido = textoPdf(await bytesDescarga(pdfIncluido));
   expect(textoIncluido.startsWith("%PDF-")).toBe(true);
   for (const fragmento of [
@@ -452,7 +452,7 @@ test("exporta el respaldo JSON, rechaza copias inválidas y restaura la descarga
       alertaJson = await page.getByRole("alert").innerText();
   }
   expect(alertaJson).toBe(
-    "Unexpected token 'o', \"no-es-json\" is not valid JSON",
+    "El archivo no es un JSON válido. Elige un respaldo exportado desde Reportes.",
   );
   expect(dialogos).toEqual([]);
   page.off("dialog", registrarDialogo);
@@ -475,6 +475,7 @@ test("exporta el respaldo JSON, rechaza copias inválidas y restaura la descarga
   await expect(
     page.getByRole("heading", { name: "Bienvenido a Rey Pez", exact: true }),
   ).toBeVisible();
+  await expect(page.getByRole("status")).toHaveText("Respaldo restaurado.");
   await expect(
     page.getByRole("heading", { name: "Configurar acceso de María" }),
   ).toHaveCount(0);

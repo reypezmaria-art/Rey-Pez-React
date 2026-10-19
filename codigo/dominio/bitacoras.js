@@ -55,7 +55,7 @@ export function saveLog(state, form, session) {
     (!form.performedBy?.trim() || form.notApplicable)
   )
     throw Error("Completa quién realizó la revisión de cloro.");
-  if (form.notApplicable && !form.notes.trim())
+  if (form.notApplicable && !String(form.notes || "").trim())
     throw Error("Indica el motivo de No aplica.");
   if (
     !form.notApplicable &&

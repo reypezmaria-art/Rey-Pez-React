@@ -9,6 +9,7 @@ import FormularioEmpleado from "../componentes/FormularioEmpleado.jsx";
 import { assignMissingIds, terminateEmployee } from "../dominio/operaciones.js";
 import { companyNames } from "../datos/constantes.js";
 import { mergeEmployees, parseCSV } from "../utilidades/archivosCsv.js";
+import { concordar } from "../utilidades/textos.js";
 export default function Personal() {
   const { data, commit, pending } = useAplicacion();
   const [query, setQuery] = useState(""),
@@ -41,7 +42,7 @@ export default function Personal() {
       const rows = parseCSV(await file.text());
       await run(
         (state) => mergeEmployees(state, rows),
-        `Importación terminada: ${rows.length} filas procesadas. Revisa el catálogo y exporta un respaldo.`,
+        `Importación terminada: ${concordar(rows.length, "fila procesada", "filas procesadas")}. Revisa el catálogo y exporta un respaldo.`,
       );
     } catch (err) {
       setError(err.message);

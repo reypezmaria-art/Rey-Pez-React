@@ -1,6 +1,11 @@
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import { EncabezadoPagina } from "../componentes/ElementosInterfaz.jsx";
-import { formatDateTime, isSameDay } from "../utilidades/fechas.js";
+import {
+  calendarDate,
+  formatDateTime,
+  isSameDay,
+} from "../utilidades/fechas.js";
+import { concordar } from "../utilidades/textos.js";
 import { pendingAbsences } from "../dominio/asistencia.js";
 import { pendingPrograms } from "../dominio/bitacoras.js";
 export default function PanelPrincipal({ navigate }) {
@@ -81,15 +86,28 @@ export default function PanelPrincipal({ navigate }) {
       <div className="columns">
         <div className="panel">
           <h2>Pendientes administrativos</h2>
-          <p>{absences.length} ausencias pendientes de revisión</p>
-          <p>{due.length} revisiones de bitácoras pendientes</p>
           <p>
-            {
+            {concordar(
+              absences.length,
+              "ausencia pendiente de revisión",
+              "ausencias pendientes de revisión",
+            )}
+          </p>
+          <p>
+            {concordar(
+              due.length,
+              "revisión de bitácora pendiente",
+              "revisiones de bitácoras pendientes",
+            )}
+          </p>
+          <p>
+            {concordar(
               data.logs.filter(
-                (l) => l.expiry && l.expiry < clock.toISOString().slice(0, 10),
-              ).length
-            }{" "}
-            certificados vencidos
+                (l) => l.expiry && l.expiry < calendarDate(clock),
+              ).length,
+              "certificado vencido",
+              "certificados vencidos",
+            )}
           </p>
           <div className="actions">
             <button onClick={() => navigate("attendance")}>
@@ -118,17 +136,20 @@ export default function PanelPrincipal({ navigate }) {
           {["ALLAN", "EDGAR", "ESTUARDO"].map((company) => (
             <p key={company}>
               <b>{company}</b> ·{" "}
-              {
+              {concordar(
                 data.employees.filter((e) => e.empresa_codigo === company)
-                  .length
-              }{" "}
-              empleados ·{" "}
-              {
+                  .length,
+                "empleado",
+                "empleados",
+              )}{" "}
+              ·{" "}
+              {concordar(
                 data.employees.filter(
                   (e) => e.empresa_codigo === company && e.estatus === "Baja",
-                ).length
-              }{" "}
-              bajas
+                ).length,
+                "baja",
+                "bajas",
+              )}
             </p>
           ))}
           <p className="small">
