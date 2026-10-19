@@ -201,6 +201,190 @@ export function catalogoParaImportar(state, uidAdmin) {
     },
   };
 }
+export const CORREO_MARIA = "maria@acceso.reypez.app";
+export const MOVIMIENTOS_TURNO = [
+  "ENTRADA",
+  "SALIDA_A_COMER",
+  "REGRESO_DE_COMER",
+  "SALIDA_FINAL",
+];
+export const DESFASE_GUATEMALA_MS = 6 * 60 * 60 * 1000;
+export const DIA_MS = 24 * 60 * 60 * 1000;
+export const VENTANA_PASADO_MS = 20 * 60 * 60 * 1000;
+export const VENTANA_FUTURO_MS = 15 * 60 * 1000;
+export const AVISOS_COPIA = {
+  conservar:
+    "Este navegador y Firebase ya tienen información. No se copió ni se reemplazó nada.",
+  copiar:
+    "Se copió a Firebase la información de este navegador, sin contraseñas ni empleados de demostración.",
+};
+
+export function correoEsDeMaria(email) {
+  return (
+    String(email || "")
+      .trim()
+      .toLowerCase() === CORREO_MARIA
+  );
+}
+export function diaGuatemala(ms) {
+  return Math.floor((ms - DESFASE_GUATEMALA_MS) / DIA_MS);
+}
+export function fechaLocalGuatemala(ms) {
+  return new Date(diaGuatemala(ms) * DIA_MS).toISOString().slice(0, 10);
+}
+export function tieneOperacionPropia(state) {
+  return [
+    "employees",
+    "attendance",
+    "logs",
+    "maintenance",
+    "absenceReviews",
+    "audit",
+  ].some((clave) => Array.isArray(state?.[clave]) && state[clave].length > 0);
+}
+export function decidirCopiaLocal({ localTieneOperacion, nubeTieneOperacion }) {
+  if (nubeTieneOperacion && localTieneOperacion) return "conservar";
+  if (!nubeTieneOperacion && localTieneOperacion) return "copiar";
+  if (!nubeTieneOperacion) return "sembrar";
+  return "nada";
+}
+export function marcaOperativa(record, ahora = Date.now()) {
+  if (!record || !MOVIMIENTOS_TURNO.includes(record.movimiento)) return false;
+  const ms = Date.parse(record.fecha_hora);
+  if (!Number.isFinite(ms)) return false;
+  return ms <= ahora + VENTANA_FUTURO_MS && ms >= ahora - VENTANA_PASADO_MS;
+}
+export function enriquecerMarca(record, ahora = Date.now()) {
+  if (!marcaOperativa(record, ahora)) return record;
+  const ms = Date.parse(record.fecha_hora);
+  return {
+    ...record,
+    fecha_ms: ms,
+    fecha_local: fechaLocalGuatemala(ms),
+    fecha_dia: diaGuatemala(ms),
+  };
+}
+export function enriquecerAsistenciaNueva(antes, despues, ahora = Date.now()) {
+  const previos = new Set(
+    (antes?.attendance || []).map((item) => item?.id_registro),
+  );
+  return {
+    ...despues,
+    attendance: (despues?.attendance || []).map((item) =>
+      previos.has(item?.id_registro) ? item : enriquecerMarca(item, ahora),
+    ),
+  };
+}
+export function cursoresDeAsistencia(antes, despues) {
+  const previos = new Set(
+    (antes?.attendance || []).map((item) => item?.id_registro),
+  );
+  const porEmpleado = new Map();
+  for (const record of despues?.attendance || []) {
+    if (!record?.id_registro || previos.has(record.id_registro)) continue;
+    if (
+      !Number.isInteger(record.fecha_ms) ||
+      !Number.isInteger(record.fecha_dia)
+    )
+      continue;
+    const actual = porEmpleado.get(record.id_empleado);
+    if (!actual || record.fecha_ms >= actual.fecha_ms)
+      porEmpleado.set(record.id_empleado, record);
+  }
+  return [...porEmpleado.values()].map((record) => ({
+    tipo: "set",
+    coleccion: "secuenciaAsistencia",
+    id: record.id_empleado,
+    datos: {
+      ultimo: record.movimiento,
+      fecha: record.fecha_local,
+      fecha_dia: record.fecha_dia,
+      registroId: record.id_registro,
+      idEmpleado: record.id_empleado,
+    },
+  }));
+}
+export function cursoresFaltantes(
+  attendance,
+  idsExistentes,
+  ahora = Date.now(),
+) {
+  const hoy = fechaLocalGuatemala(ahora);
+  const tienen = new Set(idsExistentes || []);
+  const ultimo = new Map();
+  for (const record of attendance || []) {
+    if (!MOVIMIENTOS_TURNO.includes(record?.movimiento)) continue;
+    const ms = Date.parse(record.fecha_hora);
+    if (!Number.isFinite(ms) || fechaLocalGuatemala(ms) !== hoy) continue;
+    const previo = ultimo.get(record.id_empleado);
+    if (!previo || ms >= previo.ms)
+      ultimo.set(record.id_empleado, { ms, record });
+  }
+  const operaciones = [];
+  for (const [idEmpleado, { ms, record }] of ultimo) {
+    if (tienen.has(idEmpleado)) continue;
+    operaciones.push({
+      tipo: "set",
+      coleccion: "secuenciaAsistencia",
+      id: idEmpleado,
+      datos: {
+        ultimo: record.movimiento,
+        fecha: fechaLocalGuatemala(ms),
+        fecha_dia: diaGuatemala(ms),
+        registroId: record.id_registro,
+        idEmpleado,
+      },
+    });
+  }
+  return operaciones;
+}
+export function lotesAtomicos(operaciones, secuencia, tamano = 400) {
+  const cursorPorRegistro = new Map(
+    (secuencia || []).map((op) => [op.datos.registroId, op]),
+  );
+  const usados = new Set();
+  const planos = [];
+  for (const op of operaciones || []) {
+    planos.push(op);
+    if (op.coleccion === "asistencia" && op.tipo === "set") {
+      const cursor = cursorPorRegistro.get(op.id);
+      if (cursor && !usados.has(cursor)) {
+        planos.push(cursor);
+        usados.add(cursor);
+      }
+    }
+  }
+  for (const cursor of secuencia || [])
+    if (!usados.has(cursor)) planos.push(cursor);
+  const lotes = [];
+  let actual = [];
+  for (let i = 0; i < planos.length; i++) {
+    const op = planos[i];
+    const siguienteEsCursor =
+      i + 1 < planos.length &&
+      planos[i + 1].coleccion === "secuenciaAsistencia";
+    const cabe = actual.length + 1 + (siguienteEsCursor ? 1 : 0) <= tamano;
+    if (actual.length && !cabe) {
+      lotes.push(actual);
+      actual = [];
+    }
+    actual.push(op);
+  }
+  if (actual.length) lotes.push(actual);
+  return lotes;
+}
+export function rutaAdjunto(coleccion, id, item, nombre) {
+  const archivo = String(nombre || "adjunto")
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .slice(0, 80);
+  const limpio = (valor, reserva) =>
+    String(valor || reserva).replace(/[^A-Za-z0-9_-]/g, "") || reserva;
+  if (coleccion === "bitacoras")
+    return `evidencias/bitacoras/${limpio(item?.company, "sin-empresa")}/${limpio(item?.type, "sin-tipo")}/${id}/${archivo}`;
+  if (coleccion === "mantenimiento")
+    return `evidencias/mantenimiento/${id}/${archivo}`;
+  return `evidencias/${coleccion}/${id}/${archivo}`;
+}
 export function rutasDeEvidencia(valor, visitar) {
   if (!valor || typeof valor !== "object") return;
   if (Array.isArray(valor)) {

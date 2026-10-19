@@ -14,6 +14,7 @@
     "formatear": "prettier --config configuracion-formato.json --write .",
     "comprobar-formato": "prettier --config configuracion-formato.json --check .",
     "probar": "node --test pruebas/*.prueba.js",
+    "probar:reglas": "npx --yes firebase-tools@13 emulators:exec --only firestore,storage --project demo-rey-pez \"node --test pruebas/emulador/reglas.prueba.js\"",
     "probar:navegador": "playwright test --config configuracion-pruebas.js",
     "verificar": "npm run comprobar-formato && npm run revisar-codigo && npm run probar && npm run compilar",
     "vista-local": "npm run compilar && node herramientas/generarVistaLocal.js"
@@ -28,6 +29,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@firebase/rules-unit-testing": "^6.0.0",
     "@playwright/test": "^1.56.0",
     "@vitejs/plugin-react": "6.1.2",
     "eslint": "^10.12.0",
