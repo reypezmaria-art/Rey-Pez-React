@@ -71,8 +71,14 @@ async function intentarIngreso(page, id, clave) {
 async function cerrarSesion(page) {
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
   await expect(
-    page.getByRole("heading", { name: "Bienvenido a Rey Pez" }),
+    page.getByRole("heading", { name: "Bienvenido a Rey Pez", exact: true }),
   ).toBeVisible();
+  await expect(page.locator(".access-screen .small")).toHaveCount(0);
+  await expect(
+    page.getByText(
+      /se guardan en Firebase|sesión se cierra al recargar|Copia local de revisión|Firebase Authentication/,
+    ),
+  ).toHaveCount(0);
 }
 
 async function asignarClave(page, id) {
@@ -167,7 +173,7 @@ test("rechaza ingresos fallidos y respeta el bloqueo manual del acceso", async (
   await expect(page.getByText("Estado: Bloqueado")).toBeVisible();
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Bienvenido a Rey Pez" }),
+    page.getByRole("heading", { name: "Bienvenido a Rey Pez", exact: true }),
   ).toBeVisible();
   await intentarIngreso(page, TRABAJADORA_ESTUARDO, CLAVE_TRABAJO);
   await expect(page.getByRole("alert")).toHaveText(

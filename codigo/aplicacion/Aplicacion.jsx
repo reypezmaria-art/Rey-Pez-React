@@ -9,6 +9,7 @@ import Seguridad from "../paginas/Seguridad.jsx";
 import CarpetasBitacoras from "../paginas/CarpetasBitacoras.jsx";
 import Mantenimiento from "../paginas/Mantenimiento.jsx";
 import LogoMarca from "../componentes/LogoMarca.jsx";
+import Encabezado from "../componentes/Encabezado.jsx";
 import RegistroTrabajador from "../componentes/RegistroTrabajador.jsx";
 import Acceso from "../componentes/Acceso.jsx";
 import { deviceId } from "../utilidades/dispositivo.js";
@@ -70,10 +71,7 @@ export default function Aplicacion() {
       );
     return (
       <>
-        <header>
-          <LogoMarca official />
-          <div className="brand">Bienvenido a Rey Pez</div>
-        </header>
+        <Encabezado titulo="Bienvenido a Rey Pez" />
         <RegistroTrabajador terminal />
       </>
     );
@@ -82,13 +80,7 @@ export default function Aplicacion() {
   if (mode === "captura" || session.role === "worker")
     return (
       <>
-        <header>
-          <LogoMarca official />
-          <div className="brand">
-            REY PEZ <small>{session.name}</small>
-          </div>
-          <button onClick={logout}>Cerrar sesión</button>
-        </header>
+        <Encabezado detalle={session.name} onLogout={logout} />
         <main className="capture-main">
           <CarpetasBitacoras key={route} operational />
         </main>
@@ -100,26 +92,14 @@ export default function Aplicacion() {
       <a className="skip-link" href="#main">
         Saltar al contenido
       </a>
-      <header>
-        <div className="brand-lockup">
-          <LogoMarca />
-          <div className="brand">
-            REY PEZ <small>Sistema de Control Administrativo</small>
-          </div>
-        </div>
-        <div className="header-access">
-          <LogoMarca official />
-          <span>María · Administración</span>
-          <button
-            onClick={() => {
-              setKiosk(false);
-              logout();
-            }}
-          >
-            Cerrar sesión
-          </button>
-        </div>
-      </header>
+      <Encabezado
+        detalle="Sistema de Control Administrativo"
+        identidad={`${session.name} · Administración`}
+        onLogout={() => {
+          setKiosk(false);
+          logout();
+        }}
+      />
       <div className="layout">
         <nav aria-label="Navegación principal">
           <div className="navlabel">ADMINISTRACIÓN</div>

@@ -1,10 +1,19 @@
 import { test, expect } from "@playwright/test";
+async function sinLeyendaDeAcceso(page) {
+  await expect(page.locator(".access-screen .small")).toHaveCount(0);
+  await expect(
+    page.getByText(
+      /se guardan en Firebase|sesión se cierra al recargar|Copia local de revisión|Firebase Authentication/,
+    ),
+  ).toHaveCount(0);
+}
 async function access(page) {
   await expect(
     page.getByRole("heading", {
       name: /Configurar acceso de María|Bienvenido a Rey Pez/,
     }),
   ).toBeVisible();
+  await sinLeyendaDeAcceso(page);
   if (
     await page
       .getByRole("heading", { name: "Configurar acceso de María" })
@@ -287,7 +296,7 @@ test("respaldo completo, restauración e invalidación de sesión", async ({
     buffer: Buffer.from(json),
   });
   await expect(
-    page.getByRole("heading", { name: "Bienvenido a Rey Pez" }),
+    page.getByRole("heading", { name: "Bienvenido a Rey Pez", exact: true }),
   ).toBeVisible();
   await access(page);
   await expect(page.locator(".kvalue").nth(1)).toHaveText("30");
@@ -342,7 +351,44 @@ test("tres carpetas independientes y temperaturas sin duplicación", async ({
   const images = await page
     .locator("header img")
     .evaluateAll((imgs) => imgs.map((i) => i.src));
+  expect(images).toHaveLength(1);
   expect(images.every((src) => src.endsWith("/logo-rey-pez.png"))).toBe(true);
+});
+
+test("el encabezado usa un solo logo en acceso, administración y captura", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator("header")).toHaveCount(0);
+  await expect(
+    page.getByRole("img", { name: "Rey Pez · El Cosas" }),
+  ).toHaveCount(1);
+  await access(page);
+  const header = page.locator("header");
+  await expect(header.locator("img")).toHaveCount(1);
+  await expect(header).toContainText("REY PEZ");
+  await expect(header).toContainText("Sistema de Control Administrativo");
+  await expect(header).toContainText("María · Administración");
+  await expect(
+    header.getByRole("button", { name: "Cerrar sesión" }),
+  ).toBeVisible();
+  const box = await header.boundingBox();
+  expect(box.height).toBeLessThan(96);
+  await page.goto("/#captura");
+  await expect(page.locator("header img")).toHaveCount(1);
+  await expect(page.locator("header")).toContainText("María");
+  await expect(page.getByRole("navigation")).toHaveCount(0);
+  const captura = await page.locator("header").boundingBox();
+  expect(captura.height).toBeLessThan(96);
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Bienvenido a Rey Pez", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Ingresar", exact: true }),
+  ).toBeVisible();
+  await sinLeyendaDeAcceso(page);
+  await expect(page.locator("header")).toHaveCount(0);
 });
 
 test("Edgar tiene un cuarto frío dentro de Salud", async ({ page }) => {
