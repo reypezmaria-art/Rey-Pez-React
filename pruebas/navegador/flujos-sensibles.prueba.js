@@ -11,6 +11,13 @@ const CLAVE_ADMIN = "Clave6";
 const CLAVE_TRABAJO = "Trab06";
 const NOTA_PDF = "NOTA-PDF-1410";
 
+// Mantener estos recorridos en el catálogo ficticio aunque exista un catálogo privado local.
+test.beforeEach(async ({ page }) => {
+  await page.route("**/__local/empleados", (route) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: "[]" }),
+  );
+});
+
 const navegacion = (page, name) =>
   page.getByRole("navigation").getByRole("button", { name, exact: true });
 
@@ -24,7 +31,7 @@ async function prepararAdministracion(page) {
   await page.goto("/");
   await expect(
     page.getByRole("heading", {
-      name: /Configurar acceso de María|Acceso de María/,
+      name: /Configurar acceso de María|Bienvenido a Rey Pez/,
     }),
   ).toBeVisible();
   if (
@@ -64,7 +71,7 @@ async function intentarIngreso(page, id, clave) {
 async function cerrarSesion(page) {
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
   await expect(
-    page.getByRole("heading", { name: "Acceso de María" }),
+    page.getByRole("heading", { name: "Bienvenido a Rey Pez" }),
   ).toBeVisible();
 }
 
@@ -160,7 +167,7 @@ test("rechaza ingresos fallidos y respeta el bloqueo manual del acceso", async (
   await expect(page.getByText("Estado: Bloqueado")).toBeVisible();
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "Acceso de María" }),
+    page.getByRole("heading", { name: "Bienvenido a Rey Pez" }),
   ).toBeVisible();
   await intentarIngreso(page, TRABAJADORA_ESTUARDO, CLAVE_TRABAJO);
   await expect(page.getByRole("alert")).toHaveText(
@@ -466,7 +473,7 @@ test("exporta el respaldo JSON, rechaza copias inválidas y restaura la descarga
   });
   expect(await confirmacion).toContain("Se cerrará la sesión");
   await expect(
-    page.getByRole("heading", { name: "Acceso de María", exact: true }),
+    page.getByRole("heading", { name: "Bienvenido a Rey Pez", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Configurar acceso de María" }),

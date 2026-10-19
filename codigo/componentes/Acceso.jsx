@@ -32,7 +32,7 @@ export default function Acceso({ operational = false }) {
             ? "Configurar acceso de María"
             : operational
               ? "Captura operativa"
-              : "Acceso de María"}
+              : "Bienvenido a Rey Pez"}
         </h1>
         <p>
           {first
@@ -72,11 +72,6 @@ export default function Acceso({ operational = false }) {
         <button className="primary" disabled={pending}>
           {first ? "Crear acceso y abrir panel" : "Ingresar"}
         </button>
-        <p className="small">
-          {usaFirebase
-            ? "El personal y la asistencia se guardan en Firebase. Esta sesión se cierra al recargar."
-            : "Copia local de revisión. El acceso y los datos pertenecen a este navegador; la protección centralizada entre equipos queda pendiente."}
-        </p>
       </form>
     </main>
   );

@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 async function access(page) {
   await expect(
     page.getByRole("heading", {
-      name: /Configurar acceso de María|Acceso de María/,
+      name: /Configurar acceso de María|Bienvenido a Rey Pez/,
     }),
   ).toBeVisible();
   if (
@@ -287,7 +287,7 @@ test("respaldo completo, restauración e invalidación de sesión", async ({
     buffer: Buffer.from(json),
   });
   await expect(
-    page.getByRole("heading", { name: "Acceso de María" }),
+    page.getByRole("heading", { name: "Bienvenido a Rey Pez" }),
   ).toBeVisible();
   await access(page);
   await expect(page.locator(".kvalue").nth(1)).toHaveText("30");
