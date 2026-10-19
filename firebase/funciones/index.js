@@ -3,6 +3,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
+const { traducirErrorAcceso } = require("./errores");
 
 initializeApp();
 
@@ -38,7 +39,7 @@ async function usuarioPorCorreo(email) {
   }
 }
 
-exports.gestionarAcceso = onCall(async (request) => {
+async function ejecutar(request) {
   await exigirAdmin(request);
   const datos = request.data || {};
   const accion = datos.accion;
@@ -129,4 +130,12 @@ exports.gestionarAcceso = onCall(async (request) => {
   }
 
   throw new HttpsError("invalid-argument", "Acción no reconocida.");
+}
+
+exports.gestionarAcceso = onCall(async (request) => {
+  try {
+    return await ejecutar(request);
+  } catch (error) {
+    throw traducirErrorAcceso(error);
+  }
 });

@@ -4,8 +4,18 @@ import {
   armarEstado,
   catalogoParaImportar,
   correoDeCuenta,
+  correoEsDeMaria,
+  cursoresDeAsistencia,
+  cursoresFaltantes,
+  decidirCopiaLocal,
+  diaGuatemala,
   diferencias,
+  enriquecerAsistenciaNueva,
+  fechaLocalGuatemala,
   cambiosDeIdentidad,
+  lotesAtomicos,
+  rutaAdjunto,
+  tieneOperacionPropia,
   trabajadoresDesde,
 } from "../codigo/repositorios/estadoFirebase.js";
 import { cuentaAsignada } from "../codigo/dominio/seguridad.js";
@@ -114,4 +124,131 @@ test("la importación local omite demostración y contraseñas", () => {
   assert.equal(importado.access.admin.uid, "uid-maria");
   assert.equal(importado.access.admin.hash, undefined);
   assert.equal(importado.access.permissions["AL-02"].company, "ALLAN");
+});
+test("la copia local no pisa la nube cuando los dos lados tienen datos", () => {
+  assert.equal(
+    decidirCopiaLocal({
+      localTieneOperacion: true,
+      nubeTieneOperacion: true,
+    }),
+    "conservar",
+  );
+  assert.equal(
+    decidirCopiaLocal({
+      localTieneOperacion: true,
+      nubeTieneOperacion: false,
+    }),
+    "copiar",
+  );
+  assert.equal(
+    decidirCopiaLocal({
+      localTieneOperacion: false,
+      nubeTieneOperacion: true,
+    }),
+    "nada",
+  );
+  assert.equal(
+    decidirCopiaLocal({
+      localTieneOperacion: false,
+      nubeTieneOperacion: false,
+    }),
+    "sembrar",
+  );
+  assert.equal(
+    tieneOperacionPropia({ employees: [{ id_empleado: "AL-01" }] }),
+    true,
+  );
+  assert.equal(tieneOperacionPropia({ schedules: [{ codigo: "X" }] }), false);
+});
+test("solo el correo de María puede ser la cuenta de administración", () => {
+  assert.equal(correoEsDeMaria("MARIA@acceso.reypez.app"), true);
+  assert.equal(correoEsDeMaria("maria@otro.dominio"), false);
+  assert.equal(correoEsDeMaria("al-01@acceso.reypez.app"), false);
+});
+test("un marcaje nuevo lleva el día de Guatemala y su cursor en el mismo lote", () => {
+  const ahora = Date.parse("2026-10-19T18:00:00.000Z");
+  const antes = { attendance: [] };
+  const despues = enriquecerAsistenciaNueva(
+    antes,
+    {
+      attendance: [
+        {
+          id_registro: "r1",
+          id_empleado: "AL-01",
+          movimiento: "ENTRADA",
+          fecha_hora: "2026-10-19T17:30:00.000Z",
+        },
+        {
+          id_registro: "viejo",
+          id_empleado: "AL-01",
+          movimiento: "ENTRADA",
+          fecha_hora: "2026-10-01T15:00:00.000Z",
+        },
+      ],
+    },
+    ahora,
+  );
+  assert.equal(despues.attendance[1].fecha_ms, undefined);
+  assert.equal(
+    despues.attendance[0].fecha_local,
+    fechaLocalGuatemala(despues.attendance[0].fecha_ms),
+  );
+  assert.equal(
+    despues.attendance[0].fecha_dia,
+    diaGuatemala(despues.attendance[0].fecha_ms),
+  );
+  const cursores = cursoresDeAsistencia(antes, despues);
+  assert.equal(cursores.length, 1);
+  assert.equal(cursores[0].id, "AL-01");
+  assert.equal(cursores[0].datos.ultimo, "ENTRADA");
+  assert.equal(cursores[0].datos.registroId, "r1");
+  const lotes = lotesAtomicos(
+    [
+      { tipo: "set", coleccion: "empleados", id: "AL-01" },
+      { tipo: "set", coleccion: "asistencia", id: "r1" },
+    ],
+    cursores,
+    2,
+  );
+  assert.deepEqual(
+    lotes[1].map((op) => op.coleccion),
+    ["asistencia", "secuenciaAsistencia"],
+  );
+});
+test("la evidencia nueva incluye empresa y tipo; la vieja sigue leyéndose por id", () => {
+  assert.equal(
+    rutaAdjunto(
+      "bitacoras",
+      "b1",
+      { company: "ESTUARDO", type: "epp" },
+      "foto.jpg",
+    ),
+    "evidencias/bitacoras/ESTUARDO/epp/b1/foto.jpg",
+  );
+  assert.equal(
+    rutaAdjunto("mantenimiento", "m1", {}, "recibo.pdf"),
+    "evidencias/mantenimiento/m1/recibo.pdf",
+  );
+});
+test("el cursor de hoy no se inventa si ya existe", () => {
+  const ahora = Date.parse("2026-10-19T18:00:00.000Z");
+  const faltantes = cursoresFaltantes(
+    [
+      {
+        id_registro: "r1",
+        id_empleado: "AL-01",
+        movimiento: "SALIDA_A_COMER",
+        fecha_hora: "2026-10-19T17:00:00.000Z",
+      },
+      {
+        id_registro: "r2",
+        id_empleado: "ED-02",
+        movimiento: "ENTRADA",
+        fecha_hora: "2026-10-18T17:00:00.000Z",
+      },
+    ],
+    ["AL-01"],
+    ahora,
+  );
+  assert.equal(faltantes.length, 0);
 });

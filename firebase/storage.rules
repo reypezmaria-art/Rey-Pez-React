@@ -3,21 +3,45 @@ service firebase.storage {
   match /b/{bucket}/o {
     function admin() {
       return request.auth != null
+        && firestore.exists(/databases/(default)/documents/acceso/admin)
         && firestore.get(/databases/(default)/documents/acceso/admin).data.uid == request.auth.uid;
     }
     function ficha() {
       return firestore.get(/databases/(default)/documents/usuarios/$(request.auth.uid)).data;
     }
-    function operativo() {
-      return request.auth != null && (
-        admin()
-        || (ficha().activo == true && (ficha().rol == "trabajador" || ficha().rol == "terminal"))
-      );
+    function permiso() {
+      return firestore.get(/databases/(default)/documents/operacion/config).data.permissions[ficha().idEmpleado];
     }
-    match /evidencias/{ruta=**} {
-      allow read: if operativo();
-      allow write: if request.resource.size < 1024 * 1024
-        && (admin() || (ficha().rol == "trabajador" && ficha().activo == true));
+    function trabajadorDe(empresa, tipo) {
+      return request.auth != null
+        && ficha().rol == "trabajador"
+        && ficha().activo == true
+        && ficha().idEmpleado is string
+        && permiso().company == empresa
+        && tipo in permiso().logs;
+    }
+    function imagen() {
+      return request.resource.size < 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)');
+    }
+    match /evidencias/bitacoras/{empresa}/{tipo}/{id}/{archivo} {
+      allow read: if admin() || trabajadorDe(empresa, tipo);
+      allow write: if imagen() && (admin() || trabajadorDe(empresa, tipo));
+    }
+    match /evidencias/bitacoras/{id}/{archivo} {
+      allow read: if admin()
+        || (firestore.exists(/databases/(default)/documents/bitacoras/$(id))
+          && trabajadorDe(
+            firestore.get(/databases/(default)/documents/bitacoras/$(id)).data.company,
+            firestore.get(/databases/(default)/documents/bitacoras/$(id)).data.type
+          ));
+      allow write: if false;
+    }
+    match /evidencias/mantenimiento/{id}/{archivo} {
+      allow read: if admin();
+      allow write: if admin()
+        && request.resource.size < 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp)|application/pdf');
     }
     match /respaldos/{archivo} {
       allow read, write: if admin();

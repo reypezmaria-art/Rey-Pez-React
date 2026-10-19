@@ -20,7 +20,12 @@ export default function ProveedorAplicacion({ children }) {
     [pending, setPending] = useState(false),
     [session, setSession] = useState(null),
     [aviso, setAviso] = useState(""),
+    [avisoNube, setAvisoNube] = useState(""),
     [clock, setClock] = useState(() => new Date());
+  useEffect(() => {
+    if (typeof repository.observarAviso !== "function") return undefined;
+    return repository.observarAviso(setAvisoNube);
+  }, []);
   useEffect(() => {
     let active = true;
     repository
@@ -184,6 +189,11 @@ export default function ProveedorAplicacion({ children }) {
         },
       }}
     >
+      {avisoNube ? (
+        <div className="note" role="status">
+          {avisoNube}
+        </div>
+      ) : null}
       {children}
     </ContextoAplicacion.Provider>
   );

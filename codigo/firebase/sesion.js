@@ -44,6 +44,16 @@ export function mensajeFirebase(error) {
   const bruto = String(error?.message || "");
   const embebido = bruto.match(/auth\/[a-z0-9-]+/i)?.[0] || "";
   const codigo = error?.code || embebido;
+  if (String(codigo).startsWith("functions/")) {
+    const texto = bruto
+      .replace(/^Firebase:\s*/i, "")
+      .replace(/\s*\(functions\/[a-z-]+\)\.?$/i, "")
+      .trim();
+    if (texto && !/^(internal|error)$/i.test(texto)) return Error(texto);
+    return Error(
+      "La función no completó la acción. Revisa el registro de Cloud Functions.",
+    );
+  }
   if (MENSAJES[codigo]) return Error(MENSAJES[codigo]);
   if (/CONFIGURATION_NOT_FOUND/i.test(bruto))
     return Error(MENSAJES["auth/configuration-not-found"]);

@@ -47,9 +47,25 @@ Con un proyecto en plan Blaze y `.env` completo, el personal, la asistencia y la
 1. En la consola de Firebase crea el proyecto, una app web, Authentication con correo y contraseña, Firestore y Storage.
 2. Copia `.env.ejemplo` a `.env` y pega la configuración web. No pongas la cuenta de servicio en variables `VITE_`.
 3. Instala la CLI (`npm install -g firebase-tools`), entra con `firebase login` y elige el proyecto con `firebase use --add`.
-4. En `firebase/funciones` ejecuta `npm install`. Luego, desde la raíz, `firebase deploy --only firestore:rules,storage,functions`.
+4. En `firebase/funciones` ejecuta `npm install`. El despliegue de reglas no lo hagas hasta publicar este cliente; el orden está en la sección siguiente.
 5. `npm run iniciar`, abre `http://127.0.0.1:5173` y crea la contraseña de María. Esa primera cuenta queda como administración.
-6. Si este navegador ya tenía `reypez_react_v1`, el catálogo se copia una vez. No se migran las contraseñas locales: vuelve a asignarlas en Seguridad. Los empleados de demostración no se suben.
+6. Si este navegador ya tenía `reypez_react_v1` y Firebase todavía no tiene operación, el catálogo se copia una vez. Si los dos lados ya tienen datos, no se copia ni se reemplaza nada y la app lo avisa. No se migran las contraseñas locales: vuelve a asignarlas en Seguridad. Los empleados de demostración no se suben.
+
+## Publicar reglas sin dejar fuera a la operación
+
+El documento `acceso/admin` que ya existe no se modifica: María sigue entrando. La colección nueva `secuenciaAsistencia` solo anota el último marcaje del día; no reescribe la asistencia histórica.
+
+Orden recomendado, desde la raíz, después de `npm run compilar`:
+
+1. `firebase deploy --only firestore:indexes`
+2. `firebase deploy --only hosting`
+3. Abre la administración con María una vez, para completar la secuencia de hoy.
+4. `firebase deploy --only firestore:rules,storage`
+5. `firebase deploy --only functions`
+
+Si las reglas se publican antes que el hosting, la copia que hoy está en rey-pez-admin-react.web.app deja de cargar bitácoras para trabajador y terminal, y el quiosco no puede marcar hasta que el hosting nuevo esté activo. Los datos no se borran y María sigue pudiendo entrar. Si el hosting sale primero, el cliente nuevo sigue funcionando con las reglas anteriores y avisa que la secuencia aún no es obligatoria.
+
+No cambies `VITE_AUTH_EMAIL_DOMAIN` sin editar el correo fijo de `firebase/firestore.rules` (`maria@acceso.reypez.app`). `operacion/config` sigue siendo un solo documento: un trabajador autenticado puede ver la programación y el mapa de permisos, no las bitácoras ni las fotos de otra empresa.
 
 El correo interno es `{id}@acceso.reypez.app`. Si cambias `VITE_AUTH_EMAIL_DOMAIN`, define el mismo valor en `AUTH_EMAIL_DOMAIN` antes de desplegar la función. Crea la contraseña de María enseguida: una cuenta suelta no puede leer el personal.
 

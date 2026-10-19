@@ -1,6 +1,7 @@
 {
   "firestore": {
-    "rules": "firebase/firestore.rules"
+    "rules": "firebase/firestore.rules",
+    "indexes": "firebase/firestore.indexes.json"
   },
   "storage": {
     "rules": "firebase/storage.rules"
@@ -12,5 +13,12 @@
     "public": "compilado",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [{ "source": "**", "destination": "/index.html" }]
+  },
+  "emulators": {
+    "firestore": { "port": 8080 },
+    "storage": { "port": 9199 },
+    "ui": { "enabled": false },
+    "hub": { "port": 4400 },
+    "singleProjectMode": true
   }
 }

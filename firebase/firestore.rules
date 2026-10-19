@@ -6,6 +6,7 @@ service cloud.firestore {
     }
     function esAdmin() {
       return firmado()
+        && exists(/databases/$(database)/documents/acceso/admin)
         && get(/databases/$(database)/documents/acceso/admin).data.uid == request.auth.uid;
     }
     function ficha() {
@@ -14,23 +15,99 @@ service cloud.firestore {
     function esTrabajador() {
       return firmado()
         && ficha().rol == "trabajador"
-        && ficha().activo == true;
+        && ficha().activo == true
+        && ficha().idEmpleado is string;
     }
     function esTerminal() {
       return firmado()
         && ficha().rol == "terminal"
         && ficha().activo == true;
     }
-    function puedeLeer() {
-      return esAdmin() || esTrabajador() || esTerminal();
-    }
     function permiso() {
       return get(/databases/$(database)/documents/operacion/config).data.permissions[ficha().idEmpleado];
+    }
+    function empresaDelEmpleado() {
+      return get(/databases/$(database)/documents/empleados/$(ficha().idEmpleado)).data.empresa_codigo;
+    }
+    function correoDeMaria() {
+      return firmado()
+        && request.auth.token.email.lower() == "maria@acceso.reypez.app";
+    }
+    function movimientoDeTurno(valor) {
+      return valor == "ENTRADA"
+        || valor == "SALIDA_A_COMER"
+        || valor == "REGRESO_DE_COMER"
+        || valor == "SALIDA_FINAL";
+    }
+    function diaGuatemala(ms) {
+      return int((ms - 6 * 60 * 60 * 1000) / (24 * 60 * 60 * 1000));
+    }
+    function marcaVigente(datos) {
+      return datos.fecha_ms is int
+        && datos.fecha_dia is int
+        && datos.fecha_dia == diaGuatemala(datos.fecha_ms)
+        && datos.fecha_local is string
+        && datos.fecha_ms <= request.time.toMillis() + 15 * 60 * 1000
+        && datos.fecha_ms >= request.time.toMillis() - 20 * 60 * 60 * 1000
+        && datos.id_registro is string
+        && datos.id_empleado is string
+        && datos.empresa_codigo is string
+        && movimientoDeTurno(datos.movimiento);
+    }
+    function empleadoActivo(id) {
+      return exists(/databases/$(database)/documents/empleados/$(id))
+        && (
+          !get(/databases/$(database)/documents/empleados/$(id)).data.keys().hasAny(["estatus"])
+          || get(/databases/$(database)/documents/empleados/$(id)).data.estatus == "Activo"
+        );
+    }
+    function hayCursor(idEmpleado) {
+      return exists(/databases/$(database)/documents/secuenciaAsistencia/$(idEmpleado));
+    }
+    function cursor(idEmpleado) {
+      return get(/databases/$(database)/documents/secuenciaAsistencia/$(idEmpleado)).data;
+    }
+    function diaNuevo(idEmpleado, datos) {
+      return !hayCursor(idEmpleado) || cursor(idEmpleado).fecha_dia != datos.fecha_dia;
+    }
+    function sigueSecuencia(idEmpleado, datos) {
+      return diaNuevo(idEmpleado, datos)
+        ? datos.movimiento == "ENTRADA"
+        : cursor(idEmpleado).ultimo == "SALIDA_FINAL" && datos.movimiento == "ENTRADA"
+          || cursor(idEmpleado).ultimo == "ENTRADA"
+            && (datos.movimiento == "SALIDA_A_COMER" || datos.movimiento == "SALIDA_FINAL")
+          || cursor(idEmpleado).ultimo == "SALIDA_A_COMER"
+            && datos.movimiento == "REGRESO_DE_COMER"
+          || cursor(idEmpleado).ultimo == "REGRESO_DE_COMER"
+            && datos.movimiento == "SALIDA_FINAL";
+    }
+    function secuenciaActualizada(datos) {
+      return existsAfter(/databases/$(database)/documents/secuenciaAsistencia/$(datos.id_empleado))
+        && getAfter(/databases/$(database)/documents/secuenciaAsistencia/$(datos.id_empleado)).data.ultimo == datos.movimiento
+        && getAfter(/databases/$(database)/documents/secuenciaAsistencia/$(datos.id_empleado)).data.fecha_dia == datos.fecha_dia
+        && getAfter(/databases/$(database)/documents/secuenciaAsistencia/$(datos.id_empleado)).data.registroId == datos.id_registro
+        && getAfter(/databases/$(database)/documents/secuenciaAsistencia/$(datos.id_empleado)).data.idEmpleado == datos.id_empleado;
+    }
+    function marcajeOperativo(datos) {
+      return marcaVigente(datos)
+        && empleadoActivo(datos.id_empleado)
+        && get(/databases/$(database)/documents/empleados/$(datos.id_empleado)).data.empresa_codigo == datos.empresa_codigo
+        && sigueSecuencia(datos.id_empleado, datos)
+        && secuenciaActualizada(datos);
+    }
+    function bitacoraDeTrabajador(datos) {
+      return esTrabajador()
+        && datos.createdBy == ficha().idEmpleado
+        && datos.company == permiso().company
+        && datos.type in permiso().logs
+        && empresaDelEmpleado() == datos.company;
     }
 
     match /acceso/admin {
       allow get: if true;
-      allow create: if firmado()
+      allow list: if false;
+      allow create: if correoDeMaria()
+        && request.resource.data.keys().hasOnly(["uid"])
         && request.resource.data.uid == request.auth.uid
         && !exists(/databases/$(database)/documents/acceso/admin);
       allow update, delete: if false;
@@ -45,49 +122,73 @@ service cloud.firestore {
     }
 
     match /empleados/{id} {
-      allow read: if puedeLeer();
+      allow read: if esAdmin() || esTerminal()
+        || (esTrabajador() && resource.data.empresa_codigo == permiso().company);
       allow write: if esAdmin();
     }
     match /horarios/{id} {
-      allow read: if puedeLeer();
+      allow read: if esAdmin() || esTerminal();
       allow write: if esAdmin();
     }
     match /bitacoras/{id} {
-      allow read: if puedeLeer();
-      allow create: if esAdmin() || (
-        esTrabajador()
-        && request.resource.data.createdBy == ficha().idEmpleado
-        && permiso().company == request.resource.data.company
-        && request.resource.data.type in permiso().logs
-      );
+      allow read: if esAdmin()
+        || (esTrabajador()
+          && resource.data.company == permiso().company
+          && resource.data.type in permiso().logs);
+      allow create: if esAdmin() || bitacoraDeTrabajador(request.resource.data);
       allow update, delete: if esAdmin();
     }
     match /mantenimiento/{id} {
-      allow read: if puedeLeer();
-      allow write: if esAdmin();
+      allow read, write: if esAdmin();
     }
     match /revisiones/{id} {
-      allow read: if puedeLeer();
-      allow write: if esAdmin();
+      allow read, write: if esAdmin();
     }
     match /auditoria/{id} {
-      allow read: if puedeLeer();
-      allow write: if esAdmin();
-    }
-    match /asistencia/{id} {
-      allow read: if puedeLeer();
-      allow create: if esAdmin() || esTerminal() || (
-        esTrabajador() && request.resource.data.id_empleado == ficha().idEmpleado
-      );
+      allow read: if esAdmin();
+      allow create: if esAdmin()
+        || (esTrabajador()
+          && request.resource.data.by == ficha().idEmpleado
+          && request.resource.data.keys().hasOnly(["id", "action", "by", "when"]));
       allow update, delete: if esAdmin();
     }
+    match /asistencia/{id} {
+      allow read: if esAdmin() || esTerminal()
+        || (esTrabajador() && resource.data.id_empleado == ficha().idEmpleado);
+      allow create: if esAdmin()
+        || (request.resource.data.id_registro == id
+          && (esTerminal()
+            || (esTrabajador()
+              && request.resource.data.id_empleado == ficha().idEmpleado
+              && request.resource.data.empresa_codigo == permiso().company))
+          && marcajeOperativo(request.resource.data));
+      allow update, delete: if esAdmin();
+    }
+    match /secuenciaAsistencia/{idEmpleado} {
+      allow read: if esAdmin() || esTerminal()
+        || (esTrabajador() && ficha().idEmpleado == idEmpleado);
+      allow create, update: if esAdmin()
+        || (request.resource.data.keys().hasOnly(["ultimo", "fecha", "fecha_dia", "registroId", "idEmpleado"])
+          && request.resource.data.idEmpleado == idEmpleado
+          && movimientoDeTurno(request.resource.data.ultimo)
+          && (esTerminal() || (esTrabajador() && ficha().idEmpleado == idEmpleado))
+          && existsAfter(/databases/$(database)/documents/asistencia/$(request.resource.data.registroId))
+          && getAfter(/databases/$(database)/documents/asistencia/$(request.resource.data.registroId)).data.movimiento == request.resource.data.ultimo
+          && getAfter(/databases/$(database)/documents/asistencia/$(request.resource.data.registroId)).data.fecha_dia == request.resource.data.fecha_dia
+          && getAfter(/databases/$(database)/documents/asistencia/$(request.resource.data.registroId)).data.id_empleado == idEmpleado);
+      allow delete: if esAdmin();
+    }
     match /alertas/{id} {
-      allow read: if puedeLeer();
-      allow create: if esAdmin() || esTerminal();
+      allow read: if esAdmin() || esTerminal();
+      allow create: if esAdmin()
+        || ((esTerminal()
+            || (esTrabajador() && request.resource.data.id_empleado == ficha().idEmpleado))
+          && request.resource.data.id_empleado is string
+          && empleadoActivo(request.resource.data.id_empleado));
       allow update, delete: if esAdmin();
     }
     match /operacion/config {
-      allow read: if puedeLeer();
+      allow read: if esAdmin() || esTrabajador() || esTerminal();
       allow write: if esAdmin();
     }
     match /respaldos/{id} {
