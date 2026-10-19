@@ -36,6 +36,42 @@ const sections = [
     icon: "device",
   },
 ];
+const subsections = {
+  horarios: [
+    {
+      id: "lista-horarios",
+      title: "Administrar horarios",
+      description: "Horarios, comida y vigencias",
+      icon: "clock",
+    },
+    {
+      id: "excepciones",
+      title: "Excepciones autorizadas",
+      description: "Autoriza un horario especial por trabajador y fecha",
+      icon: "clock",
+    },
+    {
+      id: "dias",
+      title: "Días no laborales",
+      description: "Configura festivos y cierres confirmados",
+      icon: "calendar",
+    },
+  ],
+  areas: [
+    {
+      id: "catalogo",
+      title: "Administrar áreas y cuartos fríos",
+      description: "Agrega y organiza los espacios por empresa",
+      icon: "areas",
+    },
+    {
+      id: "qr",
+      title: "QR por área",
+      description: "Genera y descarga el código de cada área",
+      icon: "areas",
+    },
+  ],
+};
 function SectionIcon({ type }) {
   return (
     <svg
@@ -77,6 +113,7 @@ function SectionIcon({ type }) {
 export default function Configuracion() {
   const { data, commit, pending } = useAplicacion();
   const [selected, setSelected] = useState(null);
+  const [detail, setDetail] = useState(null);
   const [editor, setEditor] = useState(null),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
@@ -92,6 +129,9 @@ export default function Configuracion() {
     }
   }
   const current = sections.find((s) => s.id === selected);
+  const children = subsections[selected];
+  const active = children?.find((s) => s.id === detail);
+  const showSchedules = detail === "lista-horarios";
   if (!current)
     return (
       <section>
@@ -120,6 +160,7 @@ export default function Configuracion() {
         <button
           onClick={() => {
             setSelected(null);
+            setDetail(null);
             setEditor(null);
             setError("");
             setMessage("");
@@ -127,16 +168,28 @@ export default function Configuracion() {
         >
           ← Volver a Configuración
         </button>
+        {active && (
+          <button
+            onClick={() => {
+              setDetail(null);
+              setEditor(null);
+              setError("");
+              setMessage("");
+            }}
+          >
+            ← Volver a {current.title}
+          </button>
+        )}
       </div>
       <EncabezadoPagina
-        title={current.title}
+        title={active?.title || current.title}
         subtitle={
-          selected === "horarios"
+          showSchedules
             ? "Administra horarios, comida y vigencias desde la web"
-            : current.description
+            : active?.description || "Elige la sección que quieres abrir."
         }
       >
-        {selected === "horarios" && (
+        {showSchedules && (
           <button
             className="primary"
             onClick={() => setEditor({ schedule: undefined })}
@@ -145,9 +198,24 @@ export default function Configuracion() {
           </button>
         )}
       </EncabezadoPagina>
+      {children && !active && (
+        <div className="folder-grid">
+          {children.map((s) => (
+            <button
+              key={s.id}
+              className="folder-card"
+              onClick={() => setDetail(s.id)}
+            >
+              <SectionIcon type={s.icon} />
+              <strong>{s.title}</strong>
+              <small>{s.description}</small>
+            </button>
+          ))}
+        </div>
+      )}
       <Mensaje error>{error}</Mensaje>
       <Mensaje>{message}</Mensaje>
-      {selected === "horarios" && (
+      {showSchedules && (
         <>
           {editor && (
             <FormularioHorario
@@ -211,7 +279,12 @@ export default function Configuracion() {
           </p>
         </>
       )}
-      <OperacionConfiguracion key={selected} section={selected} />
+      {(!children || active) && !showSchedules && (
+        <OperacionConfiguracion
+          key={`${selected}-${detail}`}
+          section={detail || selected}
+        />
+      )}
     </section>
   );
 }

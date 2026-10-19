@@ -120,7 +120,7 @@ export default function OperacionConfiguracion({ section }) {
       <Mensaje>{message}</Mensaje>
       <Mensaje error>{error}</Mensaje>
       <div className="settings-panels">
-        {section === "horarios" && (
+        {section === "excepciones" && (
           <>
             <form className="panel" onSubmit={exception}>
               <h2>Excepción de horario autorizada</h2>
@@ -188,6 +188,10 @@ export default function OperacionConfiguracion({ section }) {
                 </p>
               ))}
             </form>
+          </>
+        )}
+        {section === "dias" && (
+          <>
             <form
               className="panel"
               onSubmit={(e) => {
@@ -237,7 +241,7 @@ export default function OperacionConfiguracion({ section }) {
             </form>
           </>
         )}
-        {section === "areas" && (
+        {section === "catalogo" && (
           <>
             <form className="panel" onSubmit={addCatalog}>
               <h2>Áreas y cuartos fríos</h2>
@@ -302,6 +306,10 @@ export default function OperacionConfiguracion({ section }) {
                   </p>
                 ))}
             </form>
+          </>
+        )}
+        {section === "qr" && (
+          <>
             <div className="panel">
               <h2>QR por área</h2>
               <Campo
