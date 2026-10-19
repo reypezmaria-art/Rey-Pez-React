@@ -24,6 +24,7 @@ export default function Seguridad() {
   const [permissionId, setPermissionId] = useState("");
   const activeEmployees = data.employees.filter(
     (e) =>
+      e.empresa_codigo === company &&
       e.estatus !== "Baja" &&
       data.access.workers[e.id_empleado]?.active !== false,
   );
@@ -38,9 +39,7 @@ export default function Seguridad() {
   function selectPermission(id) {
     setPermissionId(id);
     const p = data.access.permissions[id];
-    const e = data.employees.find((e) => e.id_empleado === id);
-    setCompany(p?.company || e?.empresa_codigo || "ESTUARDO");
-    setAllowed(p?.logs || []);
+    setAllowed(p?.company === company ? p.logs || [] : []);
     setMessage("");
     setError("");
   }
@@ -214,7 +213,13 @@ export default function Seguridad() {
             label="Empresa autorizada"
             as="select"
             value={company}
-            onChange={(e) => setCompany(e.target.value)}
+            onChange={(e) => {
+              setCompany(e.target.value);
+              setPermissionId("");
+              setAllowed([]);
+              setMessage("");
+              setError("");
+            }}
           >
             {Object.entries(companyNames).map(([key, name]) => (
               <option key={key} value={key}>
@@ -230,37 +235,33 @@ export default function Seguridad() {
           >
             <OpcionesEmpleado employees={activeEmployees} />
           </Campo>
-          <Campo
-            label="Bitácoras"
-            as="select"
-            value=""
-            disabled={!permissionId}
-            onChange={(e) => {
-              if (e.target.value)
-                setAllowed([...new Set([...allowed, e.target.value])]);
-            }}
+          <details
+            className="authorization-picker"
+            key={`${company}-${permissionId}`}
           >
-            <option value="">Selecciona una bitácora…</option>
-            {Object.entries(logTypes).map(([key, name]) => (
-              <option key={key} value={key} disabled={allowed.includes(key)}>
-                {name}
-              </option>
-            ))}
-          </Campo>
-          <div className="permission-list" aria-label="Bitácoras seleccionadas">
-            {allowed.map((key) => (
-              <div key={key}>
-                <span>{logTypes[key]}</span>{" "}
-                <button
-                  type="button"
-                  aria-label={`Quitar ${logTypes[key]}`}
-                  onClick={() => setAllowed(allowed.filter((t) => t !== key))}
-                >
-                  Quitar
-                </button>
-              </div>
-            ))}
-          </div>
+            <summary>Bitácoras · {allowed.length} seleccionadas</summary>
+            <fieldset
+              disabled={!permissionId}
+              aria-label="Bitácoras autorizadas"
+            >
+              {Object.entries(logTypes).map(([key, name]) => (
+                <label key={key}>
+                  <input
+                    type="checkbox"
+                    checked={allowed.includes(key)}
+                    onChange={(e) =>
+                      setAllowed(
+                        e.target.checked
+                          ? [...new Set([...allowed, key])]
+                          : allowed.filter((t) => t !== key),
+                      )
+                    }
+                  />
+                  {name}
+                </label>
+              ))}
+            </fieldset>
+          </details>
           <button
             className="primary"
             disabled={

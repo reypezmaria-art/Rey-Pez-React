@@ -236,15 +236,27 @@ test("la trabajadora de demostración de Estuardo solo ve su empresa y bitácora
     TRABAJADORA_ESTUARDO,
   );
   await page.getByLabel("Empresa autorizada").selectOption("ALLAN");
-  await page.getByRole("button", { name: "Guardar permisos" }).click();
-  await expect(page.getByRole("alert")).toHaveText(
-    "Autoriza únicamente la empresa del empleado.",
+  await expect(page.getByLabel("Usuario activo", { exact: true })).toHaveValue(
+    "",
   );
+  await expect(
+    page.getByLabel("Usuario activo").locator("option[value='ES-01']"),
+  ).toHaveCount(0);
+  await expect(
+    page.getByLabel("Usuario activo").locator("option[value='AL-01']"),
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: "Guardar permisos" }),
+  ).toBeDisabled();
   await page.getByLabel("Empresa autorizada").selectOption("ESTUARDO");
   await page
-    .getByLabel("Bitácoras", { exact: true })
-    .selectOption("temperature");
-  await page.getByLabel("Bitácoras", { exact: true }).selectOption("chlorine");
+    .getByLabel("Usuario activo", { exact: true })
+    .selectOption(TRABAJADORA_ESTUARDO);
+  await page.locator(".authorization-picker summary").click();
+  await page.getByLabel("Temperaturas", { exact: true }).check();
+  await page.getByLabel("Cloro", { exact: true }).check();
+  await page.getByLabel("Cloro", { exact: true }).uncheck();
+  await page.getByLabel("Cloro", { exact: true }).check();
   await page.getByRole("button", { name: "Guardar permisos" }).click();
   await expect(page.getByRole("status")).toContainText("Permisos guardados");
   await cerrarSesion(page);
