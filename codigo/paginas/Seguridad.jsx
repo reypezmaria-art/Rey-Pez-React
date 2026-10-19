@@ -21,11 +21,22 @@ export default function Seguridad() {
     [error, setError] = useState("");
   const [company, setCompany] = useState("ESTUARDO"),
     [allowed, setAllowed] = useState([]);
+  const [permissionId, setPermissionId] = useState("");
+  const activeEmployees = data.employees.filter(
+    (e) =>
+      e.estatus !== "Baja" &&
+      data.access.workers[e.id_empleado]?.active !== false,
+  );
   const [adminNew, setAdminNew] = useState(""),
     [adminConfirm, setAdminConfirm] = useState("");
   const needsPassword = ["set", "reset", "change"].includes(action);
   function select(id) {
     setEmployeeId(id);
+    setMessage("");
+    setError("");
+  }
+  function selectPermission(id) {
+    setPermissionId(id);
     const p = data.access.permissions[id];
     const e = data.employees.find((e) => e.id_empleado === id);
     setCompany(p?.company || e?.empresa_codigo || "ESTUARDO");
@@ -87,8 +98,10 @@ export default function Seguridad() {
   async function permissions(e) {
     e.preventDefault();
     try {
-      if (!employeeId) throw Error("Selecciona un empleado.");
-      const employee = data.employees.find((e) => e.id_empleado === employeeId);
+      const employee = activeEmployees.find(
+        (e) => e.id_empleado === permissionId,
+      );
+      if (!employee) throw Error("Selecciona un usuario activo.");
       if (company !== employee.empresa_codigo)
         throw Error("Autoriza únicamente la empresa del empleado.");
       await commit((state) => ({
@@ -97,7 +110,7 @@ export default function Seguridad() {
           ...state.access,
           permissions: {
             ...state.access.permissions,
-            [employeeId]: { company, logs: allowed },
+            [permissionId]: { company, logs: allowed },
           },
         },
       }));
@@ -136,15 +149,7 @@ export default function Seguridad() {
   }
   return (
     <section>
-      <EncabezadoPagina
-        title="Seguridad y permisos"
-        subtitle="María administra contraseñas y autoriza la captura por empresa y bitácora."
-      />
-      <div className="note">
-        {usaFirebase
-          ? "Las contraseñas viven en Firebase Authentication. María asigna la de cada trabajador; no se guardan en el catálogo."
-          : "Control local para revisión. La sincronización y los permisos de servidor deben configurarse antes de operar entre equipos."}
-      </div>
+      <EncabezadoPagina title="Seguridad y permisos" />
       <Mensaje>{message}</Mensaje>
       <Mensaje error>{error}</Mensaje>
       <div className="columns">
@@ -204,11 +209,7 @@ export default function Seguridad() {
           </p>
         </form>
         <form className="panel" onSubmit={permissions}>
-          <h2>Bitácoras autorizadas</h2>
-          <p>
-            Selecciona al empleado en el formulario de acceso. Brenda solo debe
-            tener Estuardo y las bitácoras que tú autorices.
-          </p>
+          <h2>Autorizaciones</h2>
           <Campo
             label="Empresa autorizada"
             as="select"
@@ -221,25 +222,52 @@ export default function Seguridad() {
               </option>
             ))}
           </Campo>
-          <div className="permission-list">
+          <Campo
+            label="Usuario activo"
+            as="select"
+            value={permissionId}
+            onChange={(e) => selectPermission(e.target.value)}
+          >
+            <OpcionesEmpleado employees={activeEmployees} />
+          </Campo>
+          <Campo
+            label="Bitácoras"
+            as="select"
+            value=""
+            disabled={!permissionId}
+            onChange={(e) => {
+              if (e.target.value)
+                setAllowed([...new Set([...allowed, e.target.value])]);
+            }}
+          >
+            <option value="">Selecciona una bitácora…</option>
             {Object.entries(logTypes).map(([key, name]) => (
-              <label key={key}>
-                <input
-                  type="checkbox"
-                  checked={allowed.includes(key)}
-                  onChange={(e) =>
-                    setAllowed(
-                      e.target.checked
-                        ? [...allowed, key]
-                        : allowed.filter((t) => t !== key),
-                    )
-                  }
-                />
+              <option key={key} value={key} disabled={allowed.includes(key)}>
                 {name}
-              </label>
+              </option>
+            ))}
+          </Campo>
+          <div className="permission-list" aria-label="Bitácoras seleccionadas">
+            {allowed.map((key) => (
+              <div key={key}>
+                <span>{logTypes[key]}</span>{" "}
+                <button
+                  type="button"
+                  aria-label={`Quitar ${logTypes[key]}`}
+                  onClick={() => setAllowed(allowed.filter((t) => t !== key))}
+                >
+                  Quitar
+                </button>
+              </div>
             ))}
           </div>
-          <button className="primary" disabled={pending || !employeeId}>
+          <button
+            className="primary"
+            disabled={
+              pending ||
+              !activeEmployees.some((e) => e.id_empleado === permissionId)
+            }
+          >
             Guardar permisos
           </button>
         </form>

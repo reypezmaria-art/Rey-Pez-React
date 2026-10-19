@@ -228,14 +228,23 @@ test("la trabajadora de demostración de Estuardo solo ve su empresa y bitácora
   await page
     .getByLabel("Empleado", { exact: true })
     .selectOption(TRABAJADORA_ESTUARDO);
+  await page
+    .getByLabel("Usuario activo", { exact: true })
+    .selectOption(TRABAJADORA_ESTUARDO);
+  await page.getByLabel("Empleado", { exact: true }).selectOption("AL-01");
+  await expect(page.getByLabel("Usuario activo", { exact: true })).toHaveValue(
+    TRABAJADORA_ESTUARDO,
+  );
   await page.getByLabel("Empresa autorizada").selectOption("ALLAN");
   await page.getByRole("button", { name: "Guardar permisos" }).click();
   await expect(page.getByRole("alert")).toHaveText(
     "Autoriza únicamente la empresa del empleado.",
   );
   await page.getByLabel("Empresa autorizada").selectOption("ESTUARDO");
-  await page.getByLabel("Temperaturas", { exact: true }).check();
-  await page.getByLabel("Cloro", { exact: true }).check();
+  await page
+    .getByLabel("Bitácoras", { exact: true })
+    .selectOption("temperature");
+  await page.getByLabel("Bitácoras", { exact: true }).selectOption("chlorine");
   await page.getByRole("button", { name: "Guardar permisos" }).click();
   await expect(page.getByRole("status")).toContainText("Permisos guardados");
   await cerrarSesion(page);
