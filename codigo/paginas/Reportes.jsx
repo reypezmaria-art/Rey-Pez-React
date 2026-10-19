@@ -9,36 +9,56 @@ import {
 } from "../componentes/ElementosInterfaz.jsx";
 import { toCSV } from "../utilidades/archivosCsv.js";
 import { download } from "../utilidades/descargas.js";
-import { localDate } from "../utilidades/fechas.js";
+import {
+  calendarDate,
+  formatDateTime,
+  localDate,
+} from "../utilidades/fechas.js";
+import { concordar } from "../utilidades/textos.js";
 import { repository } from "../repositorios/repositorio.js";
 import {
   validateState,
   migrateState,
+  leerRespaldo,
 } from "../repositorios/repositorioLocal.js";
+function textoFecha(valor) {
+  if (!valor) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) return valor;
+  const fecha = new Date(valor);
+  return Number.isNaN(fecha.getTime()) ? valor : formatDateTime(fecha);
+}
 export default function Reportes() {
-  const { data, commit, logout } = useAplicacion();
+  const { data, commit, logout, avisar } = useAplicacion();
   const [error, setError] = useState(""),
-    [message, setMessage] = useState(""),
     [company, setCompany] = useState(""),
     [from, setFrom] = useState(localDate()),
     [to, setTo] = useState(localDate()),
     [type, setType] = useState("attendance");
   const source = type === "absenceReviews" ? data.absenceReviews : data[type];
-  const rows = source.filter((r) => {
-    const code =
-      r.empresa_codigo ||
-      r.company ||
-      data.rooms.find((a) => a.id === r.room)?.company ||
-      data.employees.find((e) => e.id_empleado === r.employeeId)
-        ?.empresa_codigo;
-    const day = (r.fecha_hora || r.when || r.date || "").slice(0, 10);
-    return (
-      (!company || code === company) &&
-      (!from || day >= from) &&
-      (!to || day <= to)
-    );
-  });
+  const rangoInvertido = Boolean(from && to && from > to);
+  const rows = rangoInvertido
+    ? []
+    : source.filter((r) => {
+        const code =
+          r.empresa_codigo ||
+          r.company ||
+          data.rooms.find((a) => a.id === r.room)?.company ||
+          data.employees.find((e) => e.id_empleado === r.employeeId)
+            ?.empresa_codigo;
+        const day = calendarDate(r.fecha_hora || r.when || r.date || "");
+        return (
+          (!company || code === company) &&
+          (!from || (day && day >= from)) &&
+          (!to || (day && day <= to))
+        );
+      });
   const exportCSV = (key, items = data[key]) => {
+    if (rangoInvertido && items === rows) {
+      setError(
+        "Selecciona un rango válido: Desde debe ser anterior o igual a Hasta.",
+      );
+      return;
+    }
     try {
       download(
         `${key === "employees" ? "empleados" : key === "attendance" ? "asistencia" : key}_rey_pez.csv`,
@@ -85,7 +105,7 @@ export default function Reportes() {
       await commit((current) =>
         migrateState({ ...state, access: state.access || current.access }),
       );
-      setMessage("Respaldo restaurado.");
+      avisar("Respaldo restaurado.");
       logout();
     } catch (err) {
       setError(err.message);
@@ -95,13 +115,19 @@ export default function Reportes() {
     const file = e.target.files[0];
     if (!file) return;
     try {
-      await restore(JSON.parse(await file.text()));
+      await restore(leerRespaldo(await file.text()));
     } catch (err) {
       setError(err.message);
     }
     e.target.value = "";
   }
-  const backups = repository.backups();
+  let backups = [];
+  let backupsError = "";
+  try {
+    backups = repository.backups();
+  } catch (err) {
+    backupsError = err.message;
+  }
   return (
     <section>
       <EncabezadoPagina
@@ -109,7 +135,11 @@ export default function Reportes() {
         subtitle="Filtros por empresa y fechas; exportación CSV y restauración completa."
       />
       <Mensaje error>{error}</Mensaje>
-      <Mensaje>{message}</Mensaje>
+      <Mensaje error>
+        {rangoInvertido
+          ? "Selecciona un rango válido: Desde debe ser anterior o igual a Hasta."
+          : ""}
+      </Mensaje>
       <div className="panel">
         <h2>Reporte de operación</h2>
         <div className="formgrid">
@@ -156,7 +186,7 @@ export default function Reportes() {
         <button onClick={() => exportCSV(type, rows)}>
           Exportar reporte filtrado CSV
         </button>
-        <p>{rows.length} registros</p>
+        <p>{concordar(rows.length, "registro", "registros")}</p>
         <Tabla
           headings={[
             "Fecha",
@@ -168,7 +198,7 @@ export default function Reportes() {
         >
           {rows.slice(0, 100).map((r, i) => (
             <tr key={r.id || r.id_registro || i}>
-              <td>{r.fecha_hora || r.when || r.date}</td>
+              <td>{textoFecha(r.fecha_hora || r.when || r.date)}</td>
               <td>{r.nombre_completo || r.name || r.responsible || r.by}</td>
               <td>
                 {r.movimiento ||
@@ -207,6 +237,7 @@ export default function Reportes() {
           derivadas, bitácoras, evidencias y configuración. Consérvalo en un
           lugar privado. Las contraseñas no se incluyen en CSV.
         </p>
+        <Mensaje error>{backupsError}</Mensaje>
         <h3>Respaldos automáticos locales</h3>
         <p>
           Se conserva el estado anterior al primer cambio de cada día, hasta

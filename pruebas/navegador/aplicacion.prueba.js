@@ -140,7 +140,7 @@ test("configuración, CSV, respaldo y seguridad local", async ({ page }) => {
       "\uFEFFnombre_completo,empresa_codigo,puesto\nPERSONA CSV,ALLAN,GENERAL",
     ),
   });
-  await expect(page.getByRole("status")).toContainText("1 filas procesadas");
+  await expect(page.getByRole("status")).toContainText("1 fila procesada");
   await page.getByRole("button", { name: "Asignar ID faltantes" }).click();
   await page.getByLabel("Buscar personal").fill("PERSONA CSV");
   await expect(page.locator("tbody").last()).toContainText("RP-0001");
@@ -313,6 +313,10 @@ test("tres carpetas independientes y temperaturas sin duplicación", async ({
     page.getByRole("button", { name: /^Limpieza y jabón · embolsado/ }),
   ).toBeVisible();
   await nav(page, "Bitácora de EPP").click();
+  await page.getByLabel("Empresa de carpeta").selectOption("ESTUARDO");
+  await expect(
+    page.getByRole("button", { name: /^Cuartos fríos/ }),
+  ).toBeVisible();
   await page.getByLabel("Empresa de carpeta").selectOption("EDGAR");
   await expect(page.getByRole("button", { name: /^El Galileo/ })).toBeVisible();
   await expect(

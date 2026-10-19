@@ -1,12 +1,10 @@
 import { jsPDF } from "jspdf";
 import { autoTable } from "jspdf-autotable";
-import { localDate, formatDateTime } from "./fechas.js";
+import { calendarDate, formatDateTime } from "./fechas.js";
 import { areaLabel } from "../datos/listasRevision.js";
 export function withinRange(value, from, to) {
-  const date = /^\d{4}-\d{2}-\d{2}$/.test(value || "")
-    ? value
-    : localDate(new Date(value));
-  return date >= from && date <= to;
+  const date = calendarDate(value);
+  return Boolean(date) && date >= from && date <= to;
 }
 export function reportRows(data, records, kind, from, to) {
   if (!from || !to || from > to)

@@ -3,7 +3,7 @@ import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import { Campo, Mensaje } from "./ElementosInterfaz.jsx";
 import LogoMarca from "./LogoMarca.jsx";
 export default function Acceso({ operational = false }) {
-  const { data, login, setup, pending } = useAplicacion();
+  const { data, login, setup, pending, aviso } = useAplicacion();
   const first = !data.access.admin && !operational;
   const [id, setId] = useState(operational ? "" : "MARIA"),
     [password, setPassword] = useState(""),
@@ -65,6 +65,7 @@ export default function Acceso({ operational = false }) {
             required
           />
         )}
+        <Mensaje>{aviso}</Mensaje>
         <Mensaje error>{error}</Mensaje>
         <button className="primary" disabled={pending}>
           {first ? "Crear acceso y abrir panel" : "Ingresar"}

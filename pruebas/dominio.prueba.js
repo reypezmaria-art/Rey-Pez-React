@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { scheduledEvent, timeToMinutes } from "../codigo/dominio/asistencia.js";
+import {
+  scheduledEvent,
+  scheduleForEmployee,
+  timeToMinutes,
+} from "../codigo/dominio/asistencia.js";
 import {
   assignMissingIds,
   saveEmployee,
@@ -16,9 +20,12 @@ import {
   parseCSV,
   toCSV,
 } from "../codigo/utilidades/archivosCsv.js";
+import { localDate } from "../codigo/utilidades/fechas.js";
 import {
   createLocalRepository,
   STORAGE_KEY,
+  leerRespaldo,
+  mensajeGuardado,
 } from "../codigo/repositorios/repositorioLocal.js";
 const employee = {
   id_empleado: "AL-01",
@@ -62,6 +69,39 @@ test("secuencia completa de entrada, comida, regreso y salida", () => {
   }
   assert.equal(state.alerts.length, 0);
   assert.equal(state.attendance.length, 4);
+});
+test("en el turno 06–14 la comida posterior a las 13:00 sigue siendo comida", () => {
+  const edgar = {
+    ...employee,
+    empresa_codigo: "EDGAR",
+    codigo_horario: "EDG-ROT",
+  };
+  const dia = (hour, minute = 0) => new Date(2026, 8, 28, hour, minute);
+  const entrada = {
+    id_empleado: "AL-01",
+    movimiento: "ENTRADA",
+    fecha_hora: dia(6).toISOString(),
+  };
+  assert.equal(
+    scheduledEvent(edgar, defaultSchedules, [entrada], dia(13)).movement,
+    "SALIDA_A_COMER",
+  );
+  assert.equal(
+    scheduledEvent(edgar, defaultSchedules, [entrada], dia(13, 50)).movement,
+    "SALIDA_FINAL",
+  );
+});
+test("una vigencia que se apunta a sí misma no bloquea el horario", () => {
+  const schedule = {
+    ...defaultSchedules.find((s) => s.codigo === "ALL-GEN"),
+    vigente_desde: "2999-01-01",
+  };
+  schedule.previousSchedule = schedule;
+  assert.equal(
+    scheduleForEmployee(employee, [schedule], new Date(2026, 9, 10))
+      .hora_inicio,
+    "09:00",
+  );
 });
 test("salida directa al terminar turno y reinicio al día siguiente", () => {
   const records = [mark("ENTRADA", 9)];
@@ -113,6 +153,39 @@ test("rechaza cuentas inactivas, ID desconocido y contraseñas de demo", () => {
     () => recordAttendance(terminateEmployee(initial(), "AL-01"), "AL-01", ""),
     /no está activa/,
   );
+});
+test("cambiar de empresa retira permisos y la baja desde el formulario guarda la fecha", () => {
+  const state = initial();
+  state.access = {
+    admin: null,
+    workers: { "AL-01": { active: true, hash: "derivada" } },
+    permissions: { "AL-01": { company: "ALLAN", logs: ["epp"] } },
+  };
+  const moved = saveEmployee(
+    state,
+    { ...employee, empresa_codigo: "EDGAR" },
+    "AL-01",
+  );
+  assert.equal(moved.access.permissions["AL-01"], undefined);
+  assert.equal(moved.access.workers["AL-01"].hash, "derivada");
+  assert.equal(moved.employees[0].empresa_codigo, "EDGAR");
+  const baja = saveEmployee(state, { ...employee, estatus: "Baja" }, "AL-01");
+  assert.equal(baja.employees[0].fecha_baja, localDate());
+  const conservada = saveEmployee(
+    baja,
+    { ...baja.employees[0], puesto: "GENERAL 2" },
+    "AL-01",
+  );
+  assert.equal(
+    conservada.employees[0].fecha_baja,
+    baja.employees[0].fecha_baja,
+  );
+  const reactivado = saveEmployee(
+    baja,
+    { ...baja.employees[0], estatus: "Activo" },
+    "AL-01",
+  );
+  assert.equal(reactivado.employees[0].fecha_baja, undefined);
 });
 test("renombrar empleado mantiene referencias históricas y detecta duplicados", () => {
   const state = initial();
@@ -175,6 +248,11 @@ test("CSV admite BOM, comillas, comas y saltos de línea; exporta todas las colu
   assert.equal(rows[0].nombre_completo, "Ana, Pérez");
   assert.equal(rows[0].observaciones, 'Dice "hola"\ny adiós');
   assert.match(toCSV([{ a: 1 }, { a: 2, curp: "ABC" }]), /curp/);
+  assert.match(toCSV([{ horario: { hora_inicio: "09:00" } }]), /09:00/);
+  assert.doesNotMatch(
+    toCSV([{ horario: { hora_inicio: "09:00" } }]),
+    /object Object/,
+  );
   assert.match(toCSV([{ a: "=1+1" }]), /'=1\+1/);
   assert.throws(() => parseCSV('a\n"sin cerrar'), /comillas/);
 });
@@ -196,6 +274,28 @@ test("importación inválida es atómica y evita duplicados o reasignaciones del
     /conservar el historial/,
   );
   assert.equal(state.employees.length, 1);
+});
+test("un respaldo que no es JSON se rechaza en español", () => {
+  assert.throws(
+    () => leerRespaldo("no-es-json"),
+    /El archivo no es un JSON válido/,
+  );
+  assert.throws(() => leerRespaldo("[]"), /respaldo JSON de Rey Pez/);
+  assert.equal(leerRespaldo('{"employees":[]}').employees.length, 0);
+});
+test("el navegador sin espacio avisa en español", () => {
+  const error = Error("quota");
+  error.name = "QuotaExceededError";
+  assert.match(mensajeGuardado(error), /No hay espacio/);
+  assert.equal(mensajeGuardado(Error("Sin espacio")), "Sin espacio");
+});
+test("almacenamiento corrupto y copias ilegibles avisan en español", async () => {
+  const repository = createLocalRepository({
+    getItem: (key) => (key === STORAGE_KEY ? "{no-es-json" : "no-es-json"),
+    setItem: () => {},
+  });
+  await assert.rejects(repository.load(), /JSON válido/);
+  assert.throws(() => repository.backups(), /copias automáticas/);
 });
 test("repositorio conserva datos anteriores cuando falla la escritura", async () => {
   const stored = new Map([[STORAGE_KEY, JSON.stringify(initial())]]);

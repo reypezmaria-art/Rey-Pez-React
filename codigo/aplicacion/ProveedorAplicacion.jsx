@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ContextoAplicacion } from "./ContextoAplicacion.js";
 import { repository } from "../repositorios/repositorio.js";
+import { mensajeGuardado } from "../repositorios/repositorioLocal.js";
 import { makeCredential, verifyCredential } from "../dominio/seguridad.js";
 import { recordAttendance } from "../dominio/operaciones.js";
 import { saveLog } from "../dominio/bitacoras.js";
@@ -9,6 +10,7 @@ export default function ProveedorAplicacion({ children }) {
     [error, setError] = useState(""),
     [pending, setPending] = useState(false),
     [session, setSession] = useState(null),
+    [aviso, setAviso] = useState(""),
     [clock, setClock] = useState(() => new Date());
   useEffect(() => {
     let active = true;
@@ -33,7 +35,9 @@ export default function ProveedorAplicacion({ children }) {
     try {
       return await repository.transact(update);
     } catch (err) {
-      throw Error(`No se guardó el cambio: ${err.message}`, { cause: err });
+      throw Error(`No se guardó el cambio: ${mensajeGuardado(err)}`, {
+        cause: err,
+      });
     } finally {
       setPending(false);
     }
@@ -47,6 +51,7 @@ export default function ProveedorAplicacion({ children }) {
     if (key === "MARIA") {
       if (!(await verifyCredential(data.access.admin, password)))
         throw Error("ID o contraseña incorrectos.");
+      setAviso("");
       setSession({ id: "MARIA", name: "María", role: "admin" });
       return;
     }
@@ -58,6 +63,7 @@ export default function ProveedorAplicacion({ children }) {
       !(await verifyCredential(data.access.workers[key], password))
     )
       throw Error("ID o contraseña incorrectos.");
+    setAviso("");
     setSession({ id: key, name: employee.nombre_completo, role: "worker" });
   }
   async function setup(password) {
@@ -67,6 +73,7 @@ export default function ProveedorAplicacion({ children }) {
         throw Error("La administración ya está configurada.");
       return { ...state, access: { ...state.access, admin: credential } };
     });
+    setAviso("");
     setSession({ id: "MARIA", name: "María", role: "admin" });
   }
   async function register(id, password) {
@@ -109,6 +116,8 @@ export default function ProveedorAplicacion({ children }) {
         pending,
         session,
         clock,
+        aviso,
+        avisar: setAviso,
         login,
         setup,
         register,

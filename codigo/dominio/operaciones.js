@@ -28,6 +28,9 @@ export function saveEmployee(state, employee, originalId) {
     )
   )
     throw Error("Ese ID ya está asignado a otro empleado.");
+  const previous = originalId
+    ? state.employees.find((e) => e.id_empleado === originalId)
+    : undefined;
   const value = {
     ...employee,
     id_empleado: id,
@@ -40,26 +43,35 @@ export function saveEmployee(state, employee, originalId) {
       employee.tipo_puesto ||
       (/ADMIN/i.test(role) ? "Administrativo" : "General"),
   };
+  if (value.estatus === "Baja")
+    value.fecha_baja =
+      previous?.estatus === "Baja" && previous.fecha_baja
+        ? previous.fecha_baja
+        : localDate();
+  else delete value.fecha_baja;
+  const remapKeys = (map) =>
+    Object.fromEntries(
+      Object.entries(map || {}).map(([key, item]) => [
+        key === originalId ? id : key,
+        item,
+      ]),
+    );
+  let access = state.access;
+  if (access && originalId) {
+    const workers =
+      originalId === id ? access.workers : remapKeys(access.workers);
+    let permissions =
+      originalId === id ? access.permissions : remapKeys(access.permissions);
+    if (previous && previous.empresa_codigo !== value.empresa_codigo) {
+      permissions = { ...(permissions || {}) };
+      delete permissions[id];
+    }
+    if (workers !== access.workers || permissions !== access.permissions)
+      access = { ...access, workers, permissions };
+  }
   return {
     ...state,
-    access:
-      originalId && originalId !== id && state.access
-        ? {
-            ...state.access,
-            workers: Object.fromEntries(
-              Object.entries(state.access.workers).map(([key, v]) => [
-                key === originalId ? id : key,
-                v,
-              ]),
-            ),
-            permissions: Object.fromEntries(
-              Object.entries(state.access.permissions).map(([key, v]) => [
-                key === originalId ? id : key,
-                v,
-              ]),
-            ),
-          }
-        : state.access,
+    access,
     employees: originalId
       ? state.employees.map((e) => (e.id_empleado === originalId ? value : e))
       : [...state.employees, value],

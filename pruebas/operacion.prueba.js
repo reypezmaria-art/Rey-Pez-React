@@ -307,4 +307,25 @@ test("PDF filtra días completos y conserva los motivos sin mezclar registros", 
     () => reportRows(s, records, "epp", "2026-10-02", "2026-10-01"),
     /rango válido/,
   );
+  const nocturno = "2026-10-15T02:30:00.000Z";
+  const { withinRange } = await import("../codigo/utilidades/reportesPdf.js");
+  assert.equal(withinRange(nocturno, "2026-10-14", "2026-10-14"), true);
+  assert.equal(withinRange(nocturno, "2026-10-15", "2026-10-15"), false);
+  assert.equal(
+    reportRows(
+      s,
+      [
+        {
+          fecha_hora: nocturno,
+          id_empleado: "TEST",
+          nombre_completo: "Noche",
+          movimiento: "ENTRADA",
+        },
+      ],
+      "attendance",
+      "2026-10-14",
+      "2026-10-14",
+    ).length,
+    1,
+  );
 });

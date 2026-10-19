@@ -511,9 +511,11 @@ export default function OperacionConfiguracion() {
                   Abrir captura del área
                 </a>
               </p>
-              <a href={qrImage} download="QR_Rey_Pez.png">
-                Descargar QR
-              </a>
+              {qrImage && (
+                <a href={qrImage} download="QR_Rey_Pez.png">
+                  Descargar QR
+                </a>
+              )}
               <p className="small">
                 El QR identifica el área; el trabajador debe ingresar con ID,
                 contraseña y permiso. Para escanear desde un teléfono se

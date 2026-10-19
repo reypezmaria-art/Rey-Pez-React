@@ -84,7 +84,10 @@ export function toCSV(data) {
   if (!data.length) throw Error("No hay datos para exportar.");
   const columns = [...new Set(data.flatMap(Object.keys))];
   const cell = (value) => {
-    let text = String(value ?? "");
+    let text =
+      value && typeof value === "object"
+        ? JSON.stringify(value)
+        : String(value ?? "");
     if (/^[\s]*[=+@-]/.test(text)) text = `'${text}`;
     return `"${text.replaceAll('"', '""')}"`;
   };

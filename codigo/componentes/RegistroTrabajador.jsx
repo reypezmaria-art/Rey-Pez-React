@@ -1,6 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import LogoMarca from "./LogoMarca.jsx";
+function saludoDeMarcaje(resultado) {
+  const nombre = resultado.employee.nombre_completo;
+  if (resultado.event.movement === "SALIDA_FINAL")
+    return `Hasta pronto, ${nombre}`;
+  if (resultado.event.movement === "SALIDA_A_COMER")
+    return `Buen provecho, ${nombre}`;
+  if (resultado.event.movement === "REGRESO_DE_COMER")
+    return `Bienvenido de regreso, ${nombre}`;
+  return `¡Bienvenido a Rey Pez, ${nombre}!`;
+}
 export default function RegistroTrabajador({ onClose, terminal = false }) {
   const { register, pending } = useAplicacion();
   const [id, setId] = useState(""),
@@ -61,9 +71,7 @@ export default function RegistroTrabajador({ onClose, terminal = false }) {
         {success ? (
           <div className="kiosk-success" role="status">
             <div className="kiosk-check">✓</div>
-            <h1 id="kiosk-title">
-              ¡Bienvenido a Rey Pez, {success.employee.nombre_completo}!
-            </h1>
+            <h1 id="kiosk-title">{saludoDeMarcaje(success)}</h1>
             <p className="kiosk-movement">
               {success.event.label} ·{" "}
               {success.now.toLocaleTimeString("es-MX", {
