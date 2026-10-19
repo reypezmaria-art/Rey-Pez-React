@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function firmado() {
+      return request.auth != null;
+    }
+    function esAdmin() {
+      return firmado()
+        && get(/databases/$(database)/documents/acceso/admin).data.uid == request.auth.uid;
+    }
+    function ficha() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+    function esTrabajador() {
+      return firmado()
+        && ficha().rol == "trabajador"
+        && ficha().activo == true;
+    }
+    function esTerminal() {
+      return firmado()
+        && ficha().rol == "terminal"
+        && ficha().activo == true;
+    }
+    function puedeLeer() {
+      return esAdmin() || esTrabajador() || esTerminal();
+    }
+    function permiso() {
+      return get(/databases/$(database)/documents/operacion/config).data.permissions[ficha().idEmpleado];
+    }
+
+    match /acceso/admin {
+      allow get: if true;
+      allow create: if firmado()
+        && request.resource.data.uid == request.auth.uid
+        && !exists(/databases/$(database)/documents/acceso/admin);
+      allow update, delete: if false;
+    }
+
+    match /usuarios/{uid} {
+      allow get: if esAdmin() || esTerminal() || (firmado() && request.auth.uid == uid);
+      allow list: if esAdmin() || esTerminal();
+      allow update: if esAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["idEmpleado"]);
+      allow create, delete: if false;
+    }
+
+    match /empleados/{id} {
+      allow read: if puedeLeer();
+      allow write: if esAdmin();
+    }
+    match /horarios/{id} {
+      allow read: if puedeLeer();
+      allow write: if esAdmin();
+    }
+    match /bitacoras/{id} {
+      allow read: if puedeLeer();
+      allow create: if esAdmin() || (
+        esTrabajador()
+        && request.resource.data.createdBy == ficha().idEmpleado
+        && permiso().company == request.resource.data.company
+        && request.resource.data.type in permiso().logs
+      );
+      allow update, delete: if esAdmin();
+    }
+    match /mantenimiento/{id} {
+      allow read: if puedeLeer();
+      allow write: if esAdmin();
+    }
+    match /revisiones/{id} {
+      allow read: if puedeLeer();
+      allow write: if esAdmin();
+    }
+    match /auditoria/{id} {
+      allow read: if puedeLeer();
+      allow write: if esAdmin();
+    }
+    match /asistencia/{id} {
+      allow read: if puedeLeer();
+      allow create: if esAdmin() || esTerminal() || (
+        esTrabajador() && request.resource.data.id_empleado == ficha().idEmpleado
+      );
+      allow update, delete: if esAdmin();
+    }
+    match /alertas/{id} {
+      allow read: if puedeLeer();
+      allow create: if esAdmin() || esTerminal();
+      allow update, delete: if esAdmin();
+    }
+    match /operacion/config {
+      allow read: if puedeLeer();
+      allow write: if esAdmin();
+    }
+    match /respaldos/{id} {
+      allow read, write: if esAdmin();
+    }
+  }
+}

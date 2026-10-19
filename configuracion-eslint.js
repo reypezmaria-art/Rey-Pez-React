@@ -35,6 +35,10 @@ export default [
     languageOptions: { globals: globals.node },
   },
   {
+    files: ["firebase/**/*.js"],
+    languageOptions: { globals: globals.node, sourceType: "commonjs" },
+  },
+  {
     files: ["pruebas/navegador/**/*.js"],
     languageOptions: { globals: globals.browser },
   },

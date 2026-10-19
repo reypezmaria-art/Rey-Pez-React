@@ -8,7 +8,9 @@ import {
 } from "../componentes/ElementosInterfaz.jsx";
 import { securityActions, companyNames } from "../datos/constantes.js";
 import { logTypes } from "../datos/operacionInicial.js";
-import { makeCredential } from "../dominio/seguridad.js";
+import { cuentaAsignada, makeCredential } from "../dominio/seguridad.js";
+import { usaFirebase } from "../repositorios/repositorio.js";
+import { cambiarContrasenaMaria, gestionarAcceso } from "../firebase/sesion.js";
 export default function Seguridad() {
   const { data, commit, pending } = useAplicacion();
   const [employeeId, setEmployeeId] = useState(""),
@@ -38,19 +40,28 @@ export default function Seguridad() {
       if (!employeeId) throw Error("Selecciona un empleado.");
       if (needsPassword && password !== confirmation)
         throw Error("Las contraseñas no coinciden.");
-      const credential = needsPassword ? await makeCredential(password) : null;
+      if (usaFirebase)
+        await gestionarAcceso({
+          accion: action,
+          idEmpleado: employeeId,
+          contrasena: needsPassword ? password : "",
+        });
+      const credential =
+        !usaFirebase && needsPassword ? await makeCredential(password) : null;
       await commit((state) => ({
         ...state,
-        access: {
-          ...state.access,
-          workers: {
-            ...state.access.workers,
-            [employeeId]: credential || {
-              ...state.access.workers[employeeId],
-              active: action === "enable",
+        access: usaFirebase
+          ? state.access
+          : {
+              ...state.access,
+              workers: {
+                ...state.access.workers,
+                [employeeId]: credential || {
+                  ...state.access.workers[employeeId],
+                  active: action === "enable",
+                },
+              },
             },
-          },
-        },
         audit: [
           {
             id: crypto.randomUUID(),
@@ -65,7 +76,9 @@ export default function Seguridad() {
       setPassword("");
       setConfirmation("");
       setMessage(
-        "Acceso actualizado. La contraseña se guarda como una derivación con sal; no se muestra ni se exporta en CSV.",
+        usaFirebase
+          ? "Acceso actualizado en Firebase. La contraseña no se muestra ni se exporta."
+          : "Acceso actualizado. La contraseña se guarda como una derivación con sal; no se muestra ni se exporta en CSV.",
       );
     } catch (err) {
       setError(err.message);
@@ -101,6 +114,14 @@ export default function Seguridad() {
     try {
       if (adminNew !== adminConfirm)
         throw Error("Las contraseñas no coinciden.");
+      if (usaFirebase) {
+        await cambiarContrasenaMaria(adminNew);
+        setAdminNew("");
+        setAdminConfirm("");
+        setMessage("Contraseña de María actualizada.");
+        setError("");
+        return;
+      }
       const credential = await makeCredential(adminNew);
       await commit((state) => ({
         ...state,
@@ -120,8 +141,9 @@ export default function Seguridad() {
         subtitle="María administra contraseñas y autoriza la captura por empresa y bitácora."
       />
       <div className="note">
-        Control local para revisión. La sincronización y los permisos de
-        servidor deben configurarse antes de operar entre equipos.
+        {usaFirebase
+          ? "Las contraseñas viven en Firebase Authentication. María asigna la de cada trabajador; no se guardan en el catálogo."
+          : "Control local para revisión. La sincronización y los permisos de servidor deben configurarse antes de operar entre equipos."}
       </div>
       <Mensaje>{message}</Mensaje>
       <Mensaje error>{error}</Mensaje>
@@ -174,8 +196,8 @@ export default function Seguridad() {
           </button>
           <p className="small">
             Estado:{" "}
-            {data.access.workers[employeeId]?.hash
-              ? data.access.workers[employeeId].active
+            {cuentaAsignada(data.access.workers[employeeId])
+              ? data.access.workers[employeeId].active !== false
                 ? "Habilitado"
                 : "Bloqueado"
               : "Contraseña pendiente de asignación"}

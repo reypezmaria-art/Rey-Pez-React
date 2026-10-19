@@ -6,6 +6,7 @@ import {
   timeToMinutes,
 } from "./asistencia.js";
 import { isSameDay, localDate } from "../utilidades/fechas.js";
+import { cuentaAsignada } from "./seguridad.js";
 
 export function generateEmployeeId(employees) {
   const used = new Set(employees.map((e) => e.id_empleado));
@@ -160,16 +161,15 @@ export function recordAttendance(
     throw Error("No se encontró ese ID. Solicita apoyo a administración.");
   if ((employee.estatus || "Activo") !== "Activo")
     throw Error("La cuenta no está activa. Consulta a administración.");
-  if (
-    state.access?.admin &&
-    !state.access?.workers?.[employee.id_empleado]?.hash
-  )
+  const worker = state.access?.workers?.[employee.id_empleado];
+  const assigned = cuentaAsignada(worker);
+  if (state.access?.admin && !assigned)
     throw Error(
       "Solicita a María que asigne tu contraseña antes de registrar.",
     );
-  if (state.access?.workers?.[employee.id_empleado]?.active === false)
+  if (worker?.active === false)
     throw Error("La cuenta no está activa. Consulta a administración.");
-  if (state.access?.workers?.[employee.id_empleado]?.hash && !authenticated)
+  if (assigned && !authenticated)
     throw Error("Verifica tu contraseña para registrar.");
   if (password && !authenticated)
     throw Error(

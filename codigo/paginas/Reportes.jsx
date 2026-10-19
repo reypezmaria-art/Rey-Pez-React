@@ -10,7 +10,7 @@ import {
 import { toCSV } from "../utilidades/archivosCsv.js";
 import { download } from "../utilidades/descargas.js";
 import { localDate } from "../utilidades/fechas.js";
-import { repository } from "../repositorios/repositorio.js";
+import { repository, usaFirebase } from "../repositorios/repositorio.js";
 import {
   validateState,
   migrateState,
@@ -207,16 +207,30 @@ export default function Reportes() {
           derivadas, bitácoras, evidencias y configuración. Consérvalo en un
           lugar privado. Las contraseñas no se incluyen en CSV.
         </p>
-        <h3>Respaldos automáticos locales</h3>
+        <h3>
+          {usaFirebase
+            ? "Respaldos automáticos"
+            : "Respaldos automáticos locales"}
+        </h3>
         <p>
-          Se conserva el estado anterior al primer cambio de cada día, hasta
-          siete días con actividad. Son copias en este navegador; descarga
-          también un respaldo externo.
+          {usaFirebase
+            ? "Se conserva el estado anterior al primer cambio de cada día, hasta siete días, en Cloud Storage. Descarga también un respaldo externo."
+            : "Se conserva el estado anterior al primer cambio de cada día, hasta siete días con actividad. Son copias en este navegador; descarga también un respaldo externo."}
         </p>
         {backups.map((b) => (
           <p key={b.date}>
             {b.date}{" "}
-            <button onClick={() => restore(b.state)}>
+            <button
+              onClick={async () => {
+                try {
+                  const state =
+                    b.state || (await repository.leerRespaldo?.(b.date));
+                  await restore(state);
+                } catch (err) {
+                  setError(err.message);
+                }
+              }}
+            >
               Restaurar copia del día
             </button>
           </p>

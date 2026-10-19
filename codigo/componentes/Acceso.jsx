@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import { Campo, Mensaje } from "./ElementosInterfaz.jsx";
 import LogoMarca from "./LogoMarca.jsx";
+import { usaFirebase } from "../repositorios/repositorio.js";
 export default function Acceso({ operational = false }) {
   const { data, login, setup, pending } = useAplicacion();
   const first = !data.access.admin && !operational;
@@ -35,7 +36,9 @@ export default function Acceso({ operational = false }) {
         </h1>
         <p>
           {first
-            ? "Crea tu contraseña para esta copia local. ID de administración: MARIA."
+            ? usaFirebase
+              ? "Crea tu contraseña de administración. ID: MARIA. Será la primera cuenta del proyecto."
+              : "Crea tu contraseña para esta copia local. ID de administración: MARIA."
             : "Identifícate para abrir las secciones autorizadas."}
         </p>
         {!first && (
@@ -70,8 +73,9 @@ export default function Acceso({ operational = false }) {
           {first ? "Crear acceso y abrir panel" : "Ingresar"}
         </button>
         <p className="small">
-          Copia local de revisión. El acceso y los datos pertenecen a este
-          navegador; la protección centralizada entre equipos queda pendiente.
+          {usaFirebase
+            ? "El personal y la asistencia se guardan en Firebase. Esta sesión se cierra al recargar."
+            : "Copia local de revisión. El acceso y los datos pertenecen a este navegador; la protección centralizada entre equipos queda pendiente."}
         </p>
       </form>
     </main>

@@ -103,6 +103,23 @@ test("marca repetida genera alerta y preserva ambos registros", () => {
   assert.equal(result.state.attendance.length, 3);
   assert.ok(result.state.alerts.some((a) => a.tipo === "Marcación repetida"));
 });
+test("una cuenta de Firebase con uid exige verificación y luego registra", () => {
+  const state = initial();
+  state.access = {
+    admin: { active: true, uid: "admin" },
+    workers: { "AL-01": { active: true, uid: "trabajador" } },
+    permissions: {},
+  };
+  assert.throws(
+    () => recordAttendance(state, "AL-01", "clave", time(9)),
+    /Verifica tu contraseña/,
+  );
+  assert.equal(
+    recordAttendance(state, "AL-01", "clave", time(9), true).state.attendance
+      .length,
+    1,
+  );
+});
 test("rechaza cuentas inactivas, ID desconocido y contraseñas de demo", () => {
   assert.throws(
     () => recordAttendance(initial(), "AL-01", "password"),

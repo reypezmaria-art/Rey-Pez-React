@@ -10,8 +10,12 @@
 
 `seguridad.js` deriva contraseñas con PBKDF2/SHA-256, 210000 iteraciones y sal aleatoria. Las sesiones se mantienen en memoria; recargar exige ingresar otra vez. Los formularios permiten asignación, cambio, restablecimiento y bloqueo. Este control de interfaz no sustituye permisos de servidor: el HTML y localStorage contienen información accesible al dueño del archivo o navegador.
 
-## Próxima infraestructura
+## Firebase
 
-No hay Firebase activo. Para operación multiusuario se requieren credenciales del servicio, autenticación centralizada, permisos de servidor por entidad, sincronización, gestión segura de archivos y autorización central de equipos. El archivo `.env.ejemplo` únicamente documenta parámetros futuros. No se simulan registros sincronizados, huellas ni acceso remoto funcional.
+Si `.env` no tiene proyecto, `repositorio.js` sigue usando `repositorioLocal.js`. Con `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_API_KEY` y `VITE_FIREBASE_APP_ID`, el mismo estado se reparte en colecciones de Cloud Firestore (`empleados`, `asistencia`, `alertas`, `horarios`, `bitacoras`, `mantenimiento`, `revisiones`, `auditoria` y `operacion/config`). Los adjuntos van a Cloud Storage en `evidencias/`.
+
+El ID de pantalla no cambia. Auth usa el correo `{id}@acceso.reypez.app`. María crea la primera cuenta en el navegador y el documento `acceso/admin` solo puede crearse una vez. Las contraseñas de trabajadores y la terminal de asistencia pasan por la función `gestionarAcceso`, porque el cliente no puede modificar la cuenta de otra persona. Las reglas rechazan lecturas de personal sin sesión: María escribe la operación, un trabajador escribe su asistencia y las bitácoras autorizadas, y una terminal vinculada solo crea asistencia y alertas.
+
+La primera vez que María entra, si Firestore está vacío y el navegador tiene `reypez_react_v1`, se copia ese catálogo sin empleados de demostración ni hashes locales. Esas contraseñas hay que volver a asignarlas en Seguridad. No hay huella ni acceso remoto distinto del que Firebase ya permite con la sesión iniciada.
 
 La vista autocontenida se genera con `npm run vista-local`; integra el catálogo privado si está disponible, logos y recursos. La herramienta no incluye empleados en el código versionado. Un QR con un archivo local o localhost funciona solo en ese entorno; captura desde teléfonos requiere una dirección accesible y la infraestructura compartida.

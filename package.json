@@ -19,6 +19,7 @@
     "vista-local": "npm run compilar && node herramientas/generarVistaLocal.js"
   },
   "dependencies": {
+    "firebase": "^13.0.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "qrcode": "^1.5.4",

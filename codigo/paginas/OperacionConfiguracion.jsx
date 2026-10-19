@@ -1,4 +1,6 @@
 import { deviceId } from "../utilidades/dispositivo.js";
+import { usaFirebase } from "../repositorios/repositorio.js";
+import { gestionarAcceso } from "../firebase/sesion.js";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
@@ -10,7 +12,7 @@ import {
 } from "../componentes/ElementosInterfaz.jsx";
 import { logTypes } from "../datos/operacionInicial.js";
 export default function OperacionConfiguracion() {
-  const { data, commit, pending } = useAplicacion();
+  const { data, commit, pending, activarTerminal } = useAplicacion();
   const [message, setMessage] = useState(""),
     [error, setError] = useState(""),
     [holiday, setHoliday] = useState(""),
@@ -402,12 +404,13 @@ export default function OperacionConfiguracion() {
       <div className="columns">
         <form
           className="panel"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             if (!terminalName.trim()) return;
             const id = deviceId();
-            run(
-              (state) => ({
+            setError("");
+            try {
+              await commit((state) => ({
                 ...state,
                 terminals: [
                   ...state.terminals.filter((t) => t.id !== id),
@@ -419,9 +422,25 @@ export default function OperacionConfiguracion() {
                     by: "MARIA",
                   },
                 ],
-              }),
-              "Este navegador quedó vinculado como terminal.",
-            );
+              }));
+              if (usaFirebase && terminalKind === "asistencia") {
+                const { token } = await gestionarAcceso({
+                  accion: "vincularTerminal",
+                  deviceId: id,
+                  nombre: terminalName,
+                  tipo: terminalKind,
+                });
+                location.hash = "#asistencia";
+                await activarTerminal(token);
+              }
+              setMessage(
+                usaFirebase && terminalKind === "asistencia"
+                  ? "Este navegador quedó como terminal de asistencia. Abre #asistencia; la sesión de María se cerró en este equipo."
+                  : "Este navegador quedó vinculado como terminal.",
+              );
+            } catch (err) {
+              setError(err.message);
+            }
           }}
         >
           <h2>Vinculación de este equipo</h2>
@@ -442,9 +461,9 @@ export default function OperacionConfiguracion() {
           </Campo>
           <button>Vincular este navegador</button>
           <p className="small">
-            En esta revisión local la vinculación no se transmite a otros
-            equipos. Abre la copia en el equipo y autorízalo ahí; la
-            sincronización central está pendiente.
+            {usaFirebase
+              ? "Vincula la asistencia en el equipo que se quedará en el quiosco. Ese navegador entra con una cuenta de terminal y conserva el catálogo compartido."
+              : "En esta revisión local la vinculación no se transmite a otros equipos. Abre la copia en el equipo y autorízalo ahí; la sincronización central está pendiente."}
           </p>
           {data.terminals.map((t) => (
             <p key={t.id}>
@@ -452,17 +471,25 @@ export default function OperacionConfiguracion() {
               {t.active && (
                 <button
                   type="button"
-                  onClick={() =>
-                    run(
-                      (state) => ({
+                  onClick={async () => {
+                    setError("");
+                    try {
+                      await commit((state) => ({
                         ...state,
                         terminals: state.terminals.map((x) =>
                           x.id === t.id ? { ...x, active: false } : x,
                         ),
-                      }),
-                      "Equipo desvinculado.",
-                    )
-                  }
+                      }));
+                      if (usaFirebase && t.kind === "asistencia")
+                        await gestionarAcceso({
+                          accion: "desvincularTerminal",
+                          deviceId: t.id,
+                        });
+                      setMessage("Equipo desvinculado.");
+                    } catch (err) {
+                      setError(err.message);
+                    }
+                  }}
                 >
                   Desvincular
                 </button>

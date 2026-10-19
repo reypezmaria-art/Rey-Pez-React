@@ -1,3 +1,8 @@
+import { firebaseConfigurado } from "../firebase/configuracion.js";
+import { createFirebaseRepository } from "./repositorioFirebase.js";
 import { createLocalRepository } from "./repositorioLocal.js";
-// Punto de composición: sustituir por un repositorio de Firebase en la próxima etapa.
-export const repository = createLocalRepository();
+
+export const usaFirebase = firebaseConfigurado();
+export const repository = usaFirebase
+  ? createFirebaseRepository()
+  : createLocalRepository();

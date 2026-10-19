@@ -38,7 +38,20 @@ Para una terminal dedicada, vincula ese navegador en Configuración y abre `#asi
 
 ## Alcance local
 
-La aplicación guarda sin conexión después de cargar. Contraseñas derivadas con PBKDF2, sal y bloqueo protegen el flujo local de revisión. No hay servidor, sincronización entre equipos, autenticación centralizada ni integración de huella. No se presenta esta copia como un sistema listo para operación laboral oficial. Los formatos especializados deben cotejarse con los originales.
+Sin `.env`, la aplicación guarda en el navegador después de cargar. Contraseñas derivadas con PBKDF2, sal y bloqueo protegen ese flujo. No hay integración de huella. No se presenta esta copia como un sistema listo para operación laboral oficial. Los formatos especializados deben cotejarse con los originales.
+
+## Firebase
+
+Con un proyecto en plan Blaze y `.env` completo, el personal, la asistencia y las bitácoras se guardan en Cloud Firestore y los adjuntos en Cloud Storage. Los pasos:
+
+1. En la consola de Firebase crea el proyecto, una app web, Authentication con correo y contraseña, Firestore y Storage.
+2. Copia `.env.ejemplo` a `.env` y pega la configuración web. No pongas la cuenta de servicio en variables `VITE_`.
+3. Instala la CLI (`npm install -g firebase-tools`), entra con `firebase login` y elige el proyecto con `firebase use --add`.
+4. En `firebase/funciones` ejecuta `npm install`. Luego, desde la raíz, `firebase deploy --only firestore:rules,storage,functions`.
+5. `npm run iniciar`, abre `http://127.0.0.1:5173` y crea la contraseña de María. Esa primera cuenta queda como administración.
+6. Si este navegador ya tenía `reypez_react_v1`, el catálogo se copia una vez. No se migran las contraseñas locales: vuelve a asignarlas en Seguridad. Los empleados de demostración no se suben.
+
+El correo interno es `{id}@acceso.reypez.app`. Si cambias `VITE_AUTH_EMAIL_DOMAIN`, define el mismo valor en `AUTH_EMAIL_DOMAIN` antes de desplegar la función. Crea la contraseña de María enseguida: una cuenta suelta no puede leer el personal.
 
 Los acuerdos y pendientes concretos están en `documentacion/reglas-pendientes.md`. No se inventaron empleados, cuartos de Edgar, sanciones ni descuentos.
 

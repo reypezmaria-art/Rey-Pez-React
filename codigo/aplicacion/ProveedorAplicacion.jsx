@@ -1,9 +1,18 @@
 import { useEffect, useState } from "react";
 import { ContextoAplicacion } from "./ContextoAplicacion.js";
-import { repository } from "../repositorios/repositorio.js";
-import { makeCredential, verifyCredential } from "../dominio/seguridad.js";
+import { repository, usaFirebase } from "../repositorios/repositorio.js";
+import {
+  cuentaAsignada,
+  makeCredential,
+  verifyCredential,
+} from "../dominio/seguridad.js";
 import { recordAttendance } from "../dominio/operaciones.js";
 import { saveLog } from "../dominio/bitacoras.js";
+import {
+  adoptarTerminal,
+  iniciarSesion,
+  verificarTrabajador,
+} from "../firebase/sesion.js";
 export default function ProveedorAplicacion({ children }) {
   const [data, setData] = useState(null),
     [error, setError] = useState(""),
@@ -44,6 +53,25 @@ export default function ProveedorAplicacion({ children }) {
   }
   async function login(id, password) {
     const key = id.trim().toUpperCase();
+    if (usaFirebase) {
+      await iniciarSesion(key, password);
+      const state = await repository.load();
+      setData(state);
+      if (key === "MARIA") {
+        setSession({ id: "MARIA", name: "María", role: "admin" });
+        return;
+      }
+      const employee = state.employees.find(
+        (e) => e.id_empleado === key && e.estatus !== "Baja",
+      );
+      const worker = state.access.workers[key];
+      if (!employee || !cuentaAsignada(worker) || worker.active === false) {
+        await repository.cerrarSesion?.();
+        throw Error("ID o contraseña incorrectos.");
+      }
+      setSession({ id: key, name: employee.nombre_completo, role: "worker" });
+      return;
+    }
     if (key === "MARIA") {
       if (!(await verifyCredential(data.access.admin, password)))
         throw Error("ID o contraseña incorrectos.");
@@ -61,6 +89,13 @@ export default function ProveedorAplicacion({ children }) {
     setSession({ id: key, name: employee.nombre_completo, role: "worker" });
   }
   async function setup(password) {
+    if (usaFirebase) {
+      if (data.access.admin)
+        throw Error("La administración ya está configurada.");
+      setData(await repository.crearAdministracion(password));
+      setSession({ id: "MARIA", name: "María", role: "admin" });
+      return;
+    }
     const credential = await makeCredential(password);
     await mutate((state) => {
       if (state.access.admin)
@@ -71,6 +106,19 @@ export default function ProveedorAplicacion({ children }) {
   }
   async function register(id, password) {
     const key = id.trim().toUpperCase();
+    if (usaFirebase) {
+      if (data.access?.admin && !cuentaAsignada(data.access.workers[key]))
+        throw Error(
+          "Solicita a María que asigne tu contraseña antes de registrar.",
+        );
+      await verificarTrabajador(key, password);
+      let result;
+      await mutate((state) => {
+        result = recordAttendance(state, id, password, new Date(), true);
+        return result.state;
+      });
+      return result;
+    }
     const credential = data.access.workers[key];
     const authenticated = credential?.hash
       ? await verifyCredential(credential, password)
@@ -85,6 +133,10 @@ export default function ProveedorAplicacion({ children }) {
       return result.state;
     });
     return result;
+  }
+  async function activarTerminal(token) {
+    await adoptarTerminal(token);
+    setSession(null);
   }
   async function capture(form) {
     return mutate((state) => saveLog(state, form, session));
@@ -113,7 +165,11 @@ export default function ProveedorAplicacion({ children }) {
         setup,
         register,
         capture,
-        logout: () => setSession(null),
+        activarTerminal,
+        logout: () => {
+          setSession(null);
+          repository.cerrarSesion?.();
+        },
       }}
     >
       {children}

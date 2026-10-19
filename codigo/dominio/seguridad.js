@@ -39,6 +39,9 @@ export async function verifyCredential(credential, password) {
     credential.hash === (await passwordHash(password, credential.salt)),
   );
 }
+export function cuentaAsignada(worker) {
+  return Boolean(worker?.hash || worker?.uid);
+}
 export function canCapture(state, session, company, type) {
   if (session?.role === "admin") return true;
   if (session?.role !== "worker") return false;

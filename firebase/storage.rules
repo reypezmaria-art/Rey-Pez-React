@@ -1,0 +1,26 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function admin() {
+      return request.auth != null
+        && firestore.get(/databases/(default)/documents/acceso/admin).data.uid == request.auth.uid;
+    }
+    function ficha() {
+      return firestore.get(/databases/(default)/documents/usuarios/$(request.auth.uid)).data;
+    }
+    function operativo() {
+      return request.auth != null && (
+        admin()
+        || (ficha().activo == true && (ficha().rol == "trabajador" || ficha().rol == "terminal"))
+      );
+    }
+    match /evidencias/{ruta=**} {
+      allow read: if operativo();
+      allow write: if request.resource.size < 1024 * 1024
+        && (admin() || (ficha().rol == "trabajador" && ficha().activo == true));
+    }
+    match /respaldos/{archivo} {
+      allow read, write: if admin();
+    }
+  }
+}
