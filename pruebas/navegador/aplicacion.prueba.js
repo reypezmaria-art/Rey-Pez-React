@@ -117,6 +117,19 @@ test("configuración, CSV, respaldo y seguridad local", async ({ page }) => {
   await page.goto("/");
   await access(page);
   await nav(page, "Configuración").click();
+  await expect(page.locator(".folder-card")).toHaveCount(4);
+  await expect(page.getByRole("table")).toHaveCount(0);
+  await expect(page.getByLabel("Empleado de la excepción")).toHaveCount(0);
+  await page
+    .getByRole("button", { name: /^Programación de bitácoras/ })
+    .click();
+  await expect(page.getByLabel("Empresa de programación")).toBeVisible();
+  await expect(page.getByLabel("Área para QR")).toHaveCount(0);
+  await page.getByRole("button", { name: "← Volver a Configuración" }).click();
+  await page.getByRole("button", { name: /^Horarios/ }).click();
+  await expect(page.getByLabel("Empleado de la excepción")).toBeVisible();
+  await expect(page.getByLabel("Fecha no laborable")).toBeVisible();
+  await expect(page.getByLabel("Empresa del área")).toHaveCount(0);
   await page.getByRole("button", { name: "+ Agregar horario" }).click();
   await page.getByLabel("Código *", { exact: true }).fill("TEST");
   await page.getByLabel("Nombre del horario *").fill("Horario de prueba");
@@ -239,8 +252,11 @@ test("temperaturas, mantenimiento, QR, permisos y terminal aislada", async ({
   await page.getByRole("button", { name: "Guardar permisos" }).click();
   await expect(page.getByRole("status")).toContainText("Permisos guardados");
   await nav(page, "Configuración").click();
+  await page.getByRole("button", { name: /^Áreas y cuartos fríos/ }).click();
   await page.getByLabel("Área para QR").selectOption("ESTUARDO-1");
   await expect(page.getByAltText("QR de captura del área")).toBeVisible();
+  await page.getByRole("button", { name: "← Volver a Configuración" }).click();
+  await page.getByRole("button", { name: /^Vinculación de equipos/ }).click();
   await page.getByLabel("Nombre del equipo").fill("Entrada de prueba");
   await page.getByRole("button", { name: "Vincular este navegador" }).click();
   await expect(page.getByRole("status")).toContainText("vinculado");

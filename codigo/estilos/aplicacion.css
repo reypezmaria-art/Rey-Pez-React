@@ -871,3 +871,12 @@ header .header-access button:hover {
   background: #eaf3ff;
   color: #203864;
 }
+
+.settings-panels {
+  display: grid;
+  gap: 20px;
+  margin-top: 20px;
+}
+.settings-panels > .panel {
+  min-width: 0;
+}
