@@ -13,6 +13,7 @@ import Encabezado from "../componentes/Encabezado.jsx";
 import RegistroTrabajador from "../componentes/RegistroTrabajador.jsx";
 import Acceso from "../componentes/Acceso.jsx";
 import { deviceId } from "../utilidades/dispositivo.js";
+import { usaFirebase } from "../repositorios/repositorio.js";
 const pages = {
   dashboard: PanelPrincipal,
   employees: Personal,
@@ -128,8 +129,9 @@ export default function Aplicacion() {
       </div>
       {kiosk && <RegistroTrabajador onClose={() => setKiosk(false)} />}
       <footer>
-        Rey Pez · Revisión local · Datos en este navegador · Sincronización
-        entre equipos pendiente
+        {usaFirebase
+          ? "Rey Pez · Datos compartidos en línea"
+          : "Rey Pez · Revisión local · Datos en este navegador"}
       </footer>
     </>
   );

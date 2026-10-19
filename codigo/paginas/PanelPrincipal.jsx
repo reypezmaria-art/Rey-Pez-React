@@ -8,6 +8,7 @@ import {
 import { concordar } from "../utilidades/textos.js";
 import { pendingAbsences } from "../dominio/asistencia.js";
 import { pendingPrograms } from "../dominio/bitacoras.js";
+import { usaFirebase } from "../repositorios/repositorio.js";
 export default function PanelPrincipal({ navigate }) {
   const { data, clock } = useAplicacion();
   const today = data.attendance.filter((a) => isSameDay(a.fecha_hora, clock)),
@@ -30,7 +31,13 @@ export default function PanelPrincipal({ navigate }) {
       data.employees.length,
       data.catalogSource || "Catálogo de demostración",
     ],
-    ["Registros de hoy", today.length, "Actualización en este navegador"],
+    [
+      "Registros de hoy",
+      today.length,
+      usaFirebase
+        ? "Datos compartidos en línea"
+        : "Actualización en este navegador",
+    ],
     [
       "Alertas por revisar",
       data.alerts.filter((a) => a.estado === "Pendiente").length +
@@ -50,9 +57,9 @@ export default function PanelPrincipal({ navigate }) {
         </button>
       </EncabezadoPagina>
       <div className="note">
-        Revisión local: guarda sin conexión en este navegador. La nube, la
-        sincronización entre dispositivos y la huella digital siguen pendientes
-        de configuración.
+        {usaFirebase
+          ? "Los cambios guardados se comparten entre los equipos conectados a Rey Pez."
+          : "Revisión local: los datos se guardan únicamente en este navegador."}
       </div>
       <div className="cards">
         {cards.map(([label, value, foot]) => (

@@ -84,6 +84,7 @@ async function cerrarSesion(page) {
 async function asignarClave(page, id) {
   await navegacion(page, "Seguridad").click();
   await page.getByLabel("Empleado", { exact: true }).selectOption(id);
+  await page.getByLabel("Acción", { exact: true }).selectOption("set");
   await page
     .getByLabel("Nueva contraseña", { exact: true })
     .fill(CLAVE_TRABAJO);

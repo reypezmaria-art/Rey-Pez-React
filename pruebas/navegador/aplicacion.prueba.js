@@ -39,6 +39,7 @@ async function access(page) {
 async function credential(page, id) {
   await nav(page, "Seguridad").click();
   await page.getByLabel("Empleado", { exact: true }).selectOption(id);
+  await page.getByLabel("Acción", { exact: true }).selectOption("set");
   await page.getByLabel("Nueva contraseña", { exact: true }).fill("Trab06");
   await page.getByLabel("Confirmar contraseña", { exact: true }).fill("Trab06");
   await page.getByRole("button", { name: "Guardar acceso" }).click();
@@ -46,6 +47,58 @@ async function credential(page, id) {
 }
 const nav = (page, name) =>
   page.getByRole("navigation").getByRole("button", { name, exact: true });
+test("Seguridad inicia cerrada y Admin exige contraseña antes de cambiarla", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await access(page);
+  await nav(page, "Seguridad").click();
+  await expect(
+    page.getByLabel("Nueva contraseña", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Guardar acceso" }),
+  ).toHaveCount(0);
+  await page.getByLabel("Empleado", { exact: true }).selectOption("AL-01");
+  await expect(
+    page.getByLabel("Nueva contraseña", { exact: true }),
+  ).toHaveCount(0);
+  await page.getByLabel("Acción", { exact: true }).selectOption("set");
+  await expect(
+    page.getByLabel("Nueva contraseña", { exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("Acción", { exact: true }).selectOption("block");
+  await expect(
+    page.getByLabel("Nueva contraseña", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Guardar acceso" }),
+  ).toBeVisible();
+  await expect(
+    page.getByLabel("Nueva contraseña de Admin", { exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByLabel("Contraseña de Admin", { exact: true })
+    .fill("incorrecta");
+  await page.getByRole("button", { name: "Abrir Admin" }).click();
+  await expect(page.getByRole("alert")).toHaveText("Contraseña incorrecta.");
+  await expect(
+    page.getByLabel("Nueva contraseña de Admin", { exact: true }),
+  ).toHaveCount(0);
+  await page.getByLabel("Contraseña de Admin", { exact: true }).fill("Clave6");
+  await page.getByRole("button", { name: "Abrir Admin" }).click();
+  await expect(
+    page.getByLabel("Nueva contraseña de Admin", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Cerrar Admin" }).click();
+  await expect(
+    page.getByLabel("Contraseña de Admin", { exact: true }),
+  ).toHaveValue("");
+  await page.getByRole("button", { name: "Abrir Admin" }).click();
+  await expect(
+    page.getByLabel("Nueva contraseña de Admin", { exact: true }),
+  ).toHaveCount(0);
+});
 test("flujo de personal, asistencia, incidencia y persistencia", async ({
   page,
 }) => {
@@ -188,6 +241,7 @@ test("configuración, CSV, respaldo y seguridad local", async ({ page }) => {
   );
   await nav(page, "Seguridad").click();
   await page.getByLabel("Empleado", { exact: true }).selectOption("AL-01");
+  await page.getByLabel("Acción", { exact: true }).selectOption("set");
   await page.getByLabel("Nueva contraseña", { exact: true }).fill("prueba123");
   await page
     .getByLabel("Confirmar contraseña", { exact: true })

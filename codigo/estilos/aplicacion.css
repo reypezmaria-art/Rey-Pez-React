@@ -914,3 +914,7 @@ header .header-access button:hover {
   flex-shrink: 0;
   margin: 0;
 }
+.security-columns {
+  align-items: start;
+  margin-bottom: 16px;
+}

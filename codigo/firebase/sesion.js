@@ -1,9 +1,10 @@
-import { initializeApp, getApps } from "firebase/app";
+import { initializeApp, getApps, deleteApp } from "firebase/app";
 import {
   browserLocalPersistence,
   browserSessionPersistence,
   createUserWithEmailAndPassword,
   getAuth,
+  inMemoryPersistence,
   onAuthStateChanged,
   setPersistence,
   signInWithCustomToken,
@@ -11,7 +12,7 @@ import {
   signOut,
   updatePassword,
 } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, getDoc, doc } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { getStorage } from "firebase/storage";
 import { correoDeCuenta } from "../repositorios/estadoFirebase.js";
@@ -185,6 +186,42 @@ export async function gestionarAcceso(datos) {
     return resultado.data;
   } catch (error) {
     throw mensajeFirebase(error);
+  }
+}
+export async function gestionarPanelAdmin(datos) {
+  const { auth, db } = obtenerServicios();
+  if (!auth.currentUser) throw Error("Vuelve a ingresar como Admin.");
+  const admin = await getDoc(doc(db, "acceso", "admin"));
+  if (admin.data()?.uid !== auth.currentUser.uid)
+    throw Error("Solo administración puede abrir este apartado.");
+  const verificationApp = initializeApp(
+    configuracionFirebase(),
+    `panel-admin-${crypto.randomUUID()}`,
+  );
+  const verificationAuth = getAuth(verificationApp);
+  try {
+    await setPersistence(verificationAuth, inMemoryPersistence);
+    await signInWithEmailAndPassword(
+      verificationAuth,
+      "panel-admin@acceso.reypez.app",
+      datos.clave,
+    );
+    if (datos.nuevaContrasena !== undefined)
+      await cambiarContrasenaMaria(datos.nuevaContrasena);
+    return { autorizado: true };
+  } catch (error) {
+    if (
+      [
+        "auth/invalid-credential",
+        "auth/wrong-password",
+        "auth/user-not-found",
+      ].includes(error.code)
+    )
+      throw Error("Contraseña incorrecta.", { cause: error });
+    throw mensajeFirebase(error);
+  } finally {
+    if (verificationAuth.currentUser) await signOut(verificationAuth);
+    await deleteApp(verificationApp);
   }
 }
 export function observarAuth(callback) {

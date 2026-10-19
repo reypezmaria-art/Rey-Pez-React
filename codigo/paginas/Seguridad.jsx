@@ -8,13 +8,17 @@ import {
 } from "../componentes/ElementosInterfaz.jsx";
 import { securityActions, companyNames } from "../datos/constantes.js";
 import { logTypes } from "../datos/operacionInicial.js";
-import { cuentaAsignada, makeCredential } from "../dominio/seguridad.js";
+import {
+  cuentaAsignada,
+  makeCredential,
+  verifyCredential,
+} from "../dominio/seguridad.js";
 import { usaFirebase } from "../repositorios/repositorio.js";
-import { cambiarContrasenaMaria, gestionarAcceso } from "../firebase/sesion.js";
+import { gestionarPanelAdmin, gestionarAcceso } from "../firebase/sesion.js";
 export default function Seguridad() {
   const { data, commit, pending } = useAplicacion();
   const [employeeId, setEmployeeId] = useState(""),
-    [action, setAction] = useState("set"),
+    [action, setAction] = useState(""),
     [password, setPassword] = useState(""),
     [confirmation, setConfirmation] = useState(""),
     [message, setMessage] = useState(""),
@@ -30,9 +34,38 @@ export default function Seguridad() {
   );
   const [adminNew, setAdminNew] = useState(""),
     [adminConfirm, setAdminConfirm] = useState("");
+  const [adminKey, setAdminKey] = useState(""),
+    [adminOpen, setAdminOpen] = useState(false),
+    [adminError, setAdminError] = useState(""),
+    [adminBusy, setAdminBusy] = useState(false);
+  function closeAdmin() {
+    setAdminOpen(false);
+    setAdminKey("");
+    setAdminNew("");
+    setAdminConfirm("");
+    setAdminError("");
+  }
+  async function unlockAdmin(e) {
+    e.preventDefault();
+    setAdminError("");
+    setAdminBusy(true);
+    try {
+      if (usaFirebase) await gestionarPanelAdmin({ clave: adminKey });
+      else if (!(await verifyCredential(data.access.admin, adminKey)))
+        throw Error("Contraseña incorrecta.");
+      setAdminOpen(true);
+    } catch (err) {
+      setAdminError(err.message);
+    } finally {
+      setAdminBusy(false);
+    }
+  }
   const needsPassword = ["set", "reset", "change"].includes(action);
   function select(id) {
     setEmployeeId(id);
+    setAction("");
+    setPassword("");
+    setConfirmation("");
     setMessage("");
     setError("");
   }
@@ -48,6 +81,8 @@ export default function Seguridad() {
     setError("");
     try {
       if (!employeeId) throw Error("Selecciona un empleado.");
+      if (!Object.hasOwn(securityActions, action))
+        throw Error("Selecciona una acción.");
       if (needsPassword && password !== confirmation)
         throw Error("Las contraseñas no coinciden.");
       if (usaFirebase)
@@ -123,14 +158,19 @@ export default function Seguridad() {
   }
   async function adminPassword(e) {
     e.preventDefault();
+    setAdminError("");
+    setAdminBusy(true);
     try {
+      if (!adminOpen) throw Error("Desbloquea Admin para continuar.");
       if (adminNew !== adminConfirm)
         throw Error("Las contraseñas no coinciden.");
       if (usaFirebase) {
-        await cambiarContrasenaMaria(adminNew);
-        setAdminNew("");
-        setAdminConfirm("");
-        setMessage("Contraseña de María actualizada.");
+        await gestionarPanelAdmin({
+          clave: adminKey,
+          nuevaContrasena: adminNew,
+        });
+        closeAdmin();
+        setMessage("Contraseña de Admin actualizada.");
         setError("");
         return;
       }
@@ -139,11 +179,12 @@ export default function Seguridad() {
         ...state,
         access: { ...state.access, admin: credential },
       }));
-      setAdminNew("");
-      setAdminConfirm("");
-      setMessage("Contraseña de María actualizada.");
+      closeAdmin();
+      setMessage("Contraseña de Admin actualizada.");
     } catch (err) {
-      setError(err.message);
+      setAdminError(err.message);
+    } finally {
+      setAdminBusy(false);
     }
   }
   return (
@@ -151,7 +192,7 @@ export default function Seguridad() {
       <EncabezadoPagina title="Seguridad y permisos" />
       <Mensaje>{message}</Mensaje>
       <Mensaje error>{error}</Mensaje>
-      <div className="columns">
+      <div className="columns security-columns">
         <form className="panel" onSubmit={submit}>
           <h2>Acceso del trabajador</h2>
           <Campo
@@ -166,8 +207,13 @@ export default function Seguridad() {
             label="Acción"
             as="select"
             value={action}
-            onChange={(e) => setAction(e.target.value)}
+            onChange={(e) => {
+              setAction(e.target.value);
+              setPassword("");
+              setConfirmation("");
+            }}
           >
+            <option value="">Selecciona una acción…</option>
             {Object.entries(securityActions).map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
@@ -195,17 +241,21 @@ export default function Seguridad() {
               />
             </>
           )}
-          <button className="primary" disabled={pending}>
-            Guardar acceso
-          </button>
-          <p className="small">
-            Estado:{" "}
-            {cuentaAsignada(data.access.workers[employeeId])
-              ? data.access.workers[employeeId].active !== false
-                ? "Habilitado"
-                : "Bloqueado"
-              : "Contraseña pendiente de asignación"}
-          </p>
+          {action && (
+            <button className="primary" disabled={pending || !employeeId}>
+              Guardar acceso
+            </button>
+          )}
+          {action && employeeId && (
+            <p className="small">
+              Estado:{" "}
+              {cuentaAsignada(data.access.workers[employeeId])
+                ? data.access.workers[employeeId].active !== false
+                  ? "Habilitado"
+                  : "Bloqueado"
+                : "Contraseña pendiente de asignación"}
+            </p>
+          )}
         </form>
         <form className="panel" onSubmit={permissions}>
           <h2>Autorizaciones</h2>
@@ -273,30 +323,49 @@ export default function Seguridad() {
           </button>
         </form>
       </div>
-      <form className="panel" onSubmit={adminPassword}>
-        <h2>Cambiar contraseña de María</h2>
-        <p>ID: MARIA</p>
-        <Campo
-          label="Nueva contraseña de María"
-          type="password"
-          autoComplete="new-password"
-          value={adminNew}
-          onChange={(e) => setAdminNew(e.target.value)}
-          required
-          minLength={6}
-        />
-        <Campo
-          label="Confirmar contraseña de María"
-          type="password"
-          autoComplete="new-password"
-          value={adminConfirm}
-          onChange={(e) => setAdminConfirm(e.target.value)}
-          required
-        />
-        <button disabled={pending}>
-          Actualizar contraseña de administración
-        </button>
-      </form>
+      <section className="panel" aria-label="Admin">
+        <h2>Admin</h2>
+        <Mensaje error>{adminError}</Mensaje>
+        {!adminOpen ? (
+          <form onSubmit={unlockAdmin}>
+            <Campo
+              label="Contraseña de Admin"
+              type="password"
+              autoComplete="off"
+              value={adminKey}
+              onChange={(e) => setAdminKey(e.target.value)}
+              required
+            />
+            <button disabled={adminBusy}>Abrir Admin</button>
+          </form>
+        ) : (
+          <form onSubmit={adminPassword}>
+            <Campo
+              label="Nueva contraseña de Admin"
+              type="password"
+              autoComplete="new-password"
+              value={adminNew}
+              onChange={(e) => setAdminNew(e.target.value)}
+              required
+              minLength={6}
+            />
+            <Campo
+              label="Confirmar contraseña de Admin"
+              type="password"
+              autoComplete="new-password"
+              value={adminConfirm}
+              onChange={(e) => setAdminConfirm(e.target.value)}
+              required
+            />
+            <button disabled={pending || adminBusy}>
+              Actualizar contraseña de administración
+            </button>
+            <button type="button" disabled={adminBusy} onClick={closeAdmin}>
+              Cerrar Admin
+            </button>
+          </form>
+        )}
+      </section>
     </section>
   );
 }
