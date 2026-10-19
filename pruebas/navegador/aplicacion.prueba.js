@@ -359,6 +359,8 @@ test("Edgar tiene un cuarto frío dentro de Salud", async ({ page }) => {
 });
 
 test("EPP fijo, cloro aislado y PDF por fechas", async ({ page }) => {
+  // Las ausencias solo aparecen en día laborable, después de la tolerancia.
+  await page.clock.install({ time: new Date("2026-10-14T16:00:00-06:00") });
   await page.goto("/");
   await access(page);
   await nav(page, "Bitácora de EPP").click();
@@ -393,7 +395,7 @@ test("EPP fijo, cloro aislado y PDF por fechas", async ({ page }) => {
   await page.getByRole("button", { name: "Generar PDF", exact: true }).click();
   const download = await wait;
   await download.saveAs(
-    `/workspace/scratch/64438c1f1071/tmp/pdfs/epp/reporte-epp-${test.info().project.name}.pdf`,
+    test.info().outputPath(`reporte-epp-${test.info().project.name}.pdf`),
   );
   await nav(page, "Bitácoras de salud").click();
   const icons = await page
@@ -401,17 +403,19 @@ test("EPP fijo, cloro aislado y PDF por fechas", async ({ page }) => {
     .evaluateAll((elements) => elements.map((e) => e.innerHTML));
   expect(new Set(icons).size).toBeGreaterThan(5);
   await page.getByRole("button", { name: "Cloro", exact: true }).click();
-  await expect(page.getByLabel("Lugar / área").locator("option")).toHaveText([
-    "Selecciona…",
-    "Embolsado",
-    "Descarga",
-  ]);
+  await expect(
+    page.getByLabel("Lugar / área", { exact: true }).locator("option"),
+  ).toHaveText(["Selecciona…", "Embolsado", "Descarga"]);
   await expect(page.getByLabel("Revisión programada (opcional)")).toHaveCount(
     0,
   );
   await expect(page.getByRole("checkbox")).toHaveCount(0);
-  await page.getByLabel("Lugar / área").selectOption("ALLAN-Embolsado");
-  await page.getByLabel("Valores de cloro en agua").fill("10 ml / 100 L");
+  await page
+    .getByLabel("Lugar / área", { exact: true })
+    .selectOption("ALLAN-Embolsado");
+  await page
+    .getByLabel("Valores de cloro en agua", { exact: true })
+    .fill("10 ml / 100 L");
   await page
     .getByLabel("Realizó", { exact: true })
     .fill("Responsable de prueba");
@@ -426,7 +430,7 @@ test("EPP fijo, cloro aislado y PDF por fechas", async ({ page }) => {
   await (
     await waitCloro
   ).saveAs(
-    `/workspace/scratch/64438c1f1071/tmp/pdfs/epp/reporte-cloro-${test.info().project.name}.pdf`,
+    test.info().outputPath(`reporte-cloro-${test.info().project.name}.pdf`),
   );
   await nav(page, "Asistencia 2 · Administración").click();
   await expect(page.locator(".company-incidents")).toHaveCount(3);
@@ -456,6 +460,8 @@ test("EPP fijo, cloro aislado y PDF por fechas", async ({ page }) => {
   await (
     await waitAttendance
   ).saveAs(
-    `/workspace/scratch/64438c1f1071/tmp/pdfs/epp/reporte-asistencia-${test.info().project.name}.pdf`,
+    test
+      .info()
+      .outputPath(`reporte-asistencia-${test.info().project.name}.pdf`),
   );
 });
