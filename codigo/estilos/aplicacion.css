@@ -27,25 +27,32 @@ header {
   background: linear-gradient(110deg, #18335f 0%, #365da8 100%);
   border-bottom: 3px solid var(--gold);
   color: var(--white);
-  padding: 12px 24px;
+  padding: 8px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  gap: 12px 16px;
+  flex-wrap: nowrap;
 }
 .brand {
   min-width: 0;
-  font-size: 1.4375rem;
+  font-size: 1.35rem;
   font-weight: 750;
   letter-spacing: 0.2px;
+  line-height: 1.15;
+}
+.brand-title {
+  display: block;
 }
 .brand small {
   display: block;
   color: #e0eaff;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .pill {
   border: 1px solid #ffffff50;
@@ -334,7 +341,7 @@ footer {
     font-size: 1.75rem;
   }
   header {
-    padding: 14px;
+    padding: 8px 12px;
   }
   h1 {
     font-size: 1.625rem;
@@ -595,8 +602,9 @@ textarea:focus-visible,
 .brand-lockup {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
   min-width: 0;
+  flex: 1 1 auto;
 }
 .brand-logo {
   display: block;
@@ -604,8 +612,8 @@ textarea:focus-visible,
   flex-shrink: 0;
 }
 .brand-logo--header {
-  width: 76px;
-  height: 76px;
+  width: 56px;
+  height: 56px;
 }
 .brand-logo--kiosk {
   width: 164px;
@@ -642,22 +650,12 @@ nav button.active {
   color: #9b2c2c;
 }
 @media (max-width: 520px) {
-  .brand-logo--header {
-    width: 62px;
-    height: 62px;
-  }
-  .brand-lockup {
-    gap: 12px;
-  }
   .brand-logo--kiosk {
     width: 136px;
     height: 136px;
   }
   .kiosk-content {
     padding-top: 1vh;
-  }
-  header {
-    gap: 10px;
   }
 }
 
@@ -685,12 +683,62 @@ nav button.active {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
 }
-.header-access .brand-logo {
-  width: 80px;
-  height: 55px;
-  object-fit: contain;
+.header-identity {
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+header .header-access button {
+  flex-shrink: 0;
+  border: 0;
+  background: #fff;
+  color: var(--navy);
+  font-weight: 700;
+  padding: 8px 12px;
+  white-space: nowrap;
+}
+header .header-access button:hover {
+  background: #f4f7fc;
+}
+@media (max-width: 720px) {
+  header {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .brand-lockup {
+    gap: 8px;
+  }
+  .brand {
+    font-size: 1.0625rem;
+  }
+  .brand small {
+    font-size: 0.75rem;
+    white-space: normal;
+    line-height: 1.25;
+  }
+  .brand-logo--header {
+    width: 44px;
+    height: 44px;
+  }
+  .header-access {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    max-width: 46%;
+  }
+  .header-identity {
+    font-size: 0.75rem;
+    line-height: 1.2;
+    text-align: right;
+    white-space: normal;
+  }
+  header .header-access button {
+    padding: 6px 10px;
+    font-size: 0.8125rem;
+  }
 }
 .capture-main {
   max-width: 1100px;
@@ -736,15 +784,6 @@ nav button.active {
   overflow-wrap: anywhere;
 }
 @media (max-width: 600px) {
-  .header-access span {
-    font-size: 12px;
-  }
-  .header-access .brand-logo {
-    width: 50px;
-  }
-  .header-access {
-    gap: 5px;
-  }
   .capture-main {
     padding: 12px;
   }

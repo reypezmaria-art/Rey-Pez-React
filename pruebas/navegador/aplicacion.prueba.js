@@ -338,7 +338,35 @@ test("tres carpetas independientes y temperaturas sin duplicación", async ({
   const images = await page
     .locator("header img")
     .evaluateAll((imgs) => imgs.map((i) => i.src));
+  expect(images).toHaveLength(1);
   expect(images.every((src) => src.endsWith("/logo-rey-pez.png"))).toBe(true);
+});
+
+test("el encabezado usa un solo logo en acceso, administración y captura", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator("header")).toHaveCount(0);
+  await expect(
+    page.getByRole("img", { name: "Rey Pez · El Cosas" }),
+  ).toHaveCount(1);
+  await access(page);
+  const header = page.locator("header");
+  await expect(header.locator("img")).toHaveCount(1);
+  await expect(header).toContainText("REY PEZ");
+  await expect(header).toContainText("Sistema de Control Administrativo");
+  await expect(header).toContainText("María · Administración");
+  await expect(
+    header.getByRole("button", { name: "Cerrar sesión" }),
+  ).toBeVisible();
+  const box = await header.boundingBox();
+  expect(box.height).toBeLessThan(96);
+  await page.goto("/#captura");
+  await expect(page.locator("header img")).toHaveCount(1);
+  await expect(page.locator("header")).toContainText("María");
+  await expect(page.getByRole("navigation")).toHaveCount(0);
+  const captura = await page.locator("header").boundingBox();
+  expect(captura.height).toBeLessThan(96);
 });
 
 test("Edgar tiene un cuarto frío dentro de Salud", async ({ page }) => {
