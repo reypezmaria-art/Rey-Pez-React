@@ -13,7 +13,7 @@ import Encabezado from "../componentes/Encabezado.jsx";
 import RegistroTrabajador from "../componentes/RegistroTrabajador.jsx";
 import Acceso from "../componentes/Acceso.jsx";
 import { deviceId } from "../utilidades/dispositivo.js";
-import { usaFirebase } from "../repositorios/repositorio.js";
+import { fraseDelDia } from "../datos/frasesDiarias.js";
 const pages = {
   dashboard: PanelPrincipal,
   employees: Personal,
@@ -38,7 +38,8 @@ const navigation = [
   ["security", "🔐", "Seguridad"],
 ];
 export default function Aplicacion() {
-  const { data, session, logout } = useAplicacion();
+  const { data, session, logout, clock } = useAplicacion();
+  const frase = fraseDelDia(clock);
   const [page, setPage] = useState("dashboard"),
     [kiosk, setKiosk] = useState(false),
     [route, setRoute] = useState(() => location.hash);
@@ -129,9 +130,16 @@ export default function Aplicacion() {
       </div>
       {kiosk && <RegistroTrabajador onClose={() => setKiosk(false)} />}
       <footer>
-        {usaFirebase
-          ? "Rey Pez · Datos compartidos en línea"
-          : "Rey Pez · Revisión local · Datos en este navegador"}
+        <strong>Rey Pez</strong>
+        <blockquote className="daily-quote" aria-label="Frase del día">
+          <p>«{frase.texto}»</p>
+          <cite>
+            —{" "}
+            <a href={frase.fuente} target="_blank" rel="noreferrer">
+              {frase.autor}
+            </a>
+          </cite>
+        </blockquote>
       </footer>
     </>
   );

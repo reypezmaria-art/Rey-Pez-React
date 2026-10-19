@@ -304,6 +304,25 @@ footer {
   font-size: 0.875rem;
   text-align: center;
 }
+.daily-quote {
+  margin: 8px auto 0;
+  max-width: 640px;
+  line-height: 1.5;
+}
+.daily-quote p {
+  margin: 0 0 3px;
+}
+.daily-quote cite {
+  font-size: 0.8125rem;
+  font-style: normal;
+}
+.daily-quote a {
+  color: inherit;
+  text-decoration: none;
+}
+.daily-quote a:hover {
+  text-decoration: underline;
+}
 @media (max-width: 900px) {
   .layout {
     grid-template-columns: 1fr;
