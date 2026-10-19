@@ -17,6 +17,7 @@ service firebase.storage {
     function trabajadorDe(empresa, tipo) {
       return request.auth != null
         && ficha().rol == "trabajador"
+        && request.auth.token.accesoControlado == true
         && ficha().activo == true
         && ficha().idEmpleado is string
         && (!firestore.exists(/databases/(default)/documents/controlAccesos/$(ficha().idEmpleado))

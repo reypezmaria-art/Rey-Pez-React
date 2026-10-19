@@ -1,5 +1,7 @@
 # Avisos y bloqueo de acceso
 
+**Modalidad elegida: sin plan de pago.** Para publicar en Firebase Spark, seguir [Acceso protegido sin plan de pago](acceso-gratuito.md). El servidor gratuito de Cloudflare sustituye a Cloud Functions. La sección Firebase de este documento describe la alternativa opcional con Cloud Functions; no activar Blaze para el despliegue elegido.
+
 Cuatro contraseñas incorrectas consecutivas bloquean esa cuenta. Un ingreso correcto previo al cuarto fallo reinicia el contador. Los errores de conexión no suman intentos. No existe desbloqueo por tiempo ni al regresar a inicio: María debe habilitar la cuenta o restablecer su contraseña en Seguridad. Los demás trabajadores siguen ingresando en el mismo equipo.
 
 El aviso dura diez segundos y limpia los campos al volver al inicio. Texto de bloqueo: «¡DEMASIADOS INTENTOS! Comunícate con el personal autorizado». Texto de permisos: «¡ACCESO DENEGADO! No tienes acceso a este módulo». Ambos usan capas ilustradas con robot que parpadea, camarones que nadan, burbujas, reflejos y candado con brillo. Se respeta la preferencia de reducir movimiento.

@@ -1,0 +1,13 @@
+{
+  "name": "rey-pez-acceso",
+  "main": "index.js",
+  "compatibility_date": "2026-10-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "observability": { "enabled": false },
+  "vars": {
+    "FIREBASE_PROJECT_ID": "rey-pez-admin-react",
+    "AUTH_EMAIL_DOMAIN": "acceso.reypez.app",
+    "ALLOWED_ORIGINS": "https://rey-pez-admin-react.web.app,https://rey-pez-admin-react.firebaseapp.com",
+  },
+}

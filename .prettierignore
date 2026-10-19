@@ -2,6 +2,8 @@ node_modules
 compilado
 datos-locales
 entrega-local/
+servidor-acceso/.wrangler/
+servidor-acceso/dist/
 resultados-pruebas
 informe-pruebas
 

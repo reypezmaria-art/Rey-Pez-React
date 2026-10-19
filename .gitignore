@@ -18,3 +18,8 @@ test-results/
 playwright-report/
 
 entrega-local/
+servidor-acceso/.wrangler/
+servidor-acceso/dist/
+servidor-acceso/.dev.vars*
+credenciales-*.json
+*-service-account.json

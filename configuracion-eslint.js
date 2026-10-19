@@ -13,6 +13,8 @@ export default [
       "datos-locales/**",
       "resultados-pruebas/**",
       "informe-pruebas/**",
+      "servidor-acceso/dist/**",
+      "servidor-acceso/.wrangler/**",
     ],
   },
   js.configs.recommended,
@@ -33,6 +35,10 @@ export default [
   {
     files: ["*.js", "pruebas/**/*.js", "herramientas/**/*.js"],
     languageOptions: { globals: globals.node },
+  },
+  {
+    files: ["servidor-acceso/**/*.js"],
+    languageOptions: { globals: globals.worker },
   },
   {
     files: ["firebase/**/*.js"],

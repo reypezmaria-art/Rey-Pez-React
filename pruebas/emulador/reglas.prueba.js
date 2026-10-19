@@ -142,10 +142,17 @@ test("las reglas separan a María, la empresa y la secuencia", async () => {
 
     const trabajadora = entorno.authenticatedContext("worker", {
       email: "es-01@acceso.reypez.app",
+      accesoControlado: true,
     });
     const terminal = entorno.authenticatedContext("terminal");
     const dbTrabajo = trabajadora.firestore();
     const dbTerminal = terminal.firestore();
+    const sinServidor = entorno.authenticatedContext("worker", {
+      email: "es-01@acceso.reypez.app",
+    });
+    await assertFails(
+      getDoc(doc(sinServidor.firestore(), "bitacoras", "suya")),
+    );
     await assertSucceeds(getDoc(doc(dbTrabajo, "bitacoras", "suya")));
     await assertFails(getDoc(doc(dbTrabajo, "bitacoras", "ajena")));
     await assertFails(getDocs(collection(dbTrabajo, "bitacoras")));

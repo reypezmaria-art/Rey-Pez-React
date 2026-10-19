@@ -15,6 +15,7 @@ import {
 import { getFirestore, getDoc, doc } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { getStorage } from "firebase/storage";
+import { consultarServidorAcceso } from "./servidorAcceso.js";
 import { correoDeCuenta } from "../repositorios/estadoFirebase.js";
 import {
   CLAVE_TERMINAL,
@@ -150,23 +151,19 @@ export async function verificarTrabajador(id, password) {
   }
 }
 async function autenticarCuenta(id, contrasena) {
-  const { app } = obtenerServicios();
   try {
-    const resultado = await httpsCallable(
-      getFunctions(app),
-      "autenticarCuenta",
-    )({ id, contrasena });
+    const resultado = await llamarAcceso("autenticarCuenta", {
+      id,
+      contrasena,
+    });
     return resultado.data;
   } catch (error) {
     throw mensajeFirebase(error);
   }
 }
 export async function registrarDenegacion(datos) {
-  const { app } = obtenerServicios();
   try {
-    return (
-      await httpsCallable(getFunctions(app), "registrarAccesoDenegado")(datos)
-    ).data;
+    return (await llamarAcceso("registrarAccesoDenegado", datos)).data;
   } catch (error) {
     throw mensajeFirebase(error);
   }
@@ -200,16 +197,24 @@ export async function adoptarTerminal(token) {
   }
 }
 export async function gestionarAcceso(datos) {
-  const { app } = obtenerServicios();
   try {
-    const resultado = await httpsCallable(
-      getFunctions(app),
-      "gestionarAcceso",
-    )(datos);
+    const resultado = await llamarAcceso("gestionarAcceso", datos);
     return resultado.data;
   } catch (error) {
     throw mensajeFirebase(error);
   }
+}
+async function llamarAcceso(nombre, datos) {
+  const { app, auth } = obtenerServicios();
+  const url = import.meta.env?.VITE_ACCESO_API_URL;
+  if (url) {
+    const token =
+      nombre === "autenticarCuenta"
+        ? null
+        : await auth.currentUser?.getIdToken();
+    return consultarServidorAcceso(url, nombre, datos, token);
+  }
+  return httpsCallable(getFunctions(app), nombre)(datos);
 }
 export async function gestionarPanelAdmin(datos) {
   const { auth, db } = obtenerServicios();

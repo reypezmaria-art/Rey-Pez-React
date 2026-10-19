@@ -11,6 +11,7 @@ function crearControlAcceso({
   db,
   auth,
   verificar,
+  desactivarAuth = true,
   ahora = () => new Date().toISOString(),
 }) {
   return async function autenticar(id, contrasena, email) {
@@ -89,15 +90,18 @@ function crearControlAcceso({
     });
     if (resultado.bloqueado) {
       // Firestore ya deniega la cuenta aunque la actualización de Auth se interrumpa.
-      await Promise.allSettled([
-        auth.updateUser(user.uid, { disabled: true }),
-        auth.revokeRefreshTokens(user.uid),
-      ]);
+      if (desactivarAuth)
+        await Promise.allSettled([
+          auth.updateUser(user.uid, { disabled: true }),
+          auth.revokeRefreshTokens(user.uid),
+        ]);
       throw bloqueado();
     }
     if (!correcto)
       throw fallo("unauthenticated", "ID o contraseña incorrectos.");
-    return { token: await auth.createCustomToken(user.uid) };
+    return {
+      token: await auth.createCustomToken(user.uid, { accesoControlado: true }),
+    };
   };
 }
 module.exports = { crearControlAcceso };
