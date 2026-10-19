@@ -15,6 +15,7 @@ Lee `LEEME.md` para iniciar y `documentacion/reglas-pendientes.md` para los acue
 | Contraseñas y permisos                  | `codigo/paginas/Seguridad.jsx`, `codigo/dominio/seguridad.js`              |
 | Equipos, QR, programación y excepciones | `codigo/paginas/OperacionConfiguracion.jsx`                                |
 | Persistencia, migración y respaldos     | `codigo/repositorios/repositorioLocal.js`                                  |
+| Firebase y alta del proyecto            | `documentacion/firebase.md`, `codigo/repositorios/repositorioFirestore.js` |
 | Vista local privada                     | `herramientas/generarVistaLocal.js`                                        |
 
 Nombres en español, textos de interfaz en español, componentes PascalCase y archivos JS/JSX. Las operaciones devuelven objetos nuevos, validan antes de guardar y no confirman éxito antes de persistir. Conservar registros originales y responsable/motivo de ajustes.

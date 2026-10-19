@@ -10,8 +10,15 @@
 
 `seguridad.js` deriva contraseñas con PBKDF2/SHA-256, 210000 iteraciones y sal aleatoria. Las sesiones se mantienen en memoria; recargar exige ingresar otra vez. Los formularios permiten asignación, cambio, restablecimiento y bloqueo. Este control de interfaz no sustituye permisos de servidor: el HTML y localStorage contienen información accesible al dueño del archivo o navegador.
 
-## Próxima infraestructura
+## Infraestructura compartida
 
-No hay Firebase activo. Para operación multiusuario se requieren credenciales del servicio, autenticación centralizada, permisos de servidor por entidad, sincronización, gestión segura de archivos y autorización central de equipos. El archivo `.env.ejemplo` únicamente documenta parámetros futuros. No se simulan registros sincronizados, huellas ni acceso remoto funcional.
+Si las variables `VITE_FIREBASE_*` están vacías, no hay Firebase y el
+comportamiento es el de esta revisión local. Con el `.env` completo,
+`repositorio.js` usa `repositorioFirestore.js`: Authentication correo/contraseña,
+Firestore, Storage para evidencias y caché sin conexión. La guía de alta está
+en `documentacion/firebase.md`. Las reglas de `firestore.rules` distinguen a
+María, al trabajador (su empresa y bitácoras) y a la terminal vinculada. El
+HTML y localStorage, cuando se usan solos, siguen sin ser una barrera de
+confidencialidad de producción.
 
 La vista autocontenida se genera con `npm run vista-local`; integra el catálogo privado si está disponible, logos y recursos. La herramienta no incluye empleados en el código versionado. Un QR con un archivo local o localhost funciona solo en ese entorno; captura desde teléfonos requiere una dirección accesible y la infraestructura compartida.

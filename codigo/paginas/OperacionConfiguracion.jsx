@@ -9,6 +9,7 @@ import {
   OpcionesEmpleado,
 } from "../componentes/ElementosInterfaz.jsx";
 import { logTypes } from "../datos/operacionInicial.js";
+import { usandoFirebase } from "../repositorios/repositorio.js";
 export default function OperacionConfiguracion() {
   const { data, commit, pending } = useAplicacion();
   const [message, setMessage] = useState(""),
@@ -442,9 +443,9 @@ export default function OperacionConfiguracion() {
           </Campo>
           <button>Vincular este navegador</button>
           <p className="small">
-            En esta revisión local la vinculación no se transmite a otros
-            equipos. Abre la copia en el equipo y autorízalo ahí; la
-            sincronización central está pendiente.
+            {usandoFirebase
+              ? "La terminal de asistencia obtiene una cuenta limitada: puede leer el catálogo y crear marcajes, no bitácoras ni mantenimiento. Desvincularla corta ese acceso. La captura del teléfono usa la cuenta del trabajador."
+              : "En esta revisión local la vinculación no se transmite a otros equipos. Abre la copia en el equipo y autorízalo ahí; la sincronización central está pendiente."}
           </p>
           {data.terminals.map((t) => (
             <p key={t.id}>

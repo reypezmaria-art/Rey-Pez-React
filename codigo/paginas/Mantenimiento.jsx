@@ -7,7 +7,8 @@ import {
   EncabezadoPagina,
 } from "../componentes/ElementosInterfaz.jsx";
 import { saveMaintenance } from "../dominio/bitacoras.js";
-import { readEvidence } from "../utilidades/evidencias.js";
+import { enlaceEvidencia, readEvidence } from "../utilidades/evidencias.js";
+import { usandoFirebase } from "../repositorios/repositorio.js";
 import { localDate } from "../utilidades/fechas.js";
 export default function Mantenimiento() {
   const { data, commit, session, pending } = useAplicacion();
@@ -48,7 +49,11 @@ export default function Mantenimiento() {
     try {
       setForm({
         ...form,
-        evidence: await readEvidence(e.target.files[0], true),
+        evidence: await readEvidence(
+          e.target.files[0],
+          true,
+          usandoFirebase ? { limiteImagen: 8000000 } : {},
+        ),
       });
     } catch (err) {
       setError(err.message);
@@ -95,7 +100,11 @@ export default function Mantenimiento() {
           />
           <Campo label="Observaciones" as="textarea" {...field("notes")} />
           <Campo
-            label="Comprobante / foto (opcional, máximo 1 MB)"
+            label={
+              usandoFirebase
+                ? "Comprobante / foto (se comprime; el PDF sigue limitado a 1 MB)"
+                : "Comprobante / foto (opcional, máximo 1 MB)"
+            }
             type="file"
             accept="image/jpeg,image/png,image/webp,application/pdf"
             onChange={attach}
@@ -136,9 +145,12 @@ export default function Mantenimiento() {
                     style: "currency",
                     currency: "MXN",
                   }).format(m.cost)}
-              {m.evidence && (
+              {enlaceEvidencia(m.evidence) && (
                 <p>
-                  <a href={m.evidence.data} download={m.evidence.name}>
+                  <a
+                    href={enlaceEvidencia(m.evidence)}
+                    download={m.evidence.name}
+                  >
                     Comprobante
                   </a>
                 </p>

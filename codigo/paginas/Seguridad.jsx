@@ -9,6 +9,7 @@ import {
 import { securityActions, companyNames } from "../datos/constantes.js";
 import { logTypes } from "../datos/operacionInicial.js";
 import { makeCredential } from "../dominio/seguridad.js";
+import { repository, usandoFirebase } from "../repositorios/repositorio.js";
 export default function Seguridad() {
   const { data, commit, pending } = useAplicacion();
   const [employeeId, setEmployeeId] = useState(""),
@@ -38,30 +39,46 @@ export default function Seguridad() {
       if (!employeeId) throw Error("Selecciona un empleado.");
       if (needsPassword && password !== confirmation)
         throw Error("Las contraseñas no coinciden.");
-      const credential = needsPassword ? await makeCredential(password) : null;
-      await commit((state) => ({
-        ...state,
-        access: {
-          ...state.access,
-          workers: {
-            ...state.access.workers,
-            [employeeId]: credential || {
-              ...state.access.workers[employeeId],
-              active: action === "enable",
+      if (usandoFirebase) {
+        if (needsPassword)
+          await repository.asignarContrasena(
+            employeeId,
+            password,
+            securityActions[action],
+          );
+        else
+          await repository.cambiarEstadoTrabajador(
+            employeeId,
+            action === "enable",
+          );
+      } else {
+        const credential = needsPassword
+          ? await makeCredential(password)
+          : null;
+        await commit((state) => ({
+          ...state,
+          access: {
+            ...state.access,
+            workers: {
+              ...state.access.workers,
+              [employeeId]: credential || {
+                ...state.access.workers[employeeId],
+                active: action === "enable",
+              },
             },
           },
-        },
-        audit: [
-          {
-            id: crypto.randomUUID(),
-            action: securityActions[action],
-            employeeId,
-            by: "MARIA",
-            when: new Date().toISOString(),
-          },
-          ...state.audit,
-        ],
-      }));
+          audit: [
+            {
+              id: crypto.randomUUID(),
+              action: securityActions[action],
+              employeeId,
+              by: "MARIA",
+              when: new Date().toISOString(),
+            },
+            ...state.audit,
+          ],
+        }));
+      }
       setPassword("");
       setConfirmation("");
       setMessage(
@@ -101,6 +118,14 @@ export default function Seguridad() {
     try {
       if (adminNew !== adminConfirm)
         throw Error("Las contraseñas no coinciden.");
+      if (usandoFirebase) {
+        await repository.cambiarContrasenaAdministrador(adminNew);
+        setAdminNew("");
+        setAdminConfirm("");
+        setMessage("Contraseña de María actualizada.");
+        setError("");
+        return;
+      }
       const credential = await makeCredential(adminNew);
       await commit((state) => ({
         ...state,
@@ -120,8 +145,9 @@ export default function Seguridad() {
         subtitle="María administra contraseñas y autoriza la captura por empresa y bitácora."
       />
       <div className="note">
-        Control local para revisión. La sincronización y los permisos de
-        servidor deben configurarse antes de operar entre equipos.
+        {usandoFirebase
+          ? "María entra con Firebase Authentication. Los permisos de empresa y bitácora se aplican en las reglas de Firestore. La primera contraseña de un trabajador se crea aquí; cambiar una ya registrada requiere la función descrita en documentacion/firebase.md."
+          : "Control local para revisión. La sincronización y los permisos de servidor deben configurarse antes de operar entre equipos."}
       </div>
       <Mensaje>{message}</Mensaje>
       <Mensaje error>{error}</Mensaje>

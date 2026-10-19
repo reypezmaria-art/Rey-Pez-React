@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import { Campo, Mensaje } from "./ElementosInterfaz.jsx";
 import LogoMarca from "./LogoMarca.jsx";
+import { usandoFirebase } from "../repositorios/repositorio.js";
 export default function Acceso({ operational = false }) {
   const { data, login, setup, pending } = useAplicacion();
   const first = !data.access.admin && !operational;
@@ -70,8 +71,9 @@ export default function Acceso({ operational = false }) {
           {first ? "Crear acceso y abrir panel" : "Ingresar"}
         </button>
         <p className="small">
-          Copia local de revisión. El acceso y los datos pertenecen a este
-          navegador; la protección centralizada entre equipos queda pendiente.
+          {usandoFirebase
+            ? "El acceso se comprueba con Firebase Authentication. La sesión permanece en este navegador hasta cerrarla."
+            : "Copia local de revisión. El acceso y los datos pertenecen a este navegador; la protección centralizada entre equipos queda pendiente."}
         </p>
       </form>
     </main>

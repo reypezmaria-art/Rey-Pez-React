@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ContextoAplicacion } from "./ContextoAplicacion.js";
-import { repository } from "../repositorios/repositorio.js";
+import { repository, usandoFirebase } from "../repositorios/repositorio.js";
 import { makeCredential, verifyCredential } from "../dominio/seguridad.js";
 import { recordAttendance } from "../dominio/operaciones.js";
 import { saveLog } from "../dominio/bitacoras.js";
@@ -43,6 +43,11 @@ export default function ProveedorAplicacion({ children }) {
     return mutate(update);
   }
   async function login(id, password) {
+    if (usandoFirebase) {
+      const sesion = await repository.autenticar(id, password);
+      setSession(sesion);
+      return;
+    }
     const key = id.trim().toUpperCase();
     if (key === "MARIA") {
       if (!(await verifyCredential(data.access.admin, password)))
@@ -61,6 +66,11 @@ export default function ProveedorAplicacion({ children }) {
     setSession({ id: key, name: employee.nombre_completo, role: "worker" });
   }
   async function setup(password) {
+    if (usandoFirebase) {
+      setData(await repository.configurarAdministrador(password));
+      setSession({ id: "MARIA", name: "María", role: "admin" });
+      return;
+    }
     const credential = await makeCredential(password);
     await mutate((state) => {
       if (state.access.admin)
@@ -72,9 +82,20 @@ export default function ProveedorAplicacion({ children }) {
   async function register(id, password) {
     const key = id.trim().toUpperCase();
     const credential = data.access.workers[key];
-    const authenticated = credential?.hash
-      ? await verifyCredential(credential, password)
-      : false;
+    if (usandoFirebase) {
+      if (data.access?.admin && !credential?.hash)
+        throw Error(
+          "Solicita a María que asigne tu contraseña antes de registrar.",
+        );
+      if (credential?.active === false)
+        throw Error("La cuenta no está activa. Consulta a administración.");
+      await repository.verificarTrabajador(key, password);
+    }
+    const authenticated = usandoFirebase
+      ? true
+      : credential?.hash
+        ? await verifyCredential(credential, password)
+        : false;
     if (credential?.hash && !authenticated)
       throw Error("ID o contraseña incorrectos.");
     let result;
@@ -113,7 +134,10 @@ export default function ProveedorAplicacion({ children }) {
         setup,
         register,
         capture,
-        logout: () => setSession(null),
+        logout: async () => {
+          setSession(null);
+          if (usandoFirebase) setData(await repository.cerrarSesion());
+        },
       }}
     >
       {children}

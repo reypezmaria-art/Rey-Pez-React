@@ -1,0 +1,132 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function cuentaExiste() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/cuentas/$(request.auth.uid));
+    }
+    function cuenta() {
+      return get(/databases/$(database)/documents/cuentas/$(request.auth.uid)).data;
+    }
+    function esAdmin() {
+      return cuentaExiste()
+        && cuenta().rol == 'admin'
+        && cuenta().activo == true
+        && cuenta().idEmpleado == 'MARIA';
+    }
+    function esTrabajador() {
+      return cuentaExiste()
+        && cuenta().rol == 'trabajador'
+        && cuenta().activo == true;
+    }
+    function esTerminal() {
+      return cuentaExiste()
+        && cuenta().rol == 'terminal'
+        && cuenta().activo == true;
+    }
+    function bitacoraAutorizada(datos) {
+      return esTrabajador()
+        && datos.company == cuenta().empresa
+        && datos.type in cuenta().bitacoras
+        && datos.createdBy == cuenta().idEmpleado;
+    }
+
+    match /estado/publico {
+      allow read: if true;
+      allow write: if esAdmin();
+    }
+    match /estado/principal {
+      allow read: if esAdmin() || esTrabajador() || esTerminal();
+      allow write: if esAdmin();
+    }
+    match /cuentas/{uid} {
+      allow read: if request.auth != null && (request.auth.uid == uid || esAdmin());
+      allow create: if esAdmin()
+        || (request.auth.uid == uid
+          && request.resource.data.rol == 'admin'
+          && request.resource.data.idEmpleado == 'MARIA'
+          && request.resource.data.activo == true
+          && request.resource.data.keys().hasAll(['rol', 'idEmpleado', 'activo'])
+          && !exists(/databases/$(database)/documents/indiceCuentas/MARIA));
+      allow update, delete: if esAdmin();
+    }
+    match /indiceCuentas/{idEmpleado} {
+      allow read: if esAdmin() || (esTrabajador() && cuenta().idEmpleado == idEmpleado);
+      allow create: if esAdmin()
+        || (idEmpleado == 'MARIA'
+          && request.auth.uid == request.resource.data.uid
+          && !exists(/databases/$(database)/documents/indiceCuentas/MARIA));
+      allow update, delete: if esAdmin();
+    }
+    match /empleados/{id} {
+      allow read: if esAdmin() || esTerminal()
+        || (esTrabajador() && resource.data.empresa_codigo == cuenta().empresa);
+      allow write: if esAdmin();
+    }
+    match /asistencia/{id} {
+      allow read: if esAdmin() || esTerminal()
+        || (esTrabajador() && resource.data.id_empleado == cuenta().idEmpleado);
+      allow create: if esAdmin() || esTerminal()
+        || (esTrabajador()
+          && request.resource.data.id_empleado == cuenta().idEmpleado
+          && request.resource.data.empresa_codigo == cuenta().empresa);
+      allow update, delete: if esAdmin();
+    }
+    match /alertas/{id} {
+      allow read: if esAdmin();
+      allow create: if esAdmin() || esTerminal()
+        || (esTrabajador() && request.resource.data.id_empleado == cuenta().idEmpleado);
+      allow update, delete: if esAdmin();
+    }
+    match /horarios/{id} {
+      allow read: if esAdmin() || esTrabajador() || esTerminal();
+      allow write: if esAdmin();
+    }
+    match /bitacoras/{id} {
+      allow read: if esAdmin()
+        || (esTrabajador()
+          && resource.data.company == cuenta().empresa
+          && resource.data.type in cuenta().bitacoras);
+      allow create: if esAdmin() || bitacoraAutorizada(request.resource.data);
+      allow update, delete: if esAdmin();
+    }
+    match /cuartos/{id} {
+      allow read: if esAdmin() || esTerminal()
+        || (esTrabajador() && resource.data.company == cuenta().empresa);
+      allow write: if esAdmin();
+    }
+    match /areas/{id} {
+      allow read: if esAdmin() || esTerminal()
+        || (esTrabajador() && resource.data.company == cuenta().empresa);
+      allow write: if esAdmin();
+    }
+    match /programas/{id} {
+      allow read: if esAdmin() || esTerminal()
+        || (esTrabajador() && resource.data.company == cuenta().empresa);
+      allow write: if esAdmin();
+    }
+    match /terminales/{id} {
+      allow read: if esAdmin() || esTrabajador() || esTerminal();
+      allow write: if esAdmin();
+    }
+    match /excepcionesHorario/{id} {
+      allow read: if esAdmin() || esTerminal()
+        || (esTrabajador() && resource.data.employeeId == cuenta().idEmpleado);
+      allow write: if esAdmin();
+    }
+    match /mantenimiento/{id} {
+      allow read, write: if esAdmin();
+    }
+    match /revisionesAusencia/{id} {
+      allow read, write: if esAdmin();
+    }
+    match /auditoria/{id} {
+      allow read: if esAdmin();
+      allow create: if esAdmin()
+        || (esTrabajador()
+          && (request.resource.data.by == cuenta().idEmpleado
+            || request.resource.data.createdBy == cuenta().idEmpleado));
+      allow update, delete: if esAdmin();
+    }
+  }
+}

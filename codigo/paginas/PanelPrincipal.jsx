@@ -3,6 +3,7 @@ import { EncabezadoPagina } from "../componentes/ElementosInterfaz.jsx";
 import { formatDateTime, isSameDay } from "../utilidades/fechas.js";
 import { pendingAbsences } from "../dominio/asistencia.js";
 import { pendingPrograms } from "../dominio/bitacoras.js";
+import { usandoFirebase } from "../repositorios/repositorio.js";
 export default function PanelPrincipal({ navigate }) {
   const { data, clock } = useAplicacion();
   const today = data.attendance.filter((a) => isSameDay(a.fecha_hora, clock)),
@@ -25,7 +26,13 @@ export default function PanelPrincipal({ navigate }) {
       data.employees.length,
       data.catalogSource || "Catálogo de demostración",
     ],
-    ["Registros de hoy", today.length, "Actualización en este navegador"],
+    [
+      "Registros de hoy",
+      today.length,
+      usandoFirebase
+        ? "Sincronizado con Firebase"
+        : "Actualización en este navegador",
+    ],
     [
       "Alertas por revisar",
       data.alerts.filter((a) => a.estado === "Pendiente").length +
@@ -45,9 +52,9 @@ export default function PanelPrincipal({ navigate }) {
         </button>
       </EncabezadoPagina>
       <div className="note">
-        Revisión local: guarda sin conexión en este navegador. La nube, la
-        sincronización entre dispositivos y la huella digital siguen pendientes
-        de configuración.
+        {usandoFirebase
+          ? "Los datos se sincronizan con Firebase y quedan disponibles sin conexión después de la primera carga. La huella digital sigue pendiente."
+          : "Revisión local: guarda sin conexión en este navegador. La nube, la sincronización entre dispositivos y la huella digital siguen pendientes de configuración."}
       </div>
       <div className="cards">
         {cards.map(([label, value, foot]) => (

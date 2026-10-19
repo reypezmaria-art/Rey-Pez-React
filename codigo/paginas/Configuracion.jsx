@@ -9,6 +9,7 @@ import {
 import FormularioHorario from "../componentes/FormularioHorario.jsx";
 import { companyNames } from "../datos/constantes.js";
 import { deleteSchedule } from "../dominio/operaciones.js";
+import { repository, usandoFirebase } from "../repositorios/repositorio.js";
 export default function Configuracion() {
   const { data, commit, pending } = useAplicacion();
   const [editor, setEditor] = useState(null),
@@ -100,6 +101,30 @@ export default function Configuracion() {
         pueden editar. El horario rotativo de Edgar se conserva como nota y
         requiere reglas semanales más específicas antes de automatizarse.
       </p>
+      {usandoFirebase && (
+        <div className="panel">
+          <h2>Datos de este navegador</h2>
+          <p>
+            Si esta computadora ya tenía personal, asistencia o bitácoras antes
+            de conectar Firebase, súbelos una vez. No se reemplazan capturas que
+            ya existan en la nube.
+          </p>
+          <button
+            type="button"
+            disabled={pending}
+            onClick={async () => {
+              setError("");
+              try {
+                setMessage(await repository.subirDatosLocales());
+              } catch (err) {
+                setError(err.message);
+              }
+            }}
+          >
+            Subir datos de este navegador
+          </button>
+        </div>
+      )}
       <OperacionConfiguracion />
     </section>
   );

@@ -36,9 +36,16 @@ Un clon público sin el archivo privado usa datos ficticios. No publiques emplea
 
 Para una terminal dedicada, vincula ese navegador en Configuración y abre `#asistencia`. La pantalla no muestra administración ni incidencias. La ruta `#captura?area=...` identifica el área y exige ID, contraseña y permisos. El QR abre esta ruta; un archivo local o localhost no es una dirección compartida con teléfonos.
 
-## Alcance local
+## Alcance local y nube
 
-La aplicación guarda sin conexión después de cargar. Contraseñas derivadas con PBKDF2, sal y bloqueo protegen el flujo local de revisión. No hay servidor, sincronización entre equipos, autenticación centralizada ni integración de huella. No se presenta esta copia como un sistema listo para operación laboral oficial. Los formatos especializados deben cotejarse con los originales.
+Sin archivo `.env`, la aplicación guarda en este navegador después de cargar.
+Contraseñas derivadas con PBKDF2, sal y bloqueo protegen el flujo local de
+revisión. No hay sincronización, autenticación centralizada ni huella. Con las
+variables `VITE_FIREBASE_*` completas, los mismos datos pasan a Firestore y el
+acceso a Firebase Authentication. Los pasos, las reglas y los límites están en
+`documentacion/firebase.md`. No se presenta la copia solo local como un sistema
+listo para operación laboral oficial. Los formatos especializados deben
+cotejarse con los originales.
 
 Los acuerdos y pendientes concretos están en `documentacion/reglas-pendientes.md`. No se inventaron empleados, cuartos de Edgar, sanciones ni descuentos.
 

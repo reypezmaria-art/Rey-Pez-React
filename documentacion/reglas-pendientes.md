@@ -29,7 +29,7 @@ María es la administradora de las tres empresas. María autorizó integrar `cod
 
 ## Pendientes que requieren datos o infraestructura
 
-- Firebase u otro servidor no está conectado: no hay sincronización entre la PC y teléfonos/tabletas ni control de permisos de servidor.
+- Firebase queda preparado en el código y desactivado hasta completar `VITE_FIREBASE_*`. La guía está en `documentacion/firebase.md`. Sin esas variables no hay sincronización entre la PC y los teléfonos.
 - Huella digital: falta lector y conexión compatible. No se simula una captura biométrica.
 - Catálogo laboral: se recuperan los 30 empleados del CSV corregido autorizado, no se publican en GitHub. Las cantidades del CSV (Allan 9, Edgar 14, Estuardo 7) difieren de conteos posteriores; María pidió conservar los 30 para revisión.
 - Cuartos fríos: María confirmó un cuarto para Edgar el 14/10/2026. Se integra a temperaturas y EPP sin duplicar cuartos ya agregados localmente.

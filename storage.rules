@@ -1,0 +1,31 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function cuentaExiste() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/cuentas/$(request.auth.uid));
+    }
+    function cuenta() {
+      return firestore.get(/databases/(default)/documents/cuentas/$(request.auth.uid)).data;
+    }
+    function esAdmin() {
+      return cuentaExiste()
+        && cuenta().rol == 'admin'
+        && cuenta().activo == true
+        && cuenta().idEmpleado == 'MARIA';
+    }
+    match /evidencias/{empresa}/{id}/{archivo} {
+      allow read: if esAdmin()
+        || (cuentaExiste()
+          && cuenta().activo == true
+          && (cuenta().rol == 'terminal' || cuenta().empresa == empresa));
+      allow write: if request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*|application/pdf')
+        && (esAdmin()
+          || (cuentaExiste()
+            && cuenta().activo == true
+            && cuenta().rol == 'trabajador'
+            && cuenta().empresa == empresa));
+    }
+  }
+}

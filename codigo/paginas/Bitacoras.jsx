@@ -13,7 +13,8 @@ import {
 import { logTypes } from "../datos/operacionInicial.js";
 import { canCapture } from "../dominio/seguridad.js";
 import { pendingPrograms } from "../dominio/bitacoras.js";
-import { readEvidence } from "../utilidades/evidencias.js";
+import { enlaceEvidencia, readEvidence } from "../utilidades/evidencias.js";
+import { usandoFirebase } from "../repositorios/repositorio.js";
 import { localDate, formatDateTime } from "../utilidades/fechas.js";
 function nowInput() {
   const now = new Date();
@@ -129,6 +130,7 @@ export default function Bitacoras({
         await readEvidence(
           e.target.files[0],
           ["health", "fumigation"].includes(selectedType),
+          usandoFirebase ? { limiteImagen: 8000000 } : {},
         ),
       );
     } catch (err) {
@@ -337,7 +339,11 @@ export default function Bitacoras({
                 />
                 {!isChlorine && (
                   <Campo
-                    label="Evidencia opcional (máximo 1 MB)"
+                    label={
+                      usandoFirebase
+                        ? "Evidencia opcional (se comprime y se guarda en Storage)"
+                        : "Evidencia opcional (máximo 1 MB)"
+                    }
                     type="file"
                     accept={
                       ["health", "fumigation"].includes(selectedType)
@@ -460,9 +466,12 @@ export default function Bitacoras({
                   </td>
                   <td>
                     {l.notes}
-                    {l.evidence && (
+                    {enlaceEvidencia(l.evidence) && (
                       <p>
-                        <a href={l.evidence.data} download={l.evidence.name}>
+                        <a
+                          href={enlaceEvidencia(l.evidence)}
+                          download={l.evidence.name}
+                        >
                           Descargar evidencia
                         </a>
                       </p>

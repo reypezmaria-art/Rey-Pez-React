@@ -12,6 +12,7 @@ import LogoMarca from "../componentes/LogoMarca.jsx";
 import RegistroTrabajador from "../componentes/RegistroTrabajador.jsx";
 import Acceso from "../componentes/Acceso.jsx";
 import { deviceId } from "../utilidades/dispositivo.js";
+import { repository, usandoFirebase } from "../repositorios/repositorio.js";
 const pages = {
   dashboard: PanelPrincipal,
   employees: Personal,
@@ -136,6 +137,11 @@ export default function Aplicacion() {
           ))}
         </nav>
         <main id="main">
+          {repository.aviso && (
+            <div className="note" role="status">
+              {repository.aviso}
+            </div>
+          )}
           {["logs", "epp", "labor"].includes(page) ? (
             <CarpetasBitacoras
               key={page}
@@ -148,8 +154,9 @@ export default function Aplicacion() {
       </div>
       {kiosk && <RegistroTrabajador onClose={() => setKiosk(false)} />}
       <footer>
-        Rey Pez · Revisión local · Datos en este navegador · Sincronización
-        entre equipos pendiente
+        {usandoFirebase
+          ? "Rey Pez · Datos sincronizados con Firebase · La sesión permanece en este navegador hasta cerrarla"
+          : "Rey Pez · Revisión local · Datos en este navegador · Sincronización entre equipos pendiente"}
       </footer>
     </>
   );
