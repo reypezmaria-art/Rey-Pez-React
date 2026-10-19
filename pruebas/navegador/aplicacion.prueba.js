@@ -1,10 +1,19 @@
 import { test, expect } from "@playwright/test";
+async function sinLeyendaDeAcceso(page) {
+  await expect(page.locator(".access-screen .small")).toHaveCount(0);
+  await expect(
+    page.getByText(
+      /se guardan en Firebase|sesión se cierra al recargar|Copia local de revisión|Firebase Authentication/,
+    ),
+  ).toHaveCount(0);
+}
 async function access(page) {
   await expect(
     page.getByRole("heading", {
-      name: /Configurar acceso de María|Acceso de María/,
+      name: /Configurar acceso de María|Bienvenido a Rey Pez/,
     }),
   ).toBeVisible();
+  await sinLeyendaDeAcceso(page);
   if (
     await page
       .getByRole("heading", { name: "Configurar acceso de María" })
@@ -287,7 +296,7 @@ test("respaldo completo, restauración e invalidación de sesión", async ({
     buffer: Buffer.from(json),
   });
   await expect(
-    page.getByRole("heading", { name: "Acceso de María" }),
+    page.getByRole("heading", { name: "Bienvenido a Rey Pez", exact: true }),
   ).toBeVisible();
   await access(page);
   await expect(page.locator(".kvalue").nth(1)).toHaveText("30");
@@ -367,6 +376,15 @@ test("el encabezado usa un solo logo en acceso, administración y captura", asyn
   await expect(page.getByRole("navigation")).toHaveCount(0);
   const captura = await page.locator("header").boundingBox();
   expect(captura.height).toBeLessThan(96);
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Bienvenido a Rey Pez", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Ingresar", exact: true }),
+  ).toBeVisible();
+  await sinLeyendaDeAcceso(page);
+  await expect(page.locator("header")).toHaveCount(0);
 });
 
 test("Edgar tiene un cuarto frío dentro de Salud", async ({ page }) => {
