@@ -1093,3 +1093,38 @@ header .header-access button:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Un destello al mostrar el aviso; sin bucle y sin interceptar controles. */
+.access-denial-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 32%,
+    #e52b2b99 75%,
+    #be1010dd 100%
+  );
+  box-shadow: inset 0 0 75px #d3171780;
+  animation: destello-acceso 900ms ease-out 1;
+}
+@keyframes destello-acceso {
+  0% {
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.security-history > summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+.security-history[open] > summary {
+  margin-bottom: 16px;
+}

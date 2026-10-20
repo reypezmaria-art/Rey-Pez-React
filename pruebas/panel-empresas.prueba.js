@@ -35,8 +35,7 @@ const form = {
   regimenFiscal: "",
   giro: "",
   estatus: "Activa",
-  fechaVigencia: "2026-10-20",
-  motivo: "Corrección autorizada",
+  activaDesde: "2020-03-15",
 };
 test("editar datos fiscales conserva empleados e historial y no comparte RFC en configuración operativa", () => {
   const state = base();
@@ -51,6 +50,7 @@ test("editar datos fiscales conserva empleados e historial y no comparte RFC en 
     ahora,
   );
   assert.equal(next.companies[0].rfc, "AAA010101AAA");
+  assert.equal(next.companies[0].activaDesde, "2020-03-15");
   assert.strictEqual(next.employees, state.employees);
   assert.equal(state.companies.length, 0);
   assert.equal(next.audit[0].by, "MARIA");
@@ -84,13 +84,12 @@ test("editar datos fiscales conserva empleados e historial y no comparte RFC en 
   assert.equal(baja.audit.length, 2);
   assert.equal(baja.audit[0].anterior.rfc, "AAA010101AAA");
 });
-test("datos de empresa rechazan empresa ajena, RFC inválido, fecha imposible y cambio sin motivo", () => {
+test("datos de empresa rechazan empresa ajena, RFC inválido y fecha de actividad imposible o futura", () => {
   for (const cambio of [
     { codigo: "OTRA" },
     { rfc: "123" },
-    { fechaVigencia: "2026-02-30" },
-    { motivo: "" },
-    { fechaVigencia: "2026-10-21" },
+    { activaDesde: "2026-02-30" },
+    { activaDesde: "2026-10-21" },
   ])
     assert.throws(() => guardarEmpresa(base(), { ...form, ...cambio }, ahora));
 });
@@ -148,4 +147,16 @@ test("el detalle de estado usa el último movimiento aun si los registros están
     },
   ];
   assert.equal(personalDeHoy(state, ahora)[0].movimientoHoy, "SALIDA_A_COMER");
+});
+
+test("Activa desde no se inventa y conserva los metadatos y auditorías anteriores", () => {
+  const state = base();
+  state.companies = [
+    { ...form, fechaVigencia: "2026-10-19", activaDesde: undefined },
+  ];
+  state.audit = [{ id: "anterior", motivo: "Registro previo" }];
+  const next = guardarEmpresa(state, { ...form, activaDesde: "" }, ahora);
+  assert.equal(next.companies[0].activaDesde, "");
+  assert.equal(next.companies[0].fechaVigencia, "2026-10-19");
+  assert.equal(next.audit[1].motivo, "Registro previo");
 });

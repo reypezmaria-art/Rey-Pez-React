@@ -2,18 +2,19 @@ import { companyNames } from "../datos/constantes.js";
 import { calendarDate } from "../utilidades/fechas.js";
 
 export function fichaEmpresa(state, codigo) {
-  return (
-    (state.companies || []).find((e) => e.codigo === codigo) || {
-      codigo,
-      razonSocial: companyNames[codigo] || codigo,
-      rfc: "",
-      regimenFiscal: "",
-      giro: "",
-      estatus: "Activa",
-      fechaVigencia: "",
-    }
-  );
+  const guardada = (state.companies || []).find((e) => e.codigo === codigo);
+  return {
+    codigo,
+    razonSocial: companyNames[codigo] || codigo,
+    rfc: "",
+    regimenFiscal: "",
+    giro: "",
+    estatus: "Activa",
+    activaDesde: "",
+    ...guardada,
+  };
 }
+
 export function nombresEmpresas(state) {
   return Object.fromEntries(
     Object.entries(companyNames).map(([codigo, nombre]) => [
@@ -29,6 +30,7 @@ export function guardarEmpresa(state, form, now = new Date()) {
     throw Error("Selecciona una empresa registrada.");
   const anterior = fichaEmpresa(state, form.codigo);
   const ficha = {
+    ...anterior,
     codigo: form.codigo,
     razonSocial: String(form.razonSocial || "").trim(),
     rfc: String(form.rfc || "")
@@ -37,7 +39,7 @@ export function guardarEmpresa(state, form, now = new Date()) {
     regimenFiscal: String(form.regimenFiscal || "").trim(),
     giro: String(form.giro || "").trim(),
     estatus: form.estatus,
-    fechaVigencia: String(form.fechaVigencia || ""),
+    activaDesde: String(form.activaDesde || ""),
     actualizadoPor: "MARIA",
     actualizadoEn: now.toISOString(),
   };
@@ -50,20 +52,16 @@ export function guardarEmpresa(state, form, now = new Date()) {
   if (!["Activa", "Baja"].includes(ficha.estatus))
     throw Error("Selecciona el estado de la empresa.");
   if (
-    !/^\d{4}-\d{2}-\d{2}$/.test(ficha.fechaVigencia) ||
-    calendarDate(new Date(ficha.fechaVigencia + "T12:00:00Z")) !==
-      ficha.fechaVigencia
+    ficha.activaDesde &&
+    (!/^\d{4}-\d{2}-\d{2}$/.test(ficha.activaDesde) ||
+      calendarDate(new Date(ficha.activaDesde + "T12:00:00Z")) !==
+        ficha.activaDesde)
   )
-    throw Error("Indica una fecha de vigencia válida.");
-  if (ficha.fechaVigencia > calendarDate(now))
-    throw Error(
-      "Guarda el cambio a partir de su fecha de vigencia; todavía no se aplican cambios futuros.",
-    );
+    throw Error("Indica una fecha válida en Activa desde.");
+  if (ficha.activaDesde > calendarDate(now))
+    throw Error("La fecha Activa desde no puede ser futura.");
   if (ficha.regimenFiscal.length > 200 || ficha.giro.length > 200)
     throw Error("Régimen y giro admiten hasta 200 caracteres.");
-  const motivo = String(form.motivo || "").trim();
-  if (!motivo || motivo.length > 500)
-    throw Error("Indica el motivo del cambio (hasta 500 caracteres).");
   return {
     ...state,
     companies: [
@@ -81,7 +79,7 @@ export function guardarEmpresa(state, form, now = new Date()) {
         company: ficha.codigo,
         by: "MARIA",
         when: now.toISOString(),
-        motivo,
+        motivo: "Actualización de datos de empresa",
         anterior,
         siguiente: ficha,
       },

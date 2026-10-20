@@ -153,6 +153,12 @@ for (const tipo of ["bloqueado", "denegado"]) {
     } else {
       await ingreso(page, "AL-01");
     }
+    const flash = page.locator(".access-denial-flash");
+    await expect(flash).toHaveCSS("pointer-events", "none");
+    await expect(flash).toHaveCSS("animation-name", "destello-acceso");
+    await expect(flash).toHaveCSS("animation-iteration-count", "1");
+    await expect(flash).toHaveCSS("animation-duration", "0.9s");
+    await expect(flash).toHaveCSS("opacity", "0");
     const canvas = page.locator(".access-notice-scene canvas");
     await expect
       .poll(() =>
@@ -194,16 +200,19 @@ test("revisar una alerta la archiva debajo de Admin sin desbloquear ni borrar el
     name: "Alertas de seguridad",
     exact: true,
   });
-  const registro = page.getByRole("region", {
-    name: "Registro de incidencias",
-    exact: true,
-  });
+  const registro = page.locator("details.security-history");
   await expect(pendientes).toContainText("Cuenta bloqueada");
-  await expect(registro).toContainText("Sin incidencias revisadas.");
+  await expect(registro).not.toHaveAttribute("open");
+  await registro.locator("summary").click();
+  await expect(registro.getByText("Sin incidencias revisadas.")).toBeVisible();
+  await registro.locator("summary").click();
   await pendientes
     .getByRole("button", { name: "Marcar revisada", exact: true })
     .click();
   await expect(pendientes).toContainText("Sin alertas pendientes.");
+  await expect(registro.getByRole("table")).not.toBeVisible();
+  await registro.locator("summary").click();
+  await expect(registro.getByRole("table")).toBeVisible();
   await expect(registro).toContainText("Cuenta bloqueada");
   await expect(registro).toContainText("Por MARIA");
   expect(
@@ -228,6 +237,9 @@ test("revisar una alerta la archiva debajo de Admin sin desbloquear ni borrar el
     .getByRole("button", { name: "Seguridad", exact: true })
     .click();
   await expect(pendientes).toContainText("Sin alertas pendientes.");
+  await expect(registro.getByRole("table")).not.toBeVisible();
+  await registro.locator("summary").click();
+  await expect(registro.getByRole("table")).toBeVisible();
   await expect(registro).toContainText("Cuenta bloqueada");
 });
 

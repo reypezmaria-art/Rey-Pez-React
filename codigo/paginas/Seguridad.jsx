@@ -432,14 +432,17 @@ export default function Seguridad({ detalleInicial }) {
           </form>
         )}
       </section>
-      <section className="panel" aria-label="Registro de incidencias">
-        <h2>Registro de incidencias</h2>
+      <details
+        className="panel security-history"
+        aria-label="Registro de incidencias"
+      >
+        <summary>Registro de incidencias</summary>
         <TablaIncidencias
           alertas={reviewedAlerts}
           empleados={data.employees}
           vacio="Sin incidencias revisadas."
         />
-      </section>
+      </details>
     </section>
   );
 }

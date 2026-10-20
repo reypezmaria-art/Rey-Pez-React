@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
-import { Campo, Mensaje, Tabla } from "./ElementosInterfaz.jsx";
+import { Campo, Mensaje } from "./ElementosInterfaz.jsx";
 import {
   fichaEmpresa,
   guardarEmpresa,
   nombresEmpresas,
 } from "../dominio/empresas.js";
-import { calendarDate, formatDateTime } from "../utilidades/fechas.js";
+import { calendarDate } from "../utilidades/fechas.js";
 
 export default function EmpresasSeguridad({ abierta = false }) {
   const { data, commit, pending, clock } = useAplicacion();
@@ -15,20 +15,9 @@ export default function EmpresasSeguridad({ abierta = false }) {
   const [error, setError] = useState("");
   const [mensaje, setMensaje] = useState("");
   const nombres = nombresEmpresas(data);
-  const cambios = (data.audit || []).filter(
-    (a) => a.action === "Datos de empresa actualizados" && a.company === codigo,
-  );
   function seleccionar(valor) {
     setCodigo(valor);
-    setForm(
-      valor
-        ? {
-            ...fichaEmpresa(data, valor),
-            motivo: "",
-            fechaVigencia: calendarDate(clock),
-          }
-        : null,
-    );
+    setForm(valor ? { ...fichaEmpresa(data, valor) } : null);
     setError("");
     setMensaje("");
   }
@@ -38,7 +27,6 @@ export default function EmpresasSeguridad({ abierta = false }) {
     setMensaje("");
     try {
       await commit((state) => guardarEmpresa(state, form));
-      setForm((actual) => ({ ...actual, motivo: "" }));
       setMensaje("Datos de empresa guardados.");
     } catch (err) {
       setError(err.message);
@@ -101,17 +89,10 @@ export default function EmpresasSeguridad({ abierta = false }) {
                 <option>Baja</option>
               </Campo>
               <Campo
-                label="Fecha de vigencia del cambio"
+                label="Activa desde"
                 type="date"
                 max={calendarDate(clock)}
-                required
-                {...campo("fechaVigencia")}
-              />
-              <Campo
-                label="Motivo del cambio de empresa"
-                required
-                maxLength={500}
-                {...campo("motivo")}
+                {...campo("activaDesde")}
               />
             </div>
             <p className="small">
@@ -122,49 +103,8 @@ export default function EmpresasSeguridad({ abierta = false }) {
               Guardar datos de empresa
             </button>
           </form>
-          <h3>Historial de cambios de empresa</h3>
-          <Tabla
-            headings={[
-              "Fecha",
-              "Cambio",
-              "Datos anteriores",
-              "Datos actualizados",
-              "Responsable",
-            ]}
-            count={cambios.length}
-          >
-            {cambios.map((c) => (
-              <tr key={c.id}>
-                <td>{formatDateTime(c.when)}</td>
-                <td>{c.motivo}</td>
-                <td>
-                  <DatosFicha ficha={c.anterior} />
-                </td>
-                <td>
-                  <DatosFicha ficha={c.siguiente} />
-                </td>
-                <td>{c.by}</td>
-              </tr>
-            ))}
-          </Tabla>
         </>
       )}
     </details>
-  );
-}
-function DatosFicha({ ficha }) {
-  if (!ficha) return "—";
-  return (
-    <>
-      {ficha.razonSocial}
-      <br />
-      RFC: {ficha.rfc || "Sin registrar"}
-      <br />
-      Régimen: {ficha.regimenFiscal || "Sin registrar"}
-      <br />
-      Giro: {ficha.giro || "Sin registrar"}
-      <br />
-      {ficha.estatus} · {ficha.fechaVigencia || "Sin fecha"}
-    </>
   );
 }

@@ -186,9 +186,10 @@ test("María edita los datos de una empresa y conserva el historial fiscal al da
   await page.getByLabel("RFC de la empresa").fill("AAA010101AAA");
   await page.getByLabel("Régimen fiscal").fill("Régimen de prueba");
   await page.getByLabel("Giro de la empresa").fill("Giro de prueba");
-  await page
-    .getByLabel("Motivo del cambio de empresa")
-    .fill("Actualización de prueba");
+  await expect(page.getByLabel("Motivo del cambio de empresa")).toHaveCount(0);
+  await expect(page.getByLabel("Fecha de vigencia del cambio")).toHaveCount(0);
+  await expect(page.getByLabel("Activa desde")).toHaveValue("");
+  await page.getByLabel("Activa desde").fill("2020-03-15");
   await page
     .getByRole("button", { name: "Guardar datos de empresa", exact: true })
     .click();
@@ -199,13 +200,11 @@ test("María edita los datos de una empresa y conserva el historial fiscal al da
     page.getByLabel("Empresa del trabajador").locator('option[value="ALLAN"]'),
   ).toHaveText("EMPRESA DE PRUEBA ACTUALIZADA");
   await page.getByLabel("Estado de la empresa").selectOption("Baja");
-  await page
-    .getByLabel("Motivo del cambio de empresa")
-    .fill("Baja administrativa de prueba");
+
   await page
     .getByRole("button", { name: "Guardar datos de empresa", exact: true })
     .click();
-  await expect(page.locator(".company-settings tbody tr")).toHaveCount(2);
+  await expect(page.getByLabel("Activa desde")).toHaveValue("2020-03-15");
   await page.reload();
   await page.getByLabel("ID", { exact: true }).fill("MARIA");
   await page.getByLabel("Contraseña", { exact: true }).fill("Clave6");
@@ -217,10 +216,13 @@ test("María edita los datos de una empresa y conserva el historial fiscal al da
   await expect(page.getByLabel("RFC de la empresa")).toHaveValue(
     "AAA010101AAA",
   );
-  await expect(page.locator(".company-settings tbody tr")).toHaveCount(2);
+  await expect(page.getByLabel("Activa desde")).toHaveValue("2020-03-15");
   const state = await page.evaluate(() =>
     JSON.parse(localStorage.getItem("reypez_react_v1")),
   );
+  expect(
+    state.audit.filter((a) => a.action === "Datos de empresa actualizados"),
+  ).toHaveLength(2);
   expect(state.employees).toHaveLength(3);
   expect(state.attendance).toHaveLength(2);
 });
