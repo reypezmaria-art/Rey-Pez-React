@@ -20,6 +20,7 @@ export default function Acceso({ operational = false }) {
         await setup(password);
       } else await login(id, password);
     } catch (err) {
+      if (!first) setPassword("");
       setError(err.message);
     }
   }
@@ -45,7 +46,9 @@ export default function Acceso({ operational = false }) {
           <Campo
             label="ID"
             value={id}
-            onChange={(e) => setId(e.target.value)}
+            onChange={(e) => setId(e.target.value.toUpperCase())}
+            autoCapitalize="characters"
+            spellCheck={false}
             required
             autoComplete="username"
           />

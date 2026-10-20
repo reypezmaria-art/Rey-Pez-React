@@ -50,6 +50,7 @@ export default function RegistroTrabajador({ onClose, terminal = false }) {
       setPassword("");
       setSuccess(result);
     } catch (err) {
+      setPassword("");
       setError(err.message);
     }
   }
@@ -95,7 +96,9 @@ export default function RegistroTrabajador({ onClose, terminal = false }) {
               placeholder="ID de empleado · Ej. RP-0001"
               autoComplete="off"
               value={id}
-              onChange={(e) => setId(e.target.value)}
+              onChange={(e) => setId(e.target.value.toUpperCase())}
+              autoCapitalize="characters"
+              spellCheck={false}
             />
             <input
               className="biginput"

@@ -6,9 +6,9 @@
 - Las fechas con zona se convierten a Ciudad de México. Los registros sin empresa registrada se agrupan por separado, sin inferir la empresa histórica a partir de un empleado que pudo haber sido transferido.
 - Seguridad exige seleccionar primero empresa y después trabajador. Cambiar empresa limpia empleado, acción y contraseñas.
 - Marcar revisada conserva la alerta y sus datos de revisión, pero la mueve de pendientes a Registro de incidencias, debajo de Admin. No desbloquea ninguna cuenta ni elimina registros.
-- Las escenas de bloqueo y acceso denegado comienzan animadas por solicitud explícita de María. Pausar animación no detiene el regreso a inicio de diez segundos; Activar animación reanuda los fotogramas.
+- Las escenas de bloqueo y acceso denegado comienzan animadas por solicitud explícita de María. Se retiró el control de pausa por solicitud de María; el regreso a inicio sigue siendo de diez segundos. El ID se muestra en mayúsculas al escribir y los intentos rechazados limpian la contraseña en acceso y asistencia.
 - Seguridad incluye Datos de empresas: razón social, RFC, régimen fiscal, giro, estado y fecha de vigencia del cambio. Los datos no confirmados quedan vacíos. Cada cambio exige motivo y conserva valores anteriores, nuevos, responsable y fecha.
 - Los RFC, régimen y giro se guardan en la colección privada `empresas`, con acceso solo de administración. El directorio compartido lleva exclusivamente nombre y estado. El código de empresa conserva su identidad y las referencias históricas.
 - Dar de baja una empresa no elimina empleados ni registros. No bloquea por sí sola sus cuentas: los accesos siguen administrándose individualmente en Seguridad. Las modificaciones con vigencia futura se guardan a partir de la fecha correspondiente.
 
-Verificación: pruebas de fechas y períodos, persistencia de empresas y conservación del historial, permisos con emuladores de Firebase, navegación y filtros en escritorio/móvil, fotogramas de ambas escenas bajo movimiento reducido y pausa/reanudación.
+Verificación: pruebas de fechas y períodos, persistencia de empresas y conservación del historial, permisos con emuladores de Firebase, navegación y filtros en escritorio/móvil, fotogramas de ambas escenas bajo movimiento reducido sin control de pausa, y reintentos de contraseña con ID en mayúsculas.

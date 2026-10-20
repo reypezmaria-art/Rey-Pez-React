@@ -137,7 +137,7 @@ test("deniega cuartos fríos y administración, registra la alerta y no bloquea 
 });
 
 for (const tipo of ["bloqueado", "denegado"]) {
-  test(`la escena ${tipo} se mueve con movimiento reducido y permite pausar`, async ({
+  test(`la escena ${tipo} se mueve con movimiento reducido y sin botón de pausa`, async ({
     page,
   }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
@@ -164,20 +164,9 @@ for (const tipo of ["bloqueado", "denegado"]) {
     const fotograma = () => canvas.evaluate((e) => e.toDataURL());
     const primero = await fotograma();
     await expect.poll(fotograma).not.toBe(primero);
-    await page
-      .getByRole("button", { name: "Pausar animación", exact: true })
-      .click();
     await expect(
-      page.getByRole("button", { name: "Activar animación", exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
-    await page.waitForTimeout(200);
-    const pausa = await fotograma();
-    await page.waitForTimeout(250);
-    expect(await fotograma()).toBe(pausa);
-    await page
-      .getByRole("button", { name: "Activar animación", exact: true })
-      .click();
-    await expect.poll(fotograma).not.toBe(pausa);
+      page.getByRole("button", { name: /Pausar animación|Activar animación/ }),
+    ).toHaveCount(0);
     await expect(page.getByText(/Volverás al inicio en/)).toBeVisible();
   });
 }
@@ -288,4 +277,61 @@ test("Acceso del trabajador exige empresa y limpia la selección y contraseña a
   await expect(
     page.getByLabel("Confirmar contraseña", { exact: true }),
   ).toHaveValue("");
+});
+
+for (const [ruta, id] of [
+  ["/#administracion", "maria"],
+  ["/#captura", "al-01"],
+]) {
+  test(`el ID aparece en mayúsculas y el error limpia solo la contraseña en ${ruta}`, async ({
+    page,
+  }) => {
+    await page.goto(ruta);
+    const campoId = page.getByLabel("ID", { exact: true });
+    const campoClave = page.getByLabel("Contraseña", { exact: true });
+    await campoId.fill(id);
+    await expect(campoId).toHaveValue(id.toUpperCase());
+    await campoClave.fill("incorrecta");
+    await page.getByRole("button", { name: "Ingresar", exact: true }).click();
+    await expect(page.getByRole("alert")).toHaveText(
+      "ID o contraseña incorrectos.",
+    );
+    await expect(campoClave).toHaveValue("");
+    await expect(campoId).toHaveValue(id.toUpperCase());
+    await campoClave.fill(clave);
+    await page.getByRole("button", { name: "Ingresar", exact: true }).click();
+    if (id === "maria")
+      await expect(page.getByRole("navigation")).toBeVisible();
+    else
+      await expect(
+        page.getByRole("button", { name: "Cloro", exact: true }),
+      ).toBeVisible();
+  });
+}
+test("Asistencia 1 muestra el ID en mayúsculas y borra la contraseña incorrecta antes de reintentar", async ({
+  page,
+}) => {
+  await page.goto("/#administracion");
+  await ingreso(page, "MARIA");
+  await page
+    .getByRole("navigation")
+    .getByRole("button", { name: "Asistencia 1 · Trabajador", exact: true })
+    .click();
+  const dialogo = page.getByRole("dialog");
+  const campoId = dialogo.getByLabel("ID de empleado", { exact: true });
+  const campoClave = dialogo.getByLabel("Contraseña", { exact: true });
+  await campoId.fill("al-01");
+  await expect(campoId).toHaveValue("AL-01");
+  await campoClave.fill("incorrecta");
+  await dialogo.getByRole("button", { name: "Registrar", exact: true }).click();
+  await expect(dialogo.getByRole("status")).toContainText(
+    "ID o contraseña incorrectos.",
+  );
+  await expect(campoClave).toHaveValue("");
+  await expect(campoId).toHaveValue("AL-01");
+  await campoClave.fill(clave);
+  await dialogo.getByRole("button", { name: "Registrar", exact: true }).click();
+  await expect(
+    dialogo.getByText("Que tengas un excelente turno.", { exact: true }),
+  ).toBeVisible();
 });
