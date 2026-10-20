@@ -153,12 +153,7 @@ for (const tipo of ["bloqueado", "denegado"]) {
     } else {
       await ingreso(page, "AL-01");
     }
-    const flash = page.locator(".access-denial-flash");
-    await expect(flash).toHaveCSS("pointer-events", "none");
-    await expect(flash).toHaveCSS("animation-name", "destello-acceso");
-    await expect(flash).toHaveCSS("animation-iteration-count", "1");
-    await expect(flash).toHaveCSS("animation-duration", "0.9s");
-    await expect(flash).toHaveCSS("opacity", "0");
+    await expect(page.locator(".access-denial-flash")).toHaveCount(0);
     const canvas = page.locator(".access-notice-scene canvas");
     await expect
       .poll(() =>
@@ -308,6 +303,17 @@ for (const [ruta, id] of [
     await expect(page.getByRole("alert")).toHaveText(
       "ID o contraseña incorrectos.",
     );
+    const flash = page.locator(".access-denial-flash");
+    await expect(flash).toHaveCSS("animation-name", "destello-acceso");
+    await expect(flash).toHaveCSS("animation-iteration-count", "1");
+    const primero = await flash.elementHandle();
+    await expect(flash).toHaveCSS("opacity", "0");
+    await campoClave.fill("otra incorrecta");
+    await page.getByRole("button", { name: "Ingresar", exact: true }).click();
+    await expect
+      .poll(() => primero.evaluate((el) => el.isConnected))
+      .toBe(false);
+    await expect(flash).toHaveCount(1);
     await expect(campoClave).toHaveValue("");
     await expect(campoId).toHaveValue(id.toUpperCase());
     await campoClave.fill(clave);
@@ -338,6 +344,14 @@ test("Asistencia 1 muestra el ID en mayúsculas y borra la contraseña incorrect
   await dialogo.getByRole("button", { name: "Registrar", exact: true }).click();
   await expect(dialogo.getByRole("status")).toContainText(
     "ID o contraseña incorrectos.",
+  );
+  await expect(dialogo.locator(".access-denial-flash")).toHaveCSS(
+    "animation-name",
+    "destello-acceso",
+  );
+  await expect(dialogo.locator(".access-denial-flash")).toHaveCSS(
+    "pointer-events",
+    "none",
   );
   await expect(campoClave).toHaveValue("");
   await expect(campoId).toHaveValue("AL-01");

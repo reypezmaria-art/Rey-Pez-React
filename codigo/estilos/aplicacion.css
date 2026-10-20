@@ -1094,7 +1094,7 @@ header .header-access button:hover {
   }
 }
 
-/* Un destello al mostrar el aviso; sin bucle y sin interceptar controles. */
+/* Un destello por contraseña incorrecta; sin bucle ni bloqueo de controles. */
 .access-denial-flash {
   position: fixed;
   inset: 0;

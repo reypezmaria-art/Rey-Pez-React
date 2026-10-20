@@ -53,7 +53,6 @@ export default function AvisoAcceso({ tipo = "denegado", onInicio, detalle }) {
       role="alert"
       aria-labelledby="access-notice-title"
     >
-      <div className="access-denial-flash" aria-hidden="true" />
       <div className="access-notice-scene">
         <canvas ref={canvas} width="1408" height="820" aria-hidden="true" />
         <div className="access-notice-message">

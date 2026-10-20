@@ -10,6 +10,7 @@ export default function Acceso({ operational = false }) {
     [password, setPassword] = useState(""),
     [confirmation, setConfirmation] = useState(""),
     [error, setError] = useState("");
+  const [destello, setDestello] = useState(0);
   async function submit(e) {
     e.preventDefault();
     setError("");
@@ -21,11 +22,20 @@ export default function Acceso({ operational = false }) {
       } else await login(id, password);
     } catch (err) {
       if (!first) setPassword("");
+      if (err.message === "ID o contraseña incorrectos.")
+        setDestello((intento) => intento + 1);
       setError(err.message);
     }
   }
   return (
     <main className="access-screen">
+      {destello > 0 && (
+        <div
+          key={destello}
+          className="access-denial-flash"
+          aria-hidden="true"
+        />
+      )}
       <form className="panel" onSubmit={submit}>
         <LogoMarca variant="kiosk" official />
         <h1>

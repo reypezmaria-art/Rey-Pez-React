@@ -42,6 +42,7 @@ export default function RegistroTrabajador({ onClose, terminal = false }) {
   useEffect(() => {
     if (!success) input.current?.focus();
   }, [success]);
+  const [destello, setDestello] = useState(0);
   async function submit(event) {
     event.preventDefault();
     setError("");
@@ -51,6 +52,8 @@ export default function RegistroTrabajador({ onClose, terminal = false }) {
       setSuccess(result);
     } catch (err) {
       setPassword("");
+      if (err.message === "ID o contraseña incorrectos.")
+        setDestello((intento) => intento + 1);
       setError(err.message);
     }
   }
@@ -65,6 +68,13 @@ export default function RegistroTrabajador({ onClose, terminal = false }) {
         else onClose();
       }}
     >
+      {destello > 0 && (
+        <div
+          key={destello}
+          className="access-denial-flash"
+          aria-hidden="true"
+        />
+      )}
       <div className="kiosk-content">
         <LogoMarca variant="kiosk" official />
         <div className="kiosk-brand">REY PEZ</div>

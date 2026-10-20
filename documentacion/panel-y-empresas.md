@@ -13,4 +13,4 @@
 
 Verificación: pruebas de fechas y períodos, persistencia de empresas y conservación del historial, permisos con emuladores de Firebase, navegación y filtros en escritorio/móvil, fotogramas de ambas escenas bajo movimiento reducido sin control de pausa, y reintentos de contraseña con ID en mayúsculas.
 
-Al abrir un aviso de bloqueo o de acceso denegado aparece un único destello rojo de 900 ms sobre los bordes de la pantalla; se desvanece y no intercepta controles. La escena continúa animada y el retorno de diez segundos se conserva.
+Cuando el formulario rechaza una contraseña aparece un único destello rojo de 900 ms en los bordes. Se repite con cada intento incorrecto, limpia la contraseña y conserva el ID. Se aplica en acceso y asistencia; los errores de conexión no disparan el efecto. Las escenas de bloqueo y acceso denegado no muestran el destello; su animación y retorno de diez segundos se conservan.
