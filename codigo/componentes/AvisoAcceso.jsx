@@ -6,6 +6,7 @@ export default function AvisoAcceso({ tipo = "denegado", onInicio, detalle }) {
   const canvas = useRef(null);
   const volver = useRef(onInicio);
   const [segundos, setSegundos] = useState(10);
+  const [animada, setAnimada] = useState(true);
   useEffect(() => {
     volver.current = onInicio;
   }, [onInicio]);
@@ -29,14 +30,13 @@ export default function AvisoAcceso({ tipo = "denegado", onInicio, detalle }) {
       cargadas = 0;
     const fondo = new Image(),
       personajes = new Image();
-    const movimiento = window.matchMedia("(prefers-reduced-motion: reduce)");
     function listo() {
       if (++cargadas !== 2 || !activo) return;
       const dibujar = crearEscenaAcceso(ctx, fondo, personajes, tipo);
       function animar(ahora) {
         if (!activo) return;
-        dibujar(movimiento.matches ? 0.6 : ahora / 1000);
-        if (!movimiento.matches) cuadro = requestAnimationFrame(animar);
+        dibujar(animada ? ahora / 1000 : 0.6);
+        if (animada) cuadro = requestAnimationFrame(animar);
       }
       animar(performance.now());
     }
@@ -47,7 +47,7 @@ export default function AvisoAcceso({ tipo = "denegado", onInicio, detalle }) {
       activo = false;
       cancelAnimationFrame(cuadro);
     };
-  }, [tipo]);
+  }, [tipo, animada]);
   return (
     <section
       className="access-notice"
@@ -71,6 +71,13 @@ export default function AvisoAcceso({ tipo = "denegado", onInicio, detalle }) {
       </div>
       <div className="access-notice-bar">
         <span>Volverás al inicio en {segundos} s</span>
+        <button
+          type="button"
+          aria-pressed={!animada}
+          onClick={() => setAnimada((actual) => !actual)}
+        >
+          {animada ? "Pausar animación" : "Activar animación"}
+        </button>
         <button type="button" onClick={onInicio}>
           Volver al inicio
         </button>

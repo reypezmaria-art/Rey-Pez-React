@@ -6,7 +6,7 @@ import {
   Mensaje,
   EncabezadoPagina,
 } from "../componentes/ElementosInterfaz.jsx";
-import { securityActions, companyNames } from "../datos/constantes.js";
+import { securityActions } from "../datos/constantes.js";
 import { logTypes } from "../datos/operacionInicial.js";
 import {
   cuentaAsignada,
@@ -16,8 +16,21 @@ import {
 import { usaFirebase } from "../repositorios/repositorio.js";
 import { gestionarPanelAdmin, gestionarAcceso } from "../firebase/sesion.js";
 import { formatDateTime } from "../utilidades/fechas.js";
-export default function Seguridad() {
+import EmpresasSeguridad from "../componentes/EmpresasSeguridad.jsx";
+import { nombresEmpresas } from "../dominio/empresas.js";
+export default function Seguridad({ detalleInicial }) {
   const { data, commit, pending } = useAplicacion();
+  const companyNames = nombresEmpresas(data);
+  const [accessCompany, setAccessCompany] = useState("");
+  const companyEmployees = data.employees.filter(
+    (e) => e.empresa_codigo === accessCompany,
+  );
+  const pendingAlerts = (data.securityAlerts || []).filter(
+    (a) => a.estado !== "Revisada",
+  );
+  const reviewedAlerts = (data.securityAlerts || []).filter(
+    (a) => a.estado === "Revisada",
+  );
   const [employeeId, setEmployeeId] = useState(""),
     [action, setAction] = useState(""),
     [password, setPassword] = useState(""),
@@ -81,7 +94,8 @@ export default function Seguridad() {
     e.preventDefault();
     setError("");
     try {
-      if (!employeeId) throw Error("Selecciona un empleado.");
+      if (!companyEmployees.some((e) => e.id_empleado === employeeId))
+        throw Error("Selecciona la empresa y uno de sus empleados.");
       if (!Object.hasOwn(securityActions, action))
         throw Error("Selecciona una acción.");
       if (needsPassword && password !== confirmation)
@@ -126,11 +140,7 @@ export default function Seguridad() {
       }));
       setPassword("");
       setConfirmation("");
-      setMessage(
-        usaFirebase
-          ? "Acceso actualizado en Firebase. La contraseña no se muestra ni se exporta."
-          : "Acceso actualizado. La contraseña se guarda como una derivación con sal; no se muestra ni se exporta en CSV.",
-      );
+      setMessage("");
     } catch (err) {
       setError(err.message);
     }
@@ -193,6 +203,26 @@ export default function Seguridad() {
       setAdminBusy(false);
     }
   }
+  async function revisarAlerta(id) {
+    setError("");
+    try {
+      await commit((state) => ({
+        ...state,
+        securityAlerts: (state.securityAlerts || []).map((item) =>
+          item.id_alerta === id && item.estado !== "Revisada"
+            ? {
+                ...item,
+                estado: "Revisada",
+                revisadaPor: "MARIA",
+                revisadaEn: new Date().toISOString(),
+              }
+            : item,
+        ),
+      }));
+    } catch (err) {
+      setError(err.message);
+    }
+  }
   return (
     <section>
       <EncabezadoPagina title="Seguridad y permisos" />
@@ -200,92 +230,48 @@ export default function Seguridad() {
       <Mensaje error>{error}</Mensaje>
       <section className="panel" aria-label="Alertas de seguridad">
         <h2>Alertas de seguridad</h2>
-        <p>
-          El bloqueo afecta únicamente a esa cuenta. Selecciona al empleado y
-          usa «Habilitar acceso» o restablece su contraseña para desbloquearlo.
-        </p>
-        {(data.securityAlerts || []).length ? (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Fecha y hora</th>
-                  <th>Cuenta</th>
-                  <th>Aviso</th>
-                  <th>Sección</th>
-                  <th>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(data.securityAlerts || []).map((a) => (
-                  <tr key={a.id_alerta}>
-                    <td>{formatDateTime(a.fecha_hora)}</td>
-                    <td>
-                      {data.employees.find(
-                        (e) => e.id_empleado === a.id_empleado,
-                      )?.nombre_completo || a.id_empleado}
-                    </td>
-                    <td>
-                      {a.tipo}
-                      <br />
-                      {a.detalle}
-                    </td>
-                    <td>{a.modulo}</td>
-                    <td>
-                      {a.estado === "Pendiente" ? (
-                        <button
-                          disabled={pending}
-                          onClick={async () => {
-                            try {
-                              await commit((state) => ({
-                                ...state,
-                                securityAlerts: state.securityAlerts.map(
-                                  (item) =>
-                                    item.id_alerta === a.id_alerta
-                                      ? {
-                                          ...item,
-                                          estado: "Revisada",
-                                          revisadaPor: "MARIA",
-                                          revisadaEn: new Date().toISOString(),
-                                        }
-                                      : item,
-                                ),
-                              }));
-                            } catch (err) {
-                              setError(err.message);
-                            }
-                          }}
-                        >
-                          Marcar revisada
-                        </button>
-                      ) : (
-                        "Revisada"
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p>Sin alertas de seguridad.</p>
-        )}
+        <TablaIncidencias
+          alertas={pendingAlerts}
+          empleados={data.employees}
+          pending={pending}
+          revisar={revisarAlerta}
+          vacio="Sin alertas pendientes."
+        />
       </section>
       <div className="columns security-columns">
         <form className="panel" onSubmit={submit}>
           <h2>Acceso del trabajador</h2>
           <Campo
+            label="Empresa del trabajador"
+            as="select"
+            value={accessCompany}
+            onChange={(e) => {
+              setAccessCompany(e.target.value);
+              select("");
+            }}
+            required
+          >
+            <option value="">Selecciona una empresa…</option>
+            {Object.entries(companyNames).map(([key, name]) => (
+              <option key={key} value={key}>
+                {name}
+              </option>
+            ))}
+          </Campo>
+          <Campo
             label="Empleado"
             as="select"
             value={employeeId}
             onChange={(e) => select(e.target.value)}
+            disabled={!accessCompany}
           >
-            <OpcionesEmpleado employees={data.employees} />
+            <OpcionesEmpleado employees={companyEmployees} />
           </Campo>
           <Campo
             label="Acción"
             as="select"
             value={action}
+            disabled={!employeeId}
             onChange={(e) => {
               setAction(e.target.value);
               setPassword("");
@@ -402,6 +388,7 @@ export default function Seguridad() {
           </button>
         </form>
       </div>
+      <EmpresasSeguridad abierta={detalleInicial?.empresas} />
       <section className="panel" aria-label="Admin">
         <h2>Admin</h2>
         <Mensaje error>{adminError}</Mensaje>
@@ -445,6 +432,66 @@ export default function Seguridad() {
           </form>
         )}
       </section>
+      <section className="panel" aria-label="Registro de incidencias">
+        <h2>Registro de incidencias</h2>
+        <TablaIncidencias
+          alertas={reviewedAlerts}
+          empleados={data.employees}
+          vacio="Sin incidencias revisadas."
+        />
+      </section>
     </section>
+  );
+}
+
+function TablaIncidencias({ alertas, empleados, pending, revisar, vacio }) {
+  if (!alertas.length) return <p>{vacio}</p>;
+  return (
+    <div className="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha y hora</th>
+            <th>Cuenta</th>
+            <th>Aviso</th>
+            <th>Sección</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {alertas.map((a) => (
+            <tr key={a.id_alerta}>
+              <td>{formatDateTime(a.fecha_hora)}</td>
+              <td>
+                {empleados.find((e) => e.id_empleado === a.id_empleado)
+                  ?.nombre_completo || a.id_empleado}
+              </td>
+              <td>
+                {a.tipo}
+                <br />
+                {a.detalle}
+              </td>
+              <td>{a.modulo}</td>
+              <td>
+                {revisar ? (
+                  <button
+                    disabled={pending}
+                    onClick={() => revisar(a.id_alerta)}
+                  >
+                    Marcar revisada
+                  </button>
+                ) : (
+                  <>
+                    Revisada
+                    {a.revisadaPor && <div>Por {a.revisadaPor}</div>}
+                    {a.revisadaEn && <div>{formatDateTime(a.revisadaEn)}</div>}
+                  </>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

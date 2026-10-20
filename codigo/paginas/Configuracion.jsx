@@ -7,7 +7,7 @@ import {
   Mensaje,
 } from "../componentes/ElementosInterfaz.jsx";
 import FormularioHorario from "../componentes/FormularioHorario.jsx";
-import { companyNames } from "../datos/constantes.js";
+import { nombresEmpresas } from "../dominio/empresas.js";
 import { deleteSchedule } from "../dominio/operaciones.js";
 const sections = [
   {
@@ -112,6 +112,7 @@ function SectionIcon({ type }) {
 }
 export default function Configuracion() {
   const { data, commit, pending } = useAplicacion();
+  const companyNames = nombresEmpresas(data);
   const [selected, setSelected] = useState(null);
   const [detail, setDetail] = useState(null);
   const [editor, setEditor] = useState(null),

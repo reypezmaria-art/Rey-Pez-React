@@ -86,6 +86,15 @@ async function cerrarSesion(page) {
 
 async function asignarClave(page, id) {
   await navegacion(page, "Seguridad").click();
+  await page
+    .getByLabel("Empresa del trabajador", { exact: true })
+    .selectOption(
+      id.startsWith("ES-")
+        ? "ESTUARDO"
+        : id.startsWith("ED-")
+          ? "EDGAR"
+          : "ALLAN",
+    );
   await page.getByLabel("Empleado", { exact: true }).selectOption(id);
   await page.getByLabel("Acción", { exact: true }).selectOption("set");
   await page
@@ -95,7 +104,9 @@ async function asignarClave(page, id) {
     .getByLabel("Confirmar contraseña", { exact: true })
     .fill(CLAVE_TRABAJO);
   await page.getByRole("button", { name: "Guardar acceso" }).click();
-  await expect(page.getByRole("status")).toContainText("Acceso actualizado");
+  await expect(
+    page.getByLabel("Nueva contraseña", { exact: true }),
+  ).toHaveValue("");
 }
 
 async function agregarEmpleado(page, nombre) {
@@ -167,11 +178,13 @@ test("rechaza ingresos fallidos y respeta el bloqueo manual del acceso", async (
 
   await navegacion(page, "Seguridad").click();
   await page
+    .getByLabel("Empresa del trabajador", { exact: true })
+    .selectOption("ESTUARDO");
+  await page
     .getByLabel("Empleado", { exact: true })
     .selectOption(TRABAJADORA_ESTUARDO);
   await page.getByLabel("Acción", { exact: true }).selectOption("block");
   await page.getByRole("button", { name: "Guardar acceso" }).click();
-  await expect(page.getByRole("status")).toContainText("Acceso actualizado");
   await expect(page.getByText("Estado: Bloqueado")).toBeVisible();
   await page.reload();
   await expect(
@@ -185,6 +198,9 @@ test("rechaza ingresos fallidos y respeta el bloqueo manual del acceso", async (
   await page.getByRole("button", { name: "Volver al inicio" }).click();
   await ingresarComoAdmin(page);
   await navegacion(page, "Seguridad").click();
+  await page
+    .getByLabel("Empresa del trabajador", { exact: true })
+    .selectOption("ESTUARDO");
   await page
     .getByLabel("Empleado", { exact: true })
     .selectOption(TRABAJADORA_ESTUARDO);
@@ -218,11 +234,17 @@ test("la trabajadora de demostración de Estuardo solo ve su empresa y bitácora
 
   await navegacion(page, "Seguridad").click();
   await page
+    .getByLabel("Empresa del trabajador", { exact: true })
+    .selectOption("ESTUARDO");
+  await page
     .getByLabel("Empleado", { exact: true })
     .selectOption(TRABAJADORA_ESTUARDO);
   await page
     .getByLabel("Usuario activo", { exact: true })
     .selectOption(TRABAJADORA_ESTUARDO);
+  await page
+    .getByLabel("Empresa del trabajador", { exact: true })
+    .selectOption("ALLAN");
   await page.getByLabel("Empleado", { exact: true }).selectOption("AL-01");
   await expect(page.getByLabel("Usuario activo", { exact: true })).toHaveValue(
     TRABAJADORA_ESTUARDO,

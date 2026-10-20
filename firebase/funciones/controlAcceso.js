@@ -55,6 +55,10 @@ function crearControlAcceso({
       if (snap.data()?.bloqueado) return { bloqueado: true };
       const intentos = correcto ? 0 : (snap.data()?.intentos || 0) + 1;
       const bloqueado = intentos >= 4;
+      const empleado =
+        bloqueado && id !== "MARIA"
+          ? (await tx.get(db.doc(`empleados/${id}`))).data() || {}
+          : {};
       tx.set(
         ref,
         {
@@ -76,7 +80,8 @@ function crearControlAcceso({
         tx.set(db.doc(`alertasSeguridad/${alertaId}`), {
           id_alerta: alertaId,
           id_empleado: id,
-          nombre_completo: id,
+          nombre_completo: empleado.nombre_completo || id,
+          empresa_codigo: empleado.empresa_codigo || "",
           tipo: "Cuenta bloqueada",
           modulo: "acceso",
           seguridad: true,

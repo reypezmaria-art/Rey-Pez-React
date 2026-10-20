@@ -23,3 +23,5 @@ servidor-acceso/dist/
 servidor-acceso/.dev.vars*
 credenciales-*.json
 *-service-account.json
+
+.wrangler/

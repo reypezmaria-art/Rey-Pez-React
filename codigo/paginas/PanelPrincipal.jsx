@@ -1,5 +1,6 @@
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import { EncabezadoPagina } from "../componentes/ElementosInterfaz.jsx";
+import GraficasIncidencias from "../componentes/GraficasIncidencias.jsx";
 import {
   calendarDate,
   formatDateTime,
@@ -8,40 +9,37 @@ import {
 import { concordar } from "../utilidades/textos.js";
 import { pendingAbsences } from "../dominio/asistencia.js";
 import { pendingPrograms } from "../dominio/bitacoras.js";
-import { usaFirebase } from "../repositorios/repositorio.js";
+import { pendientesPanel, personalDeHoy } from "../dominio/panel.js";
 export default function PanelPrincipal({ navigate }) {
   const { data, clock } = useAplicacion();
-  const today = data.attendance.filter((a) => isSameDay(a.fecha_hora, clock)),
-    absences = pendingAbsences(data, clock),
-    due = pendingPrograms(data, clock);
-  const status = data.employees
-    .filter((e) => e.estatus !== "Baja")
-    .map((e) => {
-      const last = today.find(
-        (a) =>
-          a.id_empleado === e.id_empleado &&
-          a.movimiento !== "REVISION_ADMINISTRATIVA",
-      );
-      return last?.movimiento || "SIN_ENTRADA";
-    });
+  const today = data.attendance.filter((a) => isSameDay(a.fecha_hora, clock));
+  const absences = pendingAbsences(data, clock);
+  const due = pendingPrograms(data, clock);
+  const personal = personalDeHoy(data, clock);
   const cards = [
-    ["Empresas", 3, "Allan · Edgar · Estuardo"],
-    ["Empleados cargados", data.employees.length, "Personal registrado"],
+    [
+      "Empresas",
+      3,
+      "Datos y estado de cada empresa",
+      () => navigate("dashboardDetail", { tipo: "empresas" }),
+    ],
+    [
+      "Total de empleados",
+      data.employees.length,
+      "Ver personal por empresa",
+      () => navigate("employees", { resumen: true }),
+    ],
     [
       "Registros de hoy",
       today.length,
-      usaFirebase
-        ? "Datos compartidos en línea"
-        : "Actualización en este navegador",
+      "Ver movimientos de hoy",
+      () => navigate("dashboardDetail", { tipo: "registros" }),
     ],
     [
       "Alertas por revisar",
-      data.alerts.filter((a) => a.estado === "Pendiente").length +
-        (data.securityAlerts || []).filter((a) => a.estado === "Pendiente")
-          .length +
-        absences.length +
-        due.length,
-      "Solo administración",
+      pendientesPanel(data, clock).length,
+      "Ver todos los pendientes",
+      () => navigate("dashboardDetail", { tipo: "pendientes" }),
     ],
   ];
   return (
@@ -55,44 +53,48 @@ export default function PanelPrincipal({ navigate }) {
         </button>
       </EncabezadoPagina>
       <div className="cards">
-        {cards.map(([label, value, foot]) => (
-          <div className="card" key={label}>
-            <div className="klabel">{label}</div>
-            <div className="kvalue">{value}</div>
-            <div className="kfoot">{foot}</div>
-          </div>
+        {cards.map(([label, value, foot, abrir]) => (
+          <button className="card metric-card" key={label} onClick={abrir}>
+            <span className="klabel">{label}</span>
+            <span className="kvalue">{value}</span>
+            <span className="kfoot">{foot}</span>
+          </button>
         ))}
       </div>
+      <GraficasIncidencias navigate={navigate} />
       <div className="cards">
         {[
           [
             "Con entrada",
-            status.filter((s) => ["ENTRADA", "REGRESO_DE_COMER"].includes(s))
-              .length,
+            personal.filter((e) =>
+              ["ENTRADA", "REGRESO_DE_COMER"].includes(e.movimientoHoy),
+            ).length,
+            "entrada",
           ],
-          ["En comida", status.filter((s) => s === "SALIDA_A_COMER").length],
+          [
+            "En comida",
+            personal.filter((e) => e.movimientoHoy === "SALIDA_A_COMER").length,
+            "comida",
+          ],
           [
             "Jornada finalizada",
-            status.filter((s) => s === "SALIDA_FINAL").length,
+            personal.filter((e) => e.movimientoHoy === "SALIDA_FINAL").length,
+            "salida",
           ],
-          ["Ausencias por revisar", absences.length],
-        ].map(([label, value]) => (
-          <div className="card" key={label}>
-            <div className="klabel">{label}</div>
-            <div className="kvalue">{value}</div>
-          </div>
+          ["Ausencias por revisar", absences.length, "ausencias"],
+        ].map(([label, value, tipo]) => (
+          <button
+            className="card metric-card"
+            key={label}
+            onClick={() => navigate("dashboardDetail", { tipo })}
+          >
+            <span className="klabel">{label}</span>
+            <span className="kvalue">{value}</span>
+            <span className="kfoot">Ver detalle</span>
+          </button>
         ))}
       </div>
       <div className="columns">
-        {(data.securityAlerts || []).some((a) => a.estado === "Pendiente") && (
-          <div className="panel">
-            <h2>Alertas de seguridad</h2>
-            <p>Hay cuentas bloqueadas o intentos de entrar sin permiso.</p>
-            <button onClick={() => navigate("security")}>
-              Revisar alertas de seguridad
-            </button>
-          </div>
-        )}
         <div className="panel">
           <h2>Pendientes administrativos</h2>
           <p>
@@ -119,8 +121,12 @@ export default function PanelPrincipal({ navigate }) {
             )}
           </p>
           <div className="actions">
-            <button onClick={() => navigate("attendance")}>
-              Revisar ausencias
+            <button
+              onClick={() =>
+                navigate("dashboardDetail", { tipo: "pendientes" })
+              }
+            >
+              Ver todos los pendientes
             </button>
             <button onClick={() => navigate("logs")}>Bitácoras de salud</button>
             <button onClick={() => navigate("epp")}>Bitácora de EPP</button>
@@ -139,35 +145,10 @@ export default function PanelPrincipal({ navigate }) {
           ) : (
             <p>Sin registros de hoy.</p>
           )}
-        </div>
-        <div className="panel">
-          <h2>Personal por empresa</h2>
-          {["ALLAN", "EDGAR", "ESTUARDO"].map((company) => (
-            <p key={company}>
-              <b>{company}</b> ·{" "}
-              {concordar(
-                data.employees.filter((e) => e.empresa_codigo === company)
-                  .length,
-                "empleado",
-                "empleados",
-              )}{" "}
-              ·{" "}
-              {concordar(
-                data.employees.filter(
-                  (e) => e.empresa_codigo === company && e.estatus === "Baja",
-                ).length,
-                "baja",
-                "bajas",
-              )}
-            </p>
-          ))}
-          <p className="small">
-            Los 30 registros recuperados se conservan. Las diferencias con los
-            conteos posteriores quedan para revisión, sin eliminar ni inventar
-            empleados.
-          </p>
-          <button onClick={() => navigate("employees")}>
-            Administrar personal
+          <button
+            onClick={() => navigate("dashboardDetail", { tipo: "registros" })}
+          >
+            Ver todos los registros de hoy
           </button>
         </div>
       </div>

@@ -49,6 +49,7 @@ const COLECCIONES_TERMINAL = ["employees", "attendance", "alerts", "schedules"];
 function listasVacias() {
   return {
     employees: [],
+    companies: [],
     attendance: [],
     alerts: [],
     schedules: [],
@@ -305,6 +306,7 @@ export function createFirebaseRepository() {
       return catalogoParaImportar(
         {
           employees: [],
+          companies: [],
           attendance: [],
           schedules: structuredClone(defaultSchedules),
           alerts: [],
@@ -320,6 +322,7 @@ export function createFirebaseRepository() {
       return catalogoParaImportar(
         {
           employees: [],
+          companies: [],
           attendance: [],
           schedules: structuredClone(defaultSchedules),
           alerts: [],

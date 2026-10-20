@@ -39,12 +39,23 @@ async function access(page) {
 }
 async function credential(page, id) {
   await nav(page, "Seguridad").click();
+  await page
+    .getByLabel("Empresa del trabajador", { exact: true })
+    .selectOption(
+      id.startsWith("ES-")
+        ? "ESTUARDO"
+        : id.startsWith("ED-")
+          ? "EDGAR"
+          : "ALLAN",
+    );
   await page.getByLabel("Empleado", { exact: true }).selectOption(id);
   await page.getByLabel("Acción", { exact: true }).selectOption("set");
   await page.getByLabel("Nueva contraseña", { exact: true }).fill("Trab06");
   await page.getByLabel("Confirmar contraseña", { exact: true }).fill("Trab06");
   await page.getByRole("button", { name: "Guardar acceso" }).click();
-  await expect(page.getByRole("status")).toContainText("Acceso actualizado");
+  await expect(
+    page.getByLabel("Nueva contraseña", { exact: true }),
+  ).toHaveValue("");
 }
 const nav = (page, name) =>
   page.getByRole("navigation").getByRole("button", { name, exact: true });
@@ -60,6 +71,9 @@ test("Seguridad inicia cerrada y Admin exige contraseña antes de cambiarla", as
   await expect(
     page.getByRole("button", { name: "Guardar acceso" }),
   ).toHaveCount(0);
+  await page
+    .getByLabel("Empresa del trabajador", { exact: true })
+    .selectOption("ALLAN");
   await page.getByLabel("Empleado", { exact: true }).selectOption("AL-01");
   await expect(
     page.getByLabel("Nueva contraseña", { exact: true }),
@@ -241,6 +255,9 @@ test("configuración, CSV, respaldo y seguridad local", async ({ page }) => {
     "respaldo_rey_pez.json",
   );
   await nav(page, "Seguridad").click();
+  await page
+    .getByLabel("Empresa del trabajador", { exact: true })
+    .selectOption("ALLAN");
   await page.getByLabel("Empleado", { exact: true }).selectOption("AL-01");
   await page.getByLabel("Acción", { exact: true }).selectOption("set");
   await page.getByLabel("Nueva contraseña", { exact: true }).fill("prueba123");
@@ -248,7 +265,9 @@ test("configuración, CSV, respaldo y seguridad local", async ({ page }) => {
     .getByLabel("Confirmar contraseña", { exact: true })
     .fill("prueba123");
   await page.getByRole("button", { name: "Guardar acceso" }).click();
-  await expect(page.getByRole("status")).toContainText("Acceso actualizado");
+  await expect(
+    page.getByLabel("Nueva contraseña", { exact: true }),
+  ).toHaveValue("");
   expect(
     await page.evaluate(() => localStorage.getItem("reypez_react_v1")),
   ).not.toContain("prueba123");

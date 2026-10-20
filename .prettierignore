@@ -11,3 +11,5 @@ informe-pruebas
 dist/
 test-results/
 playwright-report/
+
+.wrangler/

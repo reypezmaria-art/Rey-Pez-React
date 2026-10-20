@@ -147,6 +147,20 @@ test("las reglas separan a María, la empresa y la secuencia", async () => {
     const terminal = entorno.authenticatedContext("terminal");
     const dbTrabajo = trabajadora.firestore();
     const dbTerminal = terminal.firestore();
+    await assertSucceeds(
+      setDoc(doc(maria.firestore(), "empresas", "ALLAN"), {
+        codigo: "ALLAN",
+        rfc: "AAA010101AAA",
+      }),
+    );
+    await assertSucceeds(getDoc(doc(maria.firestore(), "empresas", "ALLAN")));
+    await assertFails(getDoc(doc(dbTrabajo, "empresas", "ALLAN")));
+    await assertFails(getDoc(doc(dbTerminal, "empresas", "ALLAN")));
+    await assertFails(getDoc(doc(anonimo.firestore(), "empresas", "ALLAN")));
+    await assertFails(
+      setDoc(doc(dbTrabajo, "empresas", "ALLAN"), { codigo: "ALLAN" }),
+    );
+
     const sinServidor = entorno.authenticatedContext("worker", {
       email: "es-01@acceso.reypez.app",
     });

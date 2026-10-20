@@ -1018,3 +1018,78 @@ header .header-access button:hover {
   padding: 0 16px 16px;
   color: #effdff;
 }
+
+.metric-card {
+  text-align: left;
+  color: var(--navy);
+  width: 100%;
+  white-space: normal;
+}
+.metric-card span {
+  display: block;
+}
+.metric-card:hover,
+.metric-card[aria-pressed="true"] {
+  border-color: var(--navy);
+  background: #edf5ff;
+}
+.metric-card:focus-visible,
+.chart-row:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 3px;
+}
+.company-summary {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.company-settings > summary {
+  cursor: pointer;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+.incidence-chart {
+  min-width: 0;
+}
+.chart-bars {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1rem 0;
+}
+.chart-row {
+  display: grid;
+  grid-template-columns: minmax(92px, 1fr) minmax(25px, 2fr) 2rem;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--line);
+  color: var(--navy);
+  background: #f7faff;
+  padding: 0.65rem;
+}
+.chart-track {
+  display: block;
+  height: 1.15rem;
+  border-radius: 4px;
+  background: #e2eaf3;
+  overflow: hidden;
+}
+.chart-fill {
+  display: block;
+  height: 100%;
+  background: #315eae;
+}
+.chart-fill.color-1 {
+  background: #16807f;
+}
+.chart-fill.color-2 {
+  background: #976c11;
+}
+.pending-card {
+  margin-bottom: 1rem;
+}
+@media (max-width: 640px) {
+  .company-summary {
+    grid-template-columns: 1fr;
+  }
+}

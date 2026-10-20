@@ -33,8 +33,12 @@ Copiar la URL HTTPS definitiva del Worker a `VITE_ACCESO_API_URL` en la configur
 npm run verificar
 npm run probar:reglas
 npm run probar:navegador
-npx -y firebase-tools@latest deploy --project rey-pez-admin-react --only firestore,storage,hosting
+npx -y firebase-tools@latest deploy --project rey-pez-admin-react --only "firestore:rules,hosting"
 ```
+
+El 20/10/2026 se publicó el Worker `https://rey-pez-acceso.reypez-admin-oficina.workers.dev`, se conectaron sus secretos desde la computadora de María y se publicaron Hosting y reglas de Firestore. Storage no está configurado: no intentar inicializarlo ni activar facturación. La carga de fotos queda pendiente. `/salud` solo confirma presencia de configuración; se comprobó además un inicio real de MARIA y se observaron bloqueo y alertas con una cuenta de prueba.
+
+Antes de compilar, comprobar que Vite lee las cuatro variables obligatorias: API key, project ID, app ID y URL del Worker. La existencia de `.env.local` no garantiza que sus valores se hayan cargado. Nunca publicar un compilado sin estas variables.
 
 **No desplegar las reglas nuevas antes de configurar el Worker y la aplicación.** Los trabajadores con sesiones anteriores deben cerrar sesión e ingresar nuevamente para obtener la marca firmada. El despliegue no incorpora ni reemplaza el catálogo de empleados.
 

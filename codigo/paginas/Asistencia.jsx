@@ -9,12 +9,13 @@ import {
 } from "../componentes/ElementosInterfaz.jsx";
 import LogoMarca from "../componentes/LogoMarca.jsx";
 import ExportarPdf from "../componentes/ExportarPdf.jsx";
-import { companyNames } from "../datos/constantes.js";
+import { nombresEmpresas } from "../dominio/empresas.js";
 import { formatDateTime } from "../utilidades/fechas.js";
 import { concordar } from "../utilidades/textos.js";
 import { reviewAlerts } from "../dominio/operaciones.js";
 export default function Asistencia({ navigate, openKiosk }) {
   const { data, commit, pending, clock } = useAplicacion();
+  const companyNames = nombresEmpresas(data);
   const [error, setError] = useState("");
   const [company, setCompany] = useState("ALLAN");
   const absences = pendingAbsences(data, clock);

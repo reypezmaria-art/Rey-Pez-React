@@ -144,6 +144,9 @@ service cloud.firestore {
       allow create: if esAdmin() || bitacoraDeTrabajador(request.resource.data);
       allow update, delete: if esAdmin();
     }
+    match /empresas/{codigo} {
+      allow read, write: if esAdmin();
+    }
     match /mantenimiento/{id} {
       allow read, write: if esAdmin();
     }

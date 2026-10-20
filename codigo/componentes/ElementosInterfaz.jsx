@@ -1,5 +1,6 @@
 import { useId } from "react";
-import { companyNames } from "../datos/constantes.js";
+import { nombresEmpresas } from "../dominio/empresas.js";
+import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 export function EncabezadoPagina({ title, subtitle, children }) {
   return (
     <div className="pagehead">
@@ -29,6 +30,8 @@ export function Campo({
   );
 }
 export function OpcionesEmpresa() {
+  const { data } = useAplicacion();
+  const companyNames = nombresEmpresas(data);
   return Object.entries(companyNames).map(([code, name]) => (
     <option key={code} value={code}>
       {name}

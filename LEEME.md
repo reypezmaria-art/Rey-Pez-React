@@ -40,36 +40,25 @@ Para una terminal dedicada, vincula ese navegador en Configuración y abre `#asi
 
 Sin `.env`, la aplicación guarda en el navegador después de cargar. Contraseñas derivadas con PBKDF2, sal y bloqueo protegen ese flujo. No hay integración de huella. No se presenta esta copia como un sistema listo para operación laboral oficial. Los formatos especializados deben cotejarse con los originales.
 
-## Firebase
+## Firebase y publicación gratuita
 
-Con un proyecto en plan Blaze y `.env` completo, el personal, la asistencia y las bitácoras se guardan en Cloud Firestore y los adjuntos en Cloud Storage. Los pasos:
+La instalación compartida usa Firebase Spark y Cloudflare Free. No activar Blaze, Cloud Functions, una suscripción de pago ni datos de facturación. Ver [Acceso protegido sin plan de pago](documentacion/acceso-gratuito.md). La página está en `https://rey-pez-admin-react.web.app/` y el servidor en `https://rey-pez-acceso.reypez-admin-oficina.workers.dev`.
 
-1. En la consola de Firebase crea el proyecto, una app web, Authentication con correo y contraseña, Firestore y Storage.
-2. Copia `.env.ejemplo` a `.env` y pega la configuración web. No pongas la cuenta de servicio en variables `VITE_`.
-3. Instala la CLI (`npm install -g firebase-tools`), entra con `firebase login` y elige el proyecto con `firebase use --add`.
-4. En `firebase/funciones` ejecuta `npm install`. El despliegue de reglas no lo hagas hasta publicar este cliente; el orden está en la sección siguiente.
-5. `npm run iniciar`, abre `http://127.0.0.1:5173` y crea la contraseña de María. Esa primera cuenta queda como administración.
-6. Si este navegador ya tenía `reypez_react_v1` y Firebase todavía no tiene operación, el catálogo se copia una vez. Si los dos lados ya tienen datos, no se copia ni se reemplaza nada y la app lo avisa. No se migran las contraseñas locales: vuelve a asignarlas en Seguridad. Los empleados de demostración no se suben.
+La configuración web se conserva en `.env.local` de la computadora de publicación. Antes de compilar hay que comprobar que Vite carga `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` y `VITE_ACCESO_API_URL`. Nunca colocar una cuenta de servicio ni clave privada en variables `VITE_*`, GitHub o el chat.
 
-## Publicar reglas sin dejar fuera a la operación
+Publicar el Worker si cambió su código y después compilar el sitio con la configuración real. Desde la raíz:
 
-El documento `acceso/admin` que ya existe no se modifica: María sigue entrando. La colección nueva `secuenciaAsistencia` solo anota el último marcaje del día; no reescribe la asistencia histórica.
+```bash
+npx -y wrangler@4 deploy --config servidor-acceso/wrangler.jsonc
+npm run verificar
+npx -y firebase-tools@latest deploy --project rey-pez-admin-react --only "firestore:rules,hosting"
+```
 
-Orden recomendado, desde la raíz, después de `npm run compilar`:
+Storage no está configurado y la carga de fotografías queda pendiente. No desplegar Storage ni Functions para esta instalación. Las credenciales del Worker se conservan como secretos en Cloudflare; desplegar código no requiere volver a compartirlas.
 
-1. `firebase deploy --only firestore:indexes`
-2. `firebase deploy --only hosting`
-3. Abre la administración con María una vez, para completar la secuencia de hoy.
-4. `firebase deploy --only firestore:rules,storage`
-5. `firebase deploy --only functions`
+María administra los datos de empresas en Seguridad. La colección `empresas` y las versiones anteriores dentro de auditoría están reservadas a administración. Solo el nombre y el estado administrativo se comparten en el directorio operativo. Una baja de empresa conserva empleados e historial; el bloqueo de trabajadores se administra por cuenta.
 
-Si las reglas se publican antes que el hosting, la copia que hoy está en rey-pez-admin-react.web.app deja de cargar bitácoras para trabajador y terminal, y el quiosco no puede marcar hasta que el hosting nuevo esté activo. Los datos no se borran y María sigue pudiendo entrar. Si el hosting sale primero, el cliente nuevo sigue funcionando con las reglas anteriores y avisa que la secuencia aún no es obligatoria.
-
-No cambies `VITE_AUTH_EMAIL_DOMAIN` sin editar el correo fijo de `firebase/firestore.rules` (`maria@acceso.reypez.app`). `operacion/config` sigue siendo un solo documento: un trabajador autenticado puede ver la programación y el mapa de permisos, no las bitácoras ni las fotos de otra empresa.
-
-El correo interno es `{id}@acceso.reypez.app`. Si cambias `VITE_AUTH_EMAIL_DOMAIN`, define el mismo valor en `AUTH_EMAIL_DOMAIN` antes de desplegar la función. Crea la contraseña de María enseguida: una cuenta suelta no puede leer el personal.
-
-Los acuerdos y pendientes concretos están en `documentacion/reglas-pendientes.md`. No se inventaron empleados, cuartos de Edgar, sanciones ni descuentos.
+Para revisar los comportamientos nuevos, ver [Panel y empresas](documentacion/panel-y-empresas.md). Los acuerdos y otros pendientes están en `documentacion/reglas-pendientes.md`.
 
 ## Verificar
 

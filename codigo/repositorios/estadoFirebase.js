@@ -3,6 +3,7 @@ import { defaultSchedules } from "../datos/horariosIniciales.js";
 import { migrateState } from "./repositorioLocal.js";
 
 export const COLECCIONES = [
+  { estado: "companies", coleccion: "empresas", id: "codigo" },
   { estado: "employees", coleccion: "empleados", id: "id_empleado" },
   { estado: "attendance", coleccion: "asistencia", id: "id_registro" },
   { estado: "alerts", coleccion: "alertas", id: "id_alerta" },
@@ -14,6 +15,7 @@ export const COLECCIONES = [
   { estado: "securityAlerts", coleccion: "alertasSeguridad", id: "id_alerta" },
 ];
 export const CAMPOS_OPERACION = [
+  "companyDirectory",
   "rooms",
   "areas",
   "programs",
@@ -162,6 +164,7 @@ export function armarEstado({
   const state = {
     ...structuredClone(baseOperation),
     employees: listas.employees || [],
+    companies: listas.companies || [],
     attendance: porReciente(listas.attendance || [], RECIENTES.attendance),
     schedules: listas.schedules ?? structuredClone(defaultSchedules),
     alerts: porReciente(listas.alerts || [], RECIENTES.alerts),

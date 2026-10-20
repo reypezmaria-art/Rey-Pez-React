@@ -7,13 +7,14 @@ import {
 } from "../componentes/ElementosInterfaz.jsx";
 import FormularioEmpleado from "../componentes/FormularioEmpleado.jsx";
 import { assignMissingIds, terminateEmployee } from "../dominio/operaciones.js";
-import { companyNames } from "../datos/constantes.js";
+import { nombresEmpresas } from "../dominio/empresas.js";
 import { mergeEmployees, parseCSV } from "../utilidades/archivosCsv.js";
 import { concordar } from "../utilidades/textos.js";
-export default function Personal() {
+export default function Personal({ detalleInicial, navigate }) {
   const { data, commit, pending } = useAplicacion();
+  const companyNames = nombresEmpresas(data);
   const [query, setQuery] = useState(""),
-    [company, setCompany] = useState("");
+    [company, setCompany] = useState(detalleInicial?.company || "");
   const [editor, setEditor] = useState(null),
     [message, setMessage] = useState(""),
     [error, setError] = useState("");
@@ -52,7 +53,7 @@ export default function Personal() {
   return (
     <section>
       <EncabezadoPagina
-        title="Personal"
+        title={detalleInicial?.resumen ? "Total de empleados" : "Personal"}
         subtitle="Agrega y administra empleados desde la web. El CSV es opcional para importación masiva o respaldo."
       >
         <button
@@ -62,6 +63,41 @@ export default function Personal() {
           + Agregar empleado
         </button>
       </EncabezadoPagina>
+      <section aria-label="Personal por empresa">
+        <h2>Personal por empresa</h2>
+        <p>
+          Total de empleados: <strong>{data.employees.length}</strong>
+        </p>
+        <div className="cards company-summary">
+          {Object.entries(companyNames).map(([id, nombre]) => {
+            const lista = data.employees.filter((e) => e.empresa_codigo === id);
+            return (
+              <button
+                className="card metric-card"
+                key={id}
+                aria-pressed={company === id}
+                onClick={() => setCompany(id)}
+              >
+                <span className="klabel">{id}</span>
+                <span className="kvalue">{lista.length}</span>
+                <span>{nombre}</span>
+                <span className="kfoot">
+                  {lista.filter((e) => e.estatus !== "Baja").length} activos ·{" "}
+                  {lista.filter((e) => e.estatus === "Baja").length} bajas
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="actions">
+          <button onClick={() => setCompany("")}>Ver todas las empresas</button>
+          {navigate && (
+            <button onClick={() => navigate("dashboard")}>
+              Volver al panel
+            </button>
+          )}
+        </div>
+      </section>
       <div className="toolbar">
         <input
           aria-label="Buscar personal"
@@ -133,7 +169,7 @@ export default function Personal() {
               <b>{e.id_empleado || "Pendiente"}</b>
             </td>
             <td>{e.nombre_completo}</td>
-            <td>{e.empresa_nombre || companyNames[e.empresa_codigo]}</td>
+            <td>{companyNames[e.empresa_codigo] || e.empresa_nombre}</td>
             <td>
               {e.puesto}
               {e.observaciones && (

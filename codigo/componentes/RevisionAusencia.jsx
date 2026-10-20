@@ -17,6 +17,7 @@ export default function RevisionAusencia({ employee }) {
           {
             id: crypto.randomUUID(),
             employeeId: employee.id_empleado,
+            empresa_codigo: employee.empresa_codigo,
             name: employee.nombre_completo,
             date: localDate(),
             classification,

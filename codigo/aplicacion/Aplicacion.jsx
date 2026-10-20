@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAplicacion } from "./ContextoAplicacion.js";
+import DetallePanel from "../paginas/DetallePanel.jsx";
 import PanelPrincipal from "../paginas/PanelPrincipal.jsx";
 import Personal from "../paginas/Personal.jsx";
 import Asistencia from "../paginas/Asistencia.jsx";
@@ -18,6 +19,7 @@ import { deviceId } from "../utilidades/dispositivo.js";
 import { fraseDelDia } from "../datos/frasesDiarias.js";
 const pages = {
   dashboard: PanelPrincipal,
+  dashboardDetail: DetallePanel,
   employees: Personal,
   attendance: Asistencia,
   logs: CarpetasBitacoras,
@@ -43,6 +45,11 @@ export default function Aplicacion() {
   const { data, session, logout, clock, avisoAcceso, volverInicio } =
     useAplicacion();
   const frase = fraseDelDia(clock);
+  const [detallePagina, setDetallePagina] = useState(null);
+  function navigate(destino, detalle = null) {
+    setPage(destino);
+    setDetallePagina(detalle);
+  }
   const [page, setPage] = useState("dashboard"),
     [kiosk, setKiosk] = useState(false),
     [route, setRoute] = useState(() => location.hash);
@@ -122,7 +129,7 @@ export default function Aplicacion() {
               key={key}
               className={page === key ? "active" : ""}
               aria-current={page === key ? "page" : undefined}
-              onClick={() => (key === "kiosk" ? setKiosk(true) : setPage(key))}
+              onClick={() => (key === "kiosk" ? setKiosk(true) : navigate(key))}
             >
               <span aria-hidden="true">{icon} &nbsp;</span>
               {label}
@@ -136,7 +143,12 @@ export default function Aplicacion() {
               folder={page === "logs" ? "health" : page}
             />
           ) : (
-            <Page navigate={setPage} openKiosk={() => setKiosk(true)} />
+            <Page
+              key={page}
+              navigate={navigate}
+              detalleInicial={detallePagina || undefined}
+              openKiosk={() => setKiosk(true)}
+            />
           )}
         </main>
       </div>
