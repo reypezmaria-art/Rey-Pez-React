@@ -13,6 +13,7 @@ import {
   claveLibroNomina,
 } from "../codigo/utilidades/paqueteLibroNomina.js";
 import {
+  destinoTrasIngresar,
   puedeConsultarNomina,
   asignarConsultaNomina,
 } from "../codigo/dominio/accesoNomina.js";
@@ -73,6 +74,15 @@ test("consulta de nómina exige permiso explícito, cuenta activa y no concede a
   assert.equal(puedeConsultarNomina(state, session), false);
   const siguiente = asignarConsultaNomina(state, "DEMO", true);
   assert.equal(puedeConsultarNomina(siguiente, session), true);
+  assert.equal(destinoTrasIngresar(siguiente, session, ""), "#nomina");
+  assert.equal(
+    destinoTrasIngresar(siguiente, session, "#administracion"),
+    "#nomina",
+  );
+  assert.equal(
+    destinoTrasIngresar(siguiente, session, "#captura?area=cuarto-ajeno"),
+    "#captura?area=cuarto-ajeno",
+  );
   assert.equal(session.role, "worker");
   assert.equal(state.access.permissions.DEMO, undefined);
   assert.equal(
@@ -129,6 +139,7 @@ test("el formato de Acumulado conserva importes y fórmulas y puede aplicarse ot
     "TOTAL",
     { formula: "SUM(C5:C6)", result: 12.5 },
   ];
+  hoja.headerFooter = null;
   for (let i = 0; i < 2; i++) {
     darFormatoAcumulado(hoja);
     assert.equal(hoja.getCell("C5").value, 12.5);

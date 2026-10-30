@@ -1,3 +1,4 @@
+import { destinoTrasIngresar } from "../dominio/accesoNomina.js";
 import { useEffect, useState } from "react";
 import { ContextoAplicacion } from "./ContextoAplicacion.js";
 import { repository, usaFirebase } from "../repositorios/repositorio.js";
@@ -75,6 +76,15 @@ export default function ProveedorAplicacion({ children }) {
       throw Error("No tienes permiso para modificar la nómina.");
     return mutate((state) => afirmarSoloNomina(state, update(state)));
   }
+  function abrirSesionTrabajador(state, key, employee) {
+    const nueva = { id: key, name: employee.nombre_completo, role: "worker" };
+    const ruta = destinoTrasIngresar(state, nueva, location.hash);
+    if (ruta !== location.hash) {
+      window.history.replaceState(null, "", ruta);
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    }
+    setSession(nueva);
+  }
   async function login(id, password) {
     const key = id.trim().toUpperCase();
     if (usaFirebase) {
@@ -95,7 +105,7 @@ export default function ProveedorAplicacion({ children }) {
         throw Error("ID o contraseña incorrectos.");
       }
       setAviso("");
-      setSession({ id: key, name: employee.nombre_completo, role: "worker" });
+      abrirSesionTrabajador(state, key, employee);
       return;
     }
     if (key === "MARIA") {
@@ -110,7 +120,7 @@ export default function ProveedorAplicacion({ children }) {
     await validarLocal(key, password);
     if (!employee) throw Error("ID o contraseña incorrectos.");
     setAviso("");
-    setSession({ id: key, name: employee.nombre_completo, role: "worker" });
+    abrirSesionTrabajador(data, key, employee);
   }
   async function autenticar(accion) {
     try {

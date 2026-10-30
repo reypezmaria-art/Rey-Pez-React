@@ -49,5 +49,8 @@ export async function excelSintetico(nombreEmpresa = "Empresa sintética") {
   const resumen = libro.addWorksheet("ACUMULADO 2027");
   resumen.getCell("A1").value = "ACUMULADO";
   resumen.getCell("B2").value = 17;
+  resumen.getRow(4).values = [null, "MES", "IMPORTE"];
+  resumen.getRow(5).values = [null, "ENERO", 1000];
+  resumen.getRow(6).values = [null, "TOTAL", 1000];
   return libro.xlsx.writeBuffer();
 }

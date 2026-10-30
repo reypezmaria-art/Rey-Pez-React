@@ -152,7 +152,6 @@ test("cuenta delegada consulta las tres empresas, exporta y no ve acciones admin
   await page
     .getByRole("button", { name: "Cerrar sesión", exact: true })
     .click();
-  await page.goto("/#nomina");
   await page.getByLabel("ID", { exact: true }).fill("DEMO");
   await page.getByLabel("Contraseña", { exact: true }).fill("Clave6");
   await page.getByRole("button", { name: "Ingresar", exact: true }).click();

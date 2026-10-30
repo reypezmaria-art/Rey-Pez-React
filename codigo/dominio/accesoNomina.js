@@ -1,4 +1,4 @@
-import { puedeVerNomina } from "./seguridad.js";
+import { puedeVerNomina, canCapture } from "./seguridad.js";
 export function puedeConsultarNomina(state, session) {
   if (puedeVerNomina(state, session)) return true;
   if (!session?.id) return false;
@@ -66,4 +66,25 @@ export function puedeConsultarSeccion(state, session, seccion) {
     permiso?.company === e.empresa_codigo &&
     permiso.secciones?.includes(seccion),
   );
+}
+
+export function destinoTrasIngresar(state, session, ruta) {
+  if (
+    session?.role !== "worker" ||
+    !["", "#", "#administracion", "#captura"].includes(ruta)
+  )
+    return ruta;
+  const permiso = state.access.permissions[session.id];
+  if (
+    ruta === "#captura" &&
+    (permiso?.logs || []).some((t) =>
+      canCapture(state, session, permiso.company, t),
+    )
+  )
+    return ruta;
+  if (puedeConsultarNomina(state, session)) return "#nomina";
+  const seccion = ["employees", "maintenance", "reports"].find((s) =>
+    puedeConsultarSeccion(state, session, s),
+  );
+  return seccion ? `#seccion?tipo=${seccion}` : ruta;
 }

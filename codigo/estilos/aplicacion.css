@@ -1258,3 +1258,8 @@ header .header-access button:hover {
     padding: 6px;
   }
 }
+
+.nomina-editor-modal > p[role="status"] {
+  color: #173957;
+  background: #e8f1fb;
+}

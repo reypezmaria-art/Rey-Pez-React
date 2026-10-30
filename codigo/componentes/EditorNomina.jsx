@@ -14,6 +14,7 @@ export default function EditorNomina({
   const frame = useRef(null);
   const [canal] = useState(() => crypto.randomUUID());
   const [error, setError] = useState("");
+  const [estado, setEstado] = useState("Cargando editor de nómina…");
   const dirty = useRef(false);
   useEffect(() => {
     const repo = repositorioLibrosNomina(ambito);
@@ -33,6 +34,15 @@ export default function EditorNomina({
       )
         return;
       const { id, accion, datos } = event.data;
+      if (accion === "estado") {
+        setEstado(String(datos || "").slice(0, 200));
+        return;
+      }
+      if (accion === "fallo") {
+        setEstado("");
+        setError(String(datos || "No se pudo abrir el editor."));
+        return;
+      }
       if (accion === "cambios") {
         dirty.current = Boolean(datos);
         return;
@@ -40,6 +50,7 @@ export default function EditorNomina({
       try {
         let resultado;
         if (accion === "abrir") {
+          setEstado("Leyendo el libro guardado…");
           const guardado = await repo.abrir(datos?.revision);
           revision = guardado?.actual || 0;
           if (guardado) {
@@ -68,6 +79,7 @@ export default function EditorNomina({
         if (activo) responder(id, resultado);
       } catch (err) {
         if (activo) {
+          setEstado("");
           setError(err.message);
           responder(id, null, err.message);
         }
@@ -110,6 +122,7 @@ export default function EditorNomina({
           Cerrar editor
         </button>
       </header>
+      {estado && <p role="status">{estado}</p>}
       {error && <p role="alert">{error}</p>}
       <iframe
         ref={frame}

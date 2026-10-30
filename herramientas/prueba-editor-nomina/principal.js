@@ -53,13 +53,21 @@ window.addEventListener("message", (e) => {
   if (e.data.error) pendiente.reject(Error(e.data.error));
   else pendiente.resolve(e.data.resultado);
 });
+function estadoIntegrado(datos, fallo = false) {
+  window.parent.postMessage(
+    { canal, accion: fallo ? "fallo" : "estado", datos },
+    location.origin,
+  );
+}
 async function abrirIntegrado(revision) {
   const datos = await solicitar("abrir", { revision });
   soloConsulta = !!datos.soloConsulta;
   nube = !!datos.nube;
+  estadoIntegrado("Preparando las hojas y el diseño de nómina…");
   prueba = await importar(datos.bytes, datos.nombre);
   montar(await prepararAcumulado(datos.snapshot || prueba.snapshot));
   if (soloConsulta) editor.univerAPI.getActiveWorkbook().setEditable(false);
+  estadoIntegrado("");
   baseGuardada = JSON.stringify(snapshot());
   window.parent.postMessage(
     { canal, accion: "cambios", datos: false },
@@ -140,7 +148,9 @@ async function ejecutar(fn) {
   try {
     await fn();
   } catch (e) {
-    aviso(e.message || "No se pudo completar la prueba.");
+    aviso(e.message || "No se pudo completar la acción.");
+    if (integrado)
+      estadoIntegrado(e.message || "No se pudo abrir el editor.", true);
   } finally {
     ocupado = false;
     document
@@ -419,7 +429,7 @@ if (integrado) {
   $("abrir").hidden = true;
   ejecutar(() => abrirIntegrado());
   setInterval(() => {
-    if (!editor || soloConsulta) return;
+    if (!editor?.univerAPI.getActiveWorkbook() || soloConsulta) return;
     const datos = JSON.stringify(snapshot()) !== baseGuardada;
     window.parent.postMessage(
       { canal, accion: "cambios", datos },

@@ -213,5 +213,8 @@ export function darFormatoAcumulado(hoja) {
     )
       row.height = 8;
   }
-  hoja.headerFooter.oddFooter = "Rey Pez · Acumulado · Página &P de &N";
+  hoja.headerFooter = {
+    ...(hoja.headerFooter || {}),
+    oddFooter: "Rey Pez · Acumulado · Página &P de &N",
+  };
 }
