@@ -8,12 +8,12 @@ export default function ExportarPdf({ data, records, kind, title, company }) {
   const [to, setTo] = useState(localDate);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  function generate(e) {
+  async function generate(e) {
     e.preventDefault();
     setError("");
     setMessage("");
     try {
-      const count = downloadReport({
+      const count = await downloadReport({
         data,
         records,
         kind,

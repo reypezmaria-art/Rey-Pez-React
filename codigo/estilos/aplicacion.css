@@ -625,6 +625,9 @@ textarea:focus-visible,
   min-width: 0;
   flex: 1 1 auto;
 }
+.brand-logo-frame {
+  display: contents;
+}
 .brand-logo {
   display: block;
   object-fit: contain;

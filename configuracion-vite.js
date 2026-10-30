@@ -34,6 +34,50 @@ export default defineConfig({
   build: {
     outDir: "compilado",
     assetsDir: "recursos",
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: "pdfjs",
+              test: /node_modules[\\/]pdfjs-dist[\\/]/,
+              priority: 30,
+              includeDependenciesRecursively: false,
+            },
+            {
+              name: "exceljs",
+              test: /node_modules[\\/]exceljs[\\/]/,
+              priority: 30,
+              includeDependenciesRecursively: false,
+            },
+            {
+              name: "jspdf",
+              test: /node_modules[\\/]jspdf(?:-autotable)?[\\/]/,
+              priority: 30,
+              includeDependenciesRecursively: false,
+            },
+            {
+              name: "qrcode",
+              test: /node_modules[\\/]qrcode[\\/]/,
+              priority: 30,
+              includeDependenciesRecursively: false,
+            },
+            {
+              name: "firebase",
+              test: /node_modules[\\/](?:@firebase|firebase)[\\/]/,
+              priority: 20,
+              includeDependenciesRecursively: false,
+            },
+            {
+              name: "react",
+              test: /node_modules[\\/](?:react|react-dom|scheduler)[\\/]/,
+              priority: 20,
+              includeDependenciesRecursively: false,
+            },
+          ],
+        },
+      },
+    },
   },
   plugins: [react(), localEmployeeCatalog()],
   server: { port: 5173, strictPort: true },

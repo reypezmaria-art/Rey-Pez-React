@@ -2,7 +2,6 @@ import { deviceId } from "../utilidades/dispositivo.js";
 import { usaFirebase } from "../repositorios/repositorio.js";
 import { gestionarAcceso } from "../firebase/sesion.js";
 import { useEffect, useState } from "react";
-import QRCode from "qrcode";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import {
   Campo,
@@ -38,7 +37,11 @@ export default function OperacionConfiguracion({ section }) {
   useEffect(() => {
     let active = true;
     if (qrArea)
-      QRCode.toDataURL(url, { width: 220, margin: 2 })
+      import("qrcode")
+        .then((modulo) => {
+          const qr = modulo.default ?? modulo;
+          return qr.toDataURL(url, { width: 220, margin: 2 });
+        })
         .then((image) => {
           if (active) setQrImage(image);
         })

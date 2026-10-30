@@ -1,5 +1,3 @@
-import { jsPDF } from "jspdf";
-import { autoTable } from "jspdf-autotable";
 import { calendarDate, formatDateTime } from "./fechas.js";
 import { areaLabel } from "../datos/listasRevision.js";
 export function withinRange(value, from, to) {
@@ -57,7 +55,7 @@ export function reportRows(data, records, kind, from, to) {
       ];
     });
 }
-export function downloadReport({
+export async function downloadReport({
   data,
   records,
   kind,
@@ -66,6 +64,8 @@ export function downloadReport({
   from,
   to,
 }) {
+  const { jsPDF } = await import("jspdf");
+  const { autoTable } = await import("jspdf-autotable");
   const rows = reportRows(data, records, kind, from, to);
   const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   pdf.setFontSize(17);
