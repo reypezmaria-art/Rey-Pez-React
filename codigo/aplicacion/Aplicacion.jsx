@@ -1,20 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { useAplicacion } from "./ContextoAplicacion.js";
-import DetallePanel from "../paginas/DetallePanel.jsx";
-import PanelPrincipal from "../paginas/PanelPrincipal.jsx";
-import Nomina from "../paginas/Nomina.jsx";
-import Personal from "../paginas/Personal.jsx";
-import Asistencia from "../paginas/Asistencia.jsx";
-import Configuracion from "../paginas/Configuracion.jsx";
-import Reportes from "../paginas/Reportes.jsx";
-import Seguridad from "../paginas/Seguridad.jsx";
-import CarpetasBitacoras from "../paginas/CarpetasBitacoras.jsx";
-import Mantenimiento from "../paginas/Mantenimiento.jsx";
+import {
+  Asistencia,
+  AvisoAcceso,
+  CarpetasBitacoras,
+  Configuracion,
+  DetallePanel,
+  Mantenimiento,
+  Nomina,
+  PanelPrincipal,
+  Personal,
+  Reportes,
+  Seguridad,
+} from "./cargaDiferida.jsx";
 import LogoMarca from "../componentes/LogoMarca.jsx";
 import Encabezado from "../componentes/Encabezado.jsx";
 import RegistroTrabajador from "../componentes/RegistroTrabajador.jsx";
 import Acceso from "../componentes/Acceso.jsx";
-import AvisoAcceso from "../componentes/AvisoAcceso.jsx";
 import { destinoRestringido } from "../dominio/controlAcceso.js";
 import { puedeVerNomina } from "../dominio/seguridad.js";
 import { deviceId } from "../utilidades/dispositivo.js";
