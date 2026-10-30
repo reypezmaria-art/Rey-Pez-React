@@ -1,3 +1,4 @@
+import { darFormatoAcumulado } from "./formatoAcumulado.js";
 import ExcelJS from "exceljs";
 import { companyNames } from "../datos/constantes.js";
 import { MESES_NOMINA } from "../dominio/nomina.js";
@@ -167,6 +168,7 @@ export async function crearExcelAcumulado(entrada, tipo) {
   if (entrada.acumulado.length)
     for (const row of entrada.acumulado)
       for (const c of row.celdas) {
+        if (typeof c.valor === "string" && !c.valor.trim()) continue;
         const cell = resumen.getCell(row.fila, c.columna);
         cell.value = c.valor;
         if (c.formulaOriginal)
@@ -177,6 +179,7 @@ export async function crearExcelAcumulado(entrada, tipo) {
   for (const texto of entrada.advertencias) resumen.addRow([texto]);
   resumen.getColumn(1).width = 32;
   for (let c = 2; c <= 24; c++) resumen.getColumn(c).width = 20;
+  darFormatoAcumulado(resumen);
   const grupos = new Map(),
     usados = new Set([resumen.name.toLowerCase()]);
   for (const r of entrada.registros) {

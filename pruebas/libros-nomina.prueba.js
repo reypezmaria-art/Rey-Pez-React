@@ -1,3 +1,4 @@
+import { darFormatoAcumulado } from "../codigo/utilidades/formatoAcumulado.js";
 import { excelSintetico } from "./soporte/acumuladoEjemplo.js";
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -113,4 +114,29 @@ test("descarga completa conserva edición, fórmula, estilo, dimensiones, hojas 
   assert.equal(h.getCell("A1").fill.fgColor.argb, "FF173957");
   assert.equal(h.getCell("B1").master.address, "A1");
   assert.equal(h.getRow(1).height, 30);
+});
+
+test("el formato de Acumulado conserva importes y fórmulas y puede aplicarse otra vez", () => {
+  const libro = new ExcelJS.Workbook(),
+    hoja = libro.addWorksheet("Acumulado 2027");
+  hoja.getCell("B1").value = "Empresa ficticia";
+  hoja.getCell("B2").value = "Resumen";
+  hoja.getRow(4).values = [null, "MES", "IMPORTE"];
+  hoja.getRow(5).values = [null, "ENERO", 12.5];
+  hoja.getRow(6).values = [null, "FEBRERO", 0];
+  hoja.getRow(7).values = [
+    null,
+    "TOTAL",
+    { formula: "SUM(C5:C6)", result: 12.5 },
+  ];
+  for (let i = 0; i < 2; i++) {
+    darFormatoAcumulado(hoja);
+    assert.equal(hoja.getCell("C5").value, 12.5);
+    assert.equal(hoja.getCell("C6").value, 0);
+    assert.equal(hoja.getCell("C7").formula, "SUM(C5:C6)");
+    assert.equal(hoja.getCell("C7").result, 12.5);
+    assert.equal(hoja.getRow(6).hidden, false);
+    assert.equal(hoja.getCell("B4").font.color.argb, "FFFFFFFF");
+    assert.equal(hoja.views[0].showGridLines, false);
+  }
 });

@@ -1,3 +1,4 @@
+import { prepararAcumulado } from "./formatoVista.js";
 /* global document, window, indexedDB, location */
 import { createUniver, LocaleType, mergeLocales } from "@univerjs/presets";
 import { UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
@@ -57,7 +58,7 @@ async function abrirIntegrado(revision) {
   soloConsulta = !!datos.soloConsulta;
   nube = !!datos.nube;
   prueba = await importar(datos.bytes, datos.nombre);
-  montar(datos.snapshot || prueba.snapshot);
+  montar(await prepararAcumulado(datos.snapshot || prueba.snapshot));
   if (soloConsulta) editor.univerAPI.getActiveWorkbook().setEditable(false);
   baseGuardada = JSON.stringify(snapshot());
   window.parent.postMessage(

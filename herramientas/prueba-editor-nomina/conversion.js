@@ -83,7 +83,11 @@ export async function importar(bytes, nombre) {
       rowData = {},
       columnData = {};
     ws.eachRow({ includeEmpty: true }, (row, r) => {
-      if (row.height) rowData[r - 1] = { h: (row.height * 4) / 3 };
+      if (row.height || row.hidden)
+        rowData[r - 1] = {
+          ...(row.height ? { h: (row.height * 4) / 3 } : {}),
+          hd: +!!row.hidden,
+        };
       row.eachCell({ includeEmpty: true }, (c, col) => {
         if (c.isMerged && c.master.address !== c.address) return;
         const v = c.value;
@@ -145,7 +149,17 @@ export async function importar(bytes, nombre) {
       defaultColumnWidth: 90,
       rowHeader: { width: 44 },
       columnHeader: { height: 24 },
-      showGridlines: 1,
+      showGridlines: ws.views?.[0]?.showGridLines === false ? 0 : 1,
+      ...(ws.views?.[0]?.state === "frozen"
+        ? {
+            freeze: {
+              xSplit: ws.views[0].xSplit || 0,
+              ySplit: ws.views[0].ySplit || 0,
+              startRow: ws.views[0].ySplit || 0,
+              startColumn: ws.views[0].xSplit || 0,
+            },
+          }
+        : {}),
     };
   });
   return {

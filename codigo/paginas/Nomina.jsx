@@ -193,7 +193,9 @@ export default function Nomina({ soloConsulta = false }) {
         const { snapshot, nombre } = await desempaquetarLibro(guardado.carga);
         const { exportarCompleto } =
           await import("../../herramientas/prueba-editor-nomina/exportacionCompleta.js");
-        const bytes = await exportarCompleto(snapshot);
+        const { prepararAcumulado } =
+          await import("../../herramientas/prueba-editor-nomina/formatoVista.js");
+        const bytes = await exportarCompleto(await prepararAcumulado(snapshot));
         const url = URL.createObjectURL(
           new Blob([bytes], {
             type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

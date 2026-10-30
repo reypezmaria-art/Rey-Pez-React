@@ -1,3 +1,4 @@
+import { darFormatoAcumulado } from "./formatoAcumulado.js";
 import ExcelJS from "exceljs";
 import {
   MESES_NOMINA,
@@ -85,6 +86,7 @@ export function crearLibroNomina(state, empresa, anio, tipo) {
     acumulado.getColumn(c).numFmt = moneda;
   }
   acumulado.getRow(3).font = { bold: true, color: { argb: "FF173957" } };
+  darFormatoAcumulado(acumulado);
   const usados = new Set([acumulado.name.toLowerCase()]);
   const grupos = new Map();
   for (const fila of filas) {
