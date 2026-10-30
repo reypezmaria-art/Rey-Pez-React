@@ -1,4 +1,4 @@
-import { canCapture } from "./seguridad.js";
+import { canCapture, puedeVerNomina } from "./seguridad.js";
 
 export const LIMITE_INTENTOS = 4;
 export const TEXTO_BLOQUEO = "Comunícate con el personal autorizado";
@@ -63,6 +63,8 @@ export function registrarIntentoLocal(state, id, correcto) {
 }
 export function destinoRestringido(state, session, hash) {
   if (session?.role !== "worker") return null;
+  if (hash.startsWith("#nomina"))
+    return puedeVerNomina(state, session) ? null : "nomina";
   if (!hash.startsWith("#captura")) return "administracion";
   const id = new URLSearchParams(hash.split("?")[1] || "").get("area");
   const area = [...state.rooms, ...state.areas].find((a) => a.id === id);

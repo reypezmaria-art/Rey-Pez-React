@@ -29,6 +29,7 @@ import {
   catalogoParaImportar,
   COLECCIONES,
   idDocumento,
+  consultasDeTrabajador,
   cambiosDeIdentidad,
   cursoresDeAsistencia,
   cursoresFaltantes,
@@ -132,38 +133,39 @@ export function createFirebaseRepository() {
         referencia: collection(db, coleccion.coleccion),
       }));
     if (perfil.rol !== "trabajador") return [];
-    if (!perfil.permiso?.company)
-      return [
-        {
+    return consultasDeTrabajador(perfil.permiso, perfil.idEmpleado).map(
+      (consulta) => {
+        if (consulta.estado === "payroll")
+          return {
+            estado: "payroll",
+            referencia: collection(db, "nominas"),
+          };
+        if (consulta.estado === "logs")
+          return {
+            estado: "logs",
+            referencia: query(
+              collection(db, "bitacoras"),
+              where("company", "==", consulta.empresa),
+              where("type", "in", consulta.tipos),
+            ),
+          };
+        if (consulta.idEmpleado)
+          return {
+            estado: "employees",
+            referencia: query(
+              collection(db, "empleados"),
+              where("id_empleado", "==", consulta.idEmpleado),
+            ),
+          };
+        return {
           estado: "employees",
           referencia: query(
             collection(db, "empleados"),
-            where("id_empleado", "==", perfil.idEmpleado),
+            where("empresa_codigo", "==", consulta.empresa),
           ),
-        },
-      ];
-    const fuentes = [
-      {
-        estado: "employees",
-        referencia: query(
-          collection(db, "empleados"),
-          where("empresa_codigo", "==", perfil.permiso.company),
-        ),
+        };
       },
-    ];
-    const tipos = (perfil.permiso.logs || [])
-      .filter((tipo) => typeof tipo === "string" && tipo)
-      .slice(0, 10);
-    if (tipos.length)
-      fuentes.push({
-        estado: "logs",
-        referencia: query(
-          collection(db, "bitacoras"),
-          where("company", "==", perfil.permiso.company),
-          where("type", "in", tipos),
-        ),
-      });
-    return fuentes;
+    );
   }
   async function hidratar(state) {
     const pendientes = [];

@@ -144,8 +144,21 @@ service cloud.firestore {
       allow create: if esAdmin() || bitacoraDeTrabajador(request.resource.data);
       allow update, delete: if esAdmin();
     }
-    // Nómina privada de administración. Registros serializados, hasta 240 KB;
-    // el lector valida recibos y conciliación. Nunca contiene permisos ni roles.
+    // Nómina: María, o un trabajador con permissions[idEmpleado].nomina == true.
+    // Quien tiene el permiso lee y escribe las tres empresas. Nadie puede borrar.
+    // actualizadoPor queda como MARIA o como el idEmpleado de quien guarda.
+    function accesoNomina() {
+      return esTrabajador()
+        && permiso() is map
+        && permiso().get('nomina', false) == true;
+    }
+    function puedeNomina() {
+      return esAdmin() || accesoNomina();
+    }
+    function autorNomina(d) {
+      return (esAdmin() && d.actualizadoPor == 'MARIA')
+        || (accesoNomina() && d.actualizadoPor == ficha().idEmpleado);
+    }
     function nominaValida(d, id) {
       return d.keys().hasAll(['id','empresa_codigo','empresa_nombre','desde','hasta','anio','mes','numeroPeriodo','archivo','huella','registrosJson','revision','creadoEn','actualizadoEn','creadoMs','actualizadoMs','actualizadoPor'])
         && d.keys().hasOnly(['id','empresa_codigo','empresa_nombre','desde','hasta','anio','mes','numeroPeriodo','archivo','huella','registrosJson','revision','creadoEn','actualizadoEn','creadoMs','actualizadoMs','actualizadoPor'])
@@ -168,14 +181,33 @@ service cloud.firestore {
         && d.creadoMs is int && d.actualizadoMs is int && d.creadoMs <= d.actualizadoMs
         && d.actualizadoMs >= request.time.toMillis() - 5 * 60 * 1000
         && d.actualizadoMs <= request.time.toMillis() + 60 * 1000
-        && d.actualizadoPor == 'MARIA';
+        && autorNomina(d);
+    }
+    function auditoriaDeNomina(d, id) {
+      return accesoNomina()
+        && d.keys().hasAll(['id','action','company','by','when','periodo','anterior','revision'])
+        && d.keys().hasOnly(['id','action','company','by','when','periodo','anterior','revision','motivo'])
+        && d.id is string && d.id == id && d.id.size() >= 8 && d.id.size() <= 80
+        && d.by == ficha().idEmpleado
+        && (d.action == 'Nómina importada' || d.action == 'Nómina corregida')
+        && d.company in ['ALLAN','EDGAR','ESTUARDO']
+        && d.when is string && d.when.size() == 24
+        && d.periodo is string
+        && d.periodo.matches('^[A-Z]+_[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && d.revision is int && d.revision > 0
+        && (d.anterior == null || d.anterior is map)
+        && (!d.keys().hasAny(['motivo']) || (d.motivo is string && d.motivo.size() >= 3 && d.motivo.size() <= 500))
+        && existsAfter(/databases/$(database)/documents/nominas/$(d.periodo))
+        && getAfter(/databases/$(database)/documents/nominas/$(d.periodo)).data.revision == d.revision
+        && getAfter(/databases/$(database)/documents/nominas/$(d.periodo)).data.empresa_codigo == d.company
+        && getAfter(/databases/$(database)/documents/nominas/$(d.periodo)).data.actualizadoPor == d.by;
     }
     match /nominas/{id} {
-      allow read: if esAdmin();
-      allow create: if esAdmin() && nominaValida(request.resource.data,id)
+      allow read: if puedeNomina();
+      allow create: if puedeNomina() && nominaValida(request.resource.data,id)
         && request.resource.data.revision == 1
         && request.resource.data.creadoMs == request.resource.data.actualizadoMs;
-      allow update: if esAdmin() && nominaValida(request.resource.data,id)
+      allow update: if puedeNomina() && nominaValida(request.resource.data,id)
         && request.resource.data.revision == resource.data.revision + 1
         && request.resource.data.creadoEn == resource.data.creadoEn
         && request.resource.data.creadoMs == resource.data.creadoMs
@@ -198,7 +230,8 @@ service cloud.firestore {
       allow create: if esAdmin()
         || (esTrabajador()
           && request.resource.data.by == ficha().idEmpleado
-          && request.resource.data.keys().hasOnly(["id", "action", "by", "when"]));
+          && request.resource.data.keys().hasOnly(["id", "action", "by", "when"]))
+        || auditoriaDeNomina(request.resource.data, id);
       allow update, delete: if esAdmin();
     }
     match /asistencia/{id} {

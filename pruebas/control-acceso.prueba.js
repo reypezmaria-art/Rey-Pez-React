@@ -5,6 +5,10 @@ import {
   registrarIntentoLocal,
   destinoRestringido,
 } from "../codigo/dominio/controlAcceso.js";
+import {
+  permisoGuardado,
+  puedeVerNomina,
+} from "../codigo/dominio/seguridad.js";
 import { baseOperation } from "../codigo/datos/operacionInicial.js";
 const { crearControlAcceso } = createRequire(import.meta.url)(
   "../firebase/funciones/controlAcceso.js",
@@ -58,6 +62,38 @@ test("tener permiso de cloro no abre un QR de cuartos fríos ni administración"
     destinoRestringido(state, worker, "#administracion"),
     "administracion",
   );
+  assert.equal(destinoRestringido(state, worker, "#nomina"), "nomina");
+  assert.equal(puedeVerNomina(state, worker), false);
+});
+test("el permiso de nómina abre esa sección en las tres empresas y deja igual el resto", () => {
+  const state = estado(),
+    worker = { id: "AL-01", role: "worker" };
+  assert.deepEqual(permisoGuardado("ALLAN", ["chlorine"], false), {
+    company: "ALLAN",
+    logs: ["chlorine"],
+  });
+  assert.deepEqual(permisoGuardado("ESTUARDO", ["epp"], true), {
+    company: "ESTUARDO",
+    logs: ["epp"],
+    nomina: true,
+  });
+  state.access.permissions["AL-01"] = permisoGuardado(
+    "ALLAN",
+    ["chlorine"],
+    true,
+  );
+  assert.equal(puedeVerNomina(state, worker), true);
+  assert.equal(destinoRestringido(state, worker, "#nomina"), null);
+  assert.equal(destinoRestringido(state, worker, "#captura"), null);
+  assert.equal(
+    destinoRestringido(state, worker, "#administracion"),
+    "administracion",
+  );
+  state.access.workers["AL-01"].active = false;
+  assert.equal(puedeVerNomina(state, worker), false);
+  state.access.workers["AL-01"].active = true;
+  state.employees[0].estatus = "Baja";
+  assert.equal(destinoRestringido(state, worker, "#nomina"), "nomina");
 });
 
 function servidor(verificar) {

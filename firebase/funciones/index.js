@@ -273,6 +273,7 @@ exports.registrarAccesoDenegado = onCall(async (request) => {
     permiso?.company === area.company &&
     (cuarto ? permiso.logs?.includes("temperature") : permiso.logs?.length > 0);
   if (
+    (modulo === "nomina" && permiso?.nomina === true) ||
     autorizado ||
     (modulo === "bitacoras" && empresaValida && permiso?.logs?.length)
   )

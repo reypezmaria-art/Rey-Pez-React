@@ -19,7 +19,8 @@ const pesos = (n) =>
   (n / 100).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 const etiqueta = (p) => `${p.empresa_nombre} · ${p.desde} al ${p.hasta}`;
 export default function Nomina() {
-  const { data, commit, pending, clock } = useAplicacion();
+  const { data, persistirNomina, pending, clock, session } = useAplicacion();
+  const responsable = session?.role === "worker" ? session.id : "MARIA";
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [mensaje, setMensaje] = useState("");
@@ -55,8 +56,8 @@ export default function Nomina() {
       );
       const entrada = await leerPdfNomina(archivo, aliases);
       let huboCambio = false;
-      await commit((state) => {
-        const next = guardarNomina(state, entrada, { reemplazar });
+      await persistirNomina((state) => {
+        const next = guardarNomina(state, entrada, { reemplazar, responsable });
         huboCambio = next !== state;
         return next;
       });
@@ -89,8 +90,8 @@ export default function Nomina() {
         leer: (archivo) => leerPdfNomina(archivo, aliases),
         guardar: async (entrada) => {
           let cambio = false;
-          await commit((state) => {
-            const next = guardarNomina(state, entrada);
+          await persistirNomina((state) => {
+            const next = guardarNomina(state, entrada, { responsable });
             cambio = next !== state;
             return next;
           });
@@ -134,8 +135,16 @@ export default function Nomina() {
     setError("");
     setMensaje("");
     try {
-      await commit((state) =>
-        modificarReciboNomina(state, periodoId, trabajador, cambios, motivo),
+      await persistirNomina((state) =>
+        modificarReciboNomina(
+          state,
+          periodoId,
+          trabajador,
+          cambios,
+          motivo,
+          new Date(),
+          responsable,
+        ),
       );
       setMensaje(
         "Corrección de nómina guardada. Los demás períodos se conservan.",

@@ -319,6 +319,32 @@ test("un QR no autorizado alerta solo con la identidad firmada y no bloquea la c
     /Inicia sesión/,
   );
 });
+test("abrir Nómina con permiso no alerta; el resto de administración sí", async () => {
+  const e = entorno(),
+    token = await jwt("worker");
+  e.documentos.get("operacion/config").value.permissions["AL-01"].nomina = true;
+  const llamar = (datos) =>
+    consultarServidorAcceso(
+      "https://acceso.example/",
+      "registrarAccesoDenegado",
+      datos,
+      token,
+      e.fetchCliente,
+    );
+  assert.equal((await llamar({ modulo: "nomina" })).data.registrado, false);
+  await llamar({ modulo: "administracion" });
+  const alerts = [...e.documentos.entries()].filter(([p]) =>
+    p.startsWith("alertasSeguridad/"),
+  );
+  assert.equal(alerts.length, 1);
+  assert.equal(alerts[0][1].value.modulo, "administracion");
+  delete e.documentos.get("operacion/config").value.permissions["AL-01"].nomina;
+  await llamar({ modulo: "nomina" });
+  const otra = [...e.documentos.entries()].filter(([p]) =>
+    p.startsWith("alertasSeguridad/"),
+  );
+  assert.equal(otra.length, 2);
+});
 test("María restablece una contraseña y solo se guarda en Authentication", async () => {
   const e = entorno();
   await consultarServidorAcceso(

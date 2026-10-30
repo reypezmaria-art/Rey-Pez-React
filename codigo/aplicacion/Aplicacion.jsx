@@ -16,6 +16,7 @@ import RegistroTrabajador from "../componentes/RegistroTrabajador.jsx";
 import Acceso from "../componentes/Acceso.jsx";
 import AvisoAcceso from "../componentes/AvisoAcceso.jsx";
 import { destinoRestringido } from "../dominio/controlAcceso.js";
+import { puedeVerNomina } from "../dominio/seguridad.js";
 import { deviceId } from "../utilidades/dispositivo.js";
 import { fraseDelDia } from "../datos/frasesDiarias.js";
 const pages = {
@@ -101,15 +102,36 @@ export default function Aplicacion() {
     );
   }
   if (!session) return <Acceso operational={mode === "captura"} />;
-  if (mode === "captura" || session.role === "worker")
+  if (mode === "captura" || session.role === "worker") {
+    const verNomina =
+      session.role === "worker" && puedeVerNomina(data, session);
+    const enNomina = verNomina && route.startsWith("#nomina");
     return (
       <>
         <Encabezado detalle={session.name} onLogout={logout} />
         <main className="capture-main">
-          <CarpetasBitacoras key={route} operational />
+          {verNomina && (
+            <div className="toolbar">
+              <button
+                type="button"
+                className={enNomina ? "" : "primary"}
+                onClick={() => {
+                  location.hash = enNomina ? "#captura" : "#nomina";
+                }}
+              >
+                {enNomina ? "Volver a bitácoras" : "Nómina"}
+              </button>
+            </div>
+          )}
+          {enNomina ? (
+            <Nomina />
+          ) : (
+            <CarpetasBitacoras key={route} operational />
+          )}
         </main>
       </>
     );
+  }
   const Page = pages[page];
   return (
     <>
