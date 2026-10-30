@@ -1,0 +1,89 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  color: #172c47;
+  background: #eef6fc;
+  font-family: Arial, sans-serif;
+}
+body > header {
+  min-height: 78px;
+  background: #112b4b;
+  color: white;
+  padding: 16px 24px;
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  justify-content: space-between;
+}
+body > header strong {
+  display: block;
+  letter-spacing: 2px;
+  color: #e4bc57;
+}
+body > header span {
+  display: block;
+  margin-top: 5px;
+  font-size: 14px;
+}
+body > header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+body > header button,
+body > header .button {
+  display: inline-block;
+  border: 1px solid #c5d7e7;
+  border-radius: 7px;
+  background: white;
+  color: #173353;
+  padding: 10px 13px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+body > header button:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+body > aside {
+  background: #fff4d6;
+  padding: 9px 24px;
+  font-size: 13px;
+}
+#estado {
+  margin: 12px 24px 8px;
+  min-height: 20px;
+  font-size: 14px;
+}
+body > details {
+  margin: 0 24px 12px;
+  font-size: 13px;
+  max-width: 1100px;
+}
+body > details p {
+  line-height: 1.5;
+}
+body > details summary {
+  cursor: pointer;
+}
+#editor {
+  height: calc(100vh - 193px);
+  min-height: 460px;
+  margin: 0 16px;
+  border: 1px solid #c7d7e6;
+  background: white;
+}
+@media (max-width: 800px) {
+  body > header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 12px;
+  }
+  #editor {
+    margin: 0;
+    height: 70vh;
+  }
+}

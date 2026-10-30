@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rey Pez · Prueba de editor</title>
+  </head>
+  <body>
+    <header>
+      <div><strong>REY PEZ</strong><span>Nómina · prueba de editor</span></div>
+      <nav>
+        <label class="button"
+          >Abrir copia de Excel<input
+            id="archivo"
+            type="file"
+            accept=".xlsx"
+            hidden /></label
+        ><button id="guardar">Guardar prueba</button
+        ><button id="recuperar">Reabrir guardado</button
+        ><button id="descargar">Descargar Excel de prueba</button>
+      </nav>
+    </header>
+    <aside>
+      Prueba independiente. El guardado es únicamente en este navegador; todavía
+      no se conecta con Firebase.
+    </aside>
+    <p id="estado" role="status">
+      Datos ficticios para explorar el editor. Puedes abrir una copia de tu
+      Excel.
+    </p>
+    <details id="advertencias">
+      <summary>Compatibilidad de esta prueba</summary>
+      <p>
+        Se pueden editar todas las celdas y fórmulas. Guardar y reabrir conserva
+        el editor completo. La descarga de prueba admite cambios en valores y
+        fórmulas; detiene la exportación si se cambian formatos, nombres,
+        estructura o pestañas. Los vínculos externos conservan su último valor,
+        sin recalcularse. La integración completa sigue pendiente.
+      </p>
+      <ul id="hallazgos"></ul>
+    </details>
+    <main id="editor"></main>
+    <script type="module" src="./principal.js"></script>
+  </body>
+</html>
