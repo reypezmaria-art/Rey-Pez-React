@@ -83,6 +83,20 @@ function mapaDe(lista, campo) {
   });
   return mapa;
 }
+export function consultasDeTrabajador(permiso, idEmpleado) {
+  const consultas = [];
+  if (!permiso?.company) consultas.push({ estado: "employees", idEmpleado });
+  else {
+    consultas.push({ estado: "employees", empresa: permiso.company });
+    const tipos = (permiso.logs || [])
+      .filter((tipo) => typeof tipo === "string" && tipo)
+      .slice(0, 10);
+    if (tipos.length)
+      consultas.push({ estado: "logs", empresa: permiso.company, tipos });
+  }
+  if (permiso?.nomina === true) consultas.push({ estado: "payroll" });
+  return consultas;
+}
 export function configuracionDe(state) {
   const config = {};
   for (const campo of CAMPOS_OPERACION) {

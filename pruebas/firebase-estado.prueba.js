@@ -13,6 +13,7 @@ import {
   enriquecerAsistenciaNueva,
   fechaLocalGuatemala,
   cambiosDeIdentidad,
+  consultasDeTrabajador,
   lotesAtomicos,
   rutaAdjunto,
   tieneOperacionPropia,
@@ -251,4 +252,37 @@ test("el cursor de hoy no se inventa si ya existe", () => {
     ahora,
   );
   assert.equal(faltantes.length, 0);
+});
+test("el trabajador con nómina carga todas las nóminas y no otras colecciones de administración", () => {
+  assert.deepEqual(
+    consultasDeTrabajador({ company: "ESTUARDO", logs: ["epp"] }, "ES-01").map(
+      (c) => c.estado,
+    ),
+    ["employees", "logs"],
+  );
+  const conNomina = consultasDeTrabajador(
+    { company: "ESTUARDO", logs: ["epp"], nomina: true },
+    "ES-02",
+  );
+  assert.deepEqual(
+    conNomina.map((c) => c.estado),
+    ["employees", "logs", "payroll"],
+  );
+  assert.equal(conNomina[0].empresa, "ESTUARDO");
+  assert.deepEqual(
+    consultasDeTrabajador({ nomina: true }, "ES-02").map((c) => c.estado),
+    ["employees", "payroll"],
+  );
+  assert.equal(
+    consultasDeTrabajador({ nomina: true }, "ES-02")[0].idEmpleado,
+    "ES-02",
+  );
+  assert.ok(
+    !consultasDeTrabajador(
+      { company: "ESTUARDO", logs: ["epp"], nomina: true },
+      "ES-02",
+    ).some((c) =>
+      ["companies", "maintenance", "schedules", "audit"].includes(c.estado),
+    ),
+  );
 });

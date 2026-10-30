@@ -11,6 +11,7 @@ import { logTypes } from "../datos/operacionInicial.js";
 import {
   cuentaAsignada,
   makeCredential,
+  permisoGuardado,
   verifyCredential,
 } from "../dominio/seguridad.js";
 import { usaFirebase } from "../repositorios/repositorio.js";
@@ -38,7 +39,8 @@ export default function Seguridad({ detalleInicial }) {
     [message, setMessage] = useState(""),
     [error, setError] = useState("");
   const [company, setCompany] = useState("ESTUARDO"),
-    [allowed, setAllowed] = useState([]);
+    [allowed, setAllowed] = useState([]),
+    [nomina, setNomina] = useState(false);
   const [permissionId, setPermissionId] = useState("");
   const activeEmployees = data.employees.filter(
     (e) =>
@@ -87,6 +89,7 @@ export default function Seguridad({ detalleInicial }) {
     setPermissionId(id);
     const p = data.access.permissions[id];
     setAllowed(p?.company === company ? p.logs || [] : []);
+    setNomina(Boolean(p?.company === company && p?.nomina));
     setMessage("");
     setError("");
   }
@@ -160,12 +163,14 @@ export default function Seguridad({ detalleInicial }) {
           ...state.access,
           permissions: {
             ...state.access.permissions,
-            [permissionId]: { company, logs: allowed },
+            [permissionId]: permisoGuardado(company, allowed, nomina),
           },
         },
       }));
       setMessage(
-        "Permisos guardados. Solo verá las bitácoras seleccionadas de su empresa.",
+        nomina
+          ? "Permisos guardados. Verá las bitácoras seleccionadas de su empresa y podrá ver, cargar y corregir la nómina de Allan, Edgar y Estuardo."
+          : "Permisos guardados. Solo verá las bitácoras seleccionadas de su empresa.",
       );
       setError("");
     } catch (err) {
@@ -332,6 +337,7 @@ export default function Seguridad({ detalleInicial }) {
               setCompany(e.target.value);
               setPermissionId("");
               setAllowed([]);
+              setNomina(false);
               setMessage("");
               setError("");
             }}
@@ -377,6 +383,19 @@ export default function Seguridad({ detalleInicial }) {
               ))}
             </fieldset>
           </details>
+          <label className="check-field">
+            <input
+              type="checkbox"
+              checked={nomina}
+              disabled={!permissionId}
+              onChange={(e) => setNomina(e.target.checked)}
+            />
+            Nómina de las tres empresas
+          </label>
+          <p className="small">
+            Con este permiso puede ver, cargar y corregir la nómina de Allan,
+            Edgar y Estuardo. No abre las demás secciones de administración.
+          </p>
           <button
             className="primary"
             disabled={

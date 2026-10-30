@@ -14,6 +14,7 @@ import {
   getDoc,
   getDocs,
   query,
+  deleteDoc,
   setDoc,
   where,
   writeBatch,
@@ -88,6 +89,11 @@ test("las reglas separan a María, la empresa y la secuencia", async () => {
         idEmpleado: "ES-01",
         activo: true,
       });
+      await setDoc(doc(db, "usuarios", "claudia"), {
+        rol: "trabajador",
+        idEmpleado: "ES-02",
+        activo: true,
+      });
       await setDoc(doc(db, "usuarios", "terminal"), {
         rol: "terminal",
         activo: true,
@@ -98,6 +104,12 @@ test("las reglas separan a María, la empresa y la secuencia", async () => {
         empresa_codigo: "ESTUARDO",
         estatus: "Activo",
         nombre_completo: "Brenda",
+      });
+      await setDoc(doc(db, "empleados", "ES-02"), {
+        id_empleado: "ES-02",
+        empresa_codigo: "ESTUARDO",
+        estatus: "Activo",
+        nombre_completo: "Claudia",
       });
       await setDoc(doc(db, "empleados", "AL-01"), {
         id_empleado: "AL-01",
@@ -112,7 +124,10 @@ test("las reglas separan a María, la empresa y la secuencia", async () => {
         nombre_completo: "Eva",
       });
       await setDoc(doc(db, "operacion", "config"), {
-        permissions: { "ES-01": { company: "ESTUARDO", logs: ["epp"] } },
+        permissions: {
+          "ES-01": { company: "ESTUARDO", logs: ["epp"] },
+          "ES-02": { company: "ESTUARDO", logs: ["epp"], nomina: true },
+        },
       });
       await setDoc(doc(db, "bitacoras", "suya"), {
         company: "ESTUARDO",
@@ -202,6 +217,140 @@ test("las reglas separan a María, la empresa y la secuencia", async () => {
     await assertFails(
       setDoc(doc(dbTrabajo, "empresas", "ALLAN"), { codigo: "ALLAN" }),
     );
+
+    const claudia = entorno.authenticatedContext("claudia", {
+      email: "es-02@acceso.reypez.app",
+      accesoControlado: true,
+    });
+    const dbClaudia = claudia.firestore();
+    const ahora = Date.now();
+    await assertSucceeds(getDoc(doc(dbClaudia, "nominas", nomina.id)));
+    await assertFails(deleteDoc(doc(dbClaudia, "nominas", nomina.id)));
+    await assertFails(deleteDoc(nominaRef));
+    await assertFails(
+      setDoc(doc(dbClaudia, "nominas", nomina.id), {
+        ...nomina,
+        revision: 3,
+        actualizadoPor: "MARIA",
+        actualizadoMs: ahora,
+        actualizadoEn: new Date(ahora).toISOString(),
+      }),
+    );
+    await assertFails(
+      setDoc(doc(dbClaudia, "nominas", nomina.id), {
+        ...nomina,
+        empresa_codigo: "EDGAR",
+        revision: 3,
+        actualizadoPor: "ES-02",
+        actualizadoMs: ahora,
+        actualizadoEn: new Date(ahora).toISOString(),
+      }),
+    );
+    await assertSucceeds(
+      setDoc(doc(dbClaudia, "nominas", nomina.id), {
+        ...nomina,
+        revision: 3,
+        actualizadoPor: "ES-02",
+        actualizadoMs: ahora,
+        actualizadoEn: new Date(ahora).toISOString(),
+      }),
+    );
+    const edgar = guardarNomina(
+      { payroll: [], audit: [] },
+      entradaNominaEjemplo({ empresa: "EDGAR" }),
+      { responsable: "ES-02" },
+    );
+    const docEdgar = edgar.payroll[0];
+    const audEdgar = edgar.audit[0];
+    await assertFails(getDoc(doc(dbTrabajo, "nominas", docEdgar.id)));
+    await assertFails(
+      setDoc(doc(dbTrabajo, "nominas", docEdgar.id), {
+        ...docEdgar,
+        revision: 2,
+        actualizadoPor: "ES-01",
+        actualizadoMs: Date.now(),
+        actualizadoEn: new Date().toISOString(),
+      }),
+    );
+    await assertFails(deleteDoc(doc(dbTrabajo, "nominas", nomina.id)));
+    const loteEdgar = writeBatch(dbClaudia);
+    loteEdgar.set(doc(dbClaudia, "nominas", docEdgar.id), docEdgar);
+    loteEdgar.set(doc(dbClaudia, "auditoria", audEdgar.id), audEdgar);
+    await assertSucceeds(loteEdgar.commit());
+    const estuardo = guardarNomina(
+      { payroll: [], audit: [] },
+      entradaNominaEjemplo({ empresa: "ESTUARDO" }),
+      { responsable: "ES-02" },
+    ).payroll[0];
+    await assertSucceeds(
+      setDoc(doc(dbClaudia, "nominas", estuardo.id), estuardo),
+    );
+    const lista = await assertSucceeds(
+      getDocs(collection(dbClaudia, "nominas")),
+    );
+    const empresasNomina = new Set(
+      lista.docs.map((item) => item.data().empresa_codigo),
+    );
+    assert.ok(empresasNomina.has("ALLAN"));
+    assert.ok(empresasNomina.has("EDGAR"));
+    assert.ok(empresasNomina.has("ESTUARDO"));
+    const correccionMs = Date.now();
+    const corregida = {
+      ...docEdgar,
+      revision: 2,
+      actualizadoPor: "ES-02",
+      actualizadoMs: correccionMs,
+      actualizadoEn: new Date(correccionMs).toISOString(),
+    };
+    const audCorreccion = {
+      id: crypto.randomUUID(),
+      action: "Nómina corregida",
+      company: "EDGAR",
+      by: "ES-02",
+      when: new Date(correccionMs).toISOString(),
+      periodo: docEdgar.id,
+      anterior: docEdgar,
+      revision: 2,
+      motivo: "Ajuste autorizado",
+    };
+    const loteCorreccion = writeBatch(dbClaudia);
+    loteCorreccion.set(doc(dbClaudia, "nominas", docEdgar.id), corregida);
+    loteCorreccion.set(
+      doc(dbClaudia, "auditoria", audCorreccion.id),
+      audCorreccion,
+    );
+    await assertSucceeds(loteCorreccion.commit());
+    await assertFails(getDoc(doc(dbClaudia, "auditoria", audCorreccion.id)));
+    await assertFails(
+      setDoc(doc(dbTrabajo, "auditoria", crypto.randomUUID()), {
+        ...audCorreccion,
+        by: "ES-01",
+      }),
+    );
+    await entorno.withSecurityRulesDisabled(async (contexto) => {
+      const db = contexto.firestore();
+      await setDoc(doc(db, "mantenimiento", "m1"), { id: "m1" });
+      await setDoc(doc(db, "horarios", "h1"), { codigo: "h1" });
+      await setDoc(doc(db, "revisiones", "r1"), { id: "r1" });
+      await setDoc(doc(db, "respaldos", "2026-10-30"), { date: "2026-10-30" });
+    });
+    for (const [coleccion, id] of [
+      ["empresas", "ALLAN"],
+      ["mantenimiento", "m1"],
+      ["horarios", "h1"],
+      ["revisiones", "r1"],
+      ["respaldos", "2026-10-30"],
+      ["alertasSeguridad", "x"],
+      ["controlAccesos", "ES-02"],
+    ]) {
+      await assertFails(getDoc(doc(dbClaudia, coleccion, id)));
+      await assertFails(setDoc(doc(dbClaudia, coleccion, id), { id }));
+    }
+    await assertFails(getDoc(doc(dbClaudia, "empleados", "AL-01")));
+    await assertFails(getDocs(collection(dbClaudia, "usuarios")));
+    await assertSucceeds(getDoc(doc(dbClaudia, "empleados", "ES-02")));
+    await assertSucceeds(getDoc(doc(dbClaudia, "bitacoras", "suya")));
+    await assertFails(getDoc(doc(dbClaudia, "bitacoras", "ajena")));
 
     const sinServidor = entorno.authenticatedContext("worker", {
       email: "es-01@acceso.reypez.app",

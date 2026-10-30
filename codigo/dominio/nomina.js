@@ -149,11 +149,37 @@ export function validarPeriodoNomina(p) {
   recibosNomina(p);
   return p;
 }
+export function responsableDeNomina(responsable = "MARIA") {
+  if (
+    typeof responsable !== "string" ||
+    !responsable ||
+    responsable.length > 40 ||
+    responsable.includes("/")
+  )
+    throw Error("No se identificó quién modifica la nómina.");
+  return responsable;
+}
+export function afirmarSoloNomina(antes, despues) {
+  const claves = new Set([
+    ...Object.keys(antes || {}),
+    ...Object.keys(despues || {}),
+  ]);
+  for (const clave of claves) {
+    if (clave === "payroll" || clave === "audit") continue;
+    if (
+      JSON.stringify(antes?.[clave] ?? null) !==
+      JSON.stringify(despues?.[clave] ?? null)
+    )
+      throw Error("La nómina no puede modificar otras secciones.");
+  }
+  return despues;
+}
 export function guardarNomina(
   state,
   entrada,
-  { reemplazar = false, now = new Date() } = {},
+  { reemplazar = false, now = new Date(), responsable = "MARIA" } = {},
 ) {
+  const autor = responsableDeNomina(responsable);
   validarPeriodoNomina(entrada);
   const lista = state.payroll || [];
   const previo = lista.find((p) => p.id === entrada.id);
@@ -197,7 +223,7 @@ export function guardarNomina(
     creadoMs: previo?.creadoMs || now.getTime(),
     actualizadoMs: now.getTime(),
     actualizadoEn: now.toISOString(),
-    actualizadoPor: "MARIA",
+    actualizadoPor: autor,
   };
   return {
     ...state,
@@ -207,7 +233,7 @@ export function guardarNomina(
         id: crypto.randomUUID(),
         action: previo ? "Nómina corregida" : "Nómina importada",
         company: siguiente.empresa_codigo,
-        by: "MARIA",
+        by: autor,
         when: now.toISOString(),
         periodo: siguiente.id,
         anterior: previo || null,
@@ -224,6 +250,7 @@ export function modificarReciboNomina(
   cambios,
   motivo,
   now = new Date(),
+  responsable = "MARIA",
 ) {
   const previo = (state.payroll || []).find((p) => p.id === periodoId);
   if (!previo) throw Error("Selecciona una nómina cargada.");
@@ -264,7 +291,7 @@ export function modificarReciboNomina(
   const next = guardarNomina(
     state,
     { ...previo, registrosJson: JSON.stringify(registros) },
-    { reemplazar: true, now },
+    { reemplazar: true, now, responsable },
   );
   if (next !== state) next.audit[0].motivo = motivo.trim();
   return next;

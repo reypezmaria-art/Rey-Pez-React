@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { extraerNomina } from "../codigo/dominio/extraerNomina.js";
 import {
+  afirmarSoloNomina,
   guardarNomina,
   modificarReciboNomina,
   recibosNomina,
@@ -97,6 +98,11 @@ test("acumula empresas, meses y quincenas; repetidos no duplican y reemplazos co
   const next = guardarNomina(s, cambio, { reemplazar: true });
   assert.equal(next.payroll.length, 4);
   assert.equal(next.payroll.find((p) => p.id === cambio.id).revision, 2);
+  assert.equal(
+    next.payroll.find((p) => p.id === cambio.id).actualizadoPor,
+    "MARIA",
+  );
+  assert.equal(next.audit[0].by, "MARIA");
   assert.equal(next.audit[0].anterior.revision, 1);
   assert.deepEqual(
     next.payroll.filter((p) => p.id !== cambio.id),
@@ -125,6 +131,8 @@ test("corrección manual conserva conceptos, identidad y todos los recibos ajeno
   );
   assert.equal(recibosNomina(s.payroll[0])[0].neto, 510000);
   assert.equal(s.audit[0].motivo, "Corrección autorizada");
+  assert.equal(s.audit[0].by, "MARIA");
+  assert.equal(s.payroll[0].actualizadoPor, "MARIA");
   assert.throws(
     () =>
       modificarReciboNomina(
@@ -176,6 +184,42 @@ test("exportaciones XLSX reales aíslan empresa, ordenan meses y separan trabaja
   assert.equal(total.getCell(3).value, null);
   assert.ok(total.getCell(hoja.columnCount).value.formula.startsWith("SUM("));
   assert.throws(() => crearLibroNomina(s, "ALLAN", 2025, "mensual"), /No hay/);
+});
+test("un trabajador autorizado queda como responsable y no altera otras secciones", () => {
+  const entrada = entradaNominaEjemplo({ empresa: "EDGAR" });
+  const antes = {
+    ...base(),
+    employees: [{ id_empleado: "ES-01", empresa_codigo: "ESTUARDO" }],
+  };
+  const next = guardarNomina(antes, entrada, { responsable: "ES-01" });
+  assert.equal(next.payroll[0].actualizadoPor, "ES-01");
+  assert.equal(next.audit[0].by, "ES-01");
+  assert.equal(next.payroll[0].empresa_codigo, "EDGAR");
+  assert.equal(
+    afirmarSoloNomina(antes, next).employees[0].id_empleado,
+    "ES-01",
+  );
+  assert.throws(
+    () => afirmarSoloNomina(antes, { ...next, employees: [] }),
+    /otras secciones/,
+  );
+  const r = recibosNomina(entrada)[0];
+  const corregida = modificarReciboNomina(
+    next,
+    entrada.id,
+    r.clave,
+    { ...r, deducciones: r.deducciones.map((c) => ({ ...c, importe: 15000 })) },
+    "Ajuste de Claudia",
+    new Date(),
+    "ES-01",
+  );
+  assert.equal(corregida.payroll[0].actualizadoPor, "ES-01");
+  assert.equal(corregida.audit[0].by, "ES-01");
+  assert.equal(corregida.audit[0].motivo, "Ajuste de Claudia");
+  assert.throws(
+    () => guardarNomina(antes, entrada, { responsable: "" }),
+    /quién modifica/,
+  );
 });
 test("persistencia privada, copias antiguas y validación de fechas y payload", () => {
   const s = guardarNomina(base(), entradaNominaEjemplo());

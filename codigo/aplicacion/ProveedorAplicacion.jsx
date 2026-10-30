@@ -5,6 +5,7 @@ import { mensajeGuardado } from "../repositorios/repositorioLocal.js";
 import {
   cuentaAsignada,
   makeCredential,
+  puedeVerNomina,
   verifyCredential,
 } from "../dominio/seguridad.js";
 import { recordAttendance } from "../dominio/operaciones.js";
@@ -14,6 +15,7 @@ import {
   errorBloqueo,
   registrarIntentoLocal,
 } from "../dominio/controlAcceso.js";
+import { afirmarSoloNomina } from "../dominio/nomina.js";
 import {
   adoptarTerminal,
   iniciarSesion,
@@ -66,6 +68,12 @@ export default function ProveedorAplicacion({ children }) {
   async function commit(update) {
     if (session?.role !== "admin") throw Error("Se requiere acceso de María.");
     return mutate(update);
+  }
+  async function persistirNomina(update) {
+    if (session?.role === "admin") return mutate(update);
+    if (!puedeVerNomina(data, session))
+      throw Error("No tienes permiso para modificar la nómina.");
+    return mutate((state) => afirmarSoloNomina(state, update(state)));
   }
   async function login(id, password) {
     const key = id.trim().toUpperCase();
@@ -243,6 +251,7 @@ export default function ProveedorAplicacion({ children }) {
       value={{
         data,
         commit,
+        persistirNomina,
         pending,
         session,
         clock,

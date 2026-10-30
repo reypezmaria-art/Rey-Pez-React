@@ -57,3 +57,21 @@ export function canCapture(state, session, company, type) {
     permission.logs?.includes(type),
   );
 }
+export function permisoGuardado(company, logs, nomina) {
+  const permiso = { company, logs };
+  if (nomina) permiso.nomina = true;
+  return permiso;
+}
+export function puedeVerNomina(state, session) {
+  if (session?.role === "admin") return true;
+  if (session?.role !== "worker") return false;
+  const empleado = (state?.employees || []).find(
+    (e) => e.id_empleado === session.id && e.estatus !== "Baja",
+  );
+  const permiso = state?.access?.permissions?.[session.id];
+  return Boolean(
+    empleado &&
+    state.access.workers?.[session.id]?.active &&
+    permiso?.nomina === true,
+  );
+}

@@ -1,6 +1,6 @@
 # Nómina
 
-Disponible únicamente en administración, para María. La carga de un PDF identifica empresa y período sin selectores. Acepta reportes con texto seleccionable del formato de Lista de Raya de CONTPAQi mostrado por María; admite las tres empresas y alias de razón social del directorio. Los PDFs escaneados, protegidos, de otra estructura o que no concilien no se guardan. No hay OCR ni un servicio externo de pago.
+María la usa desde administración. También puede autorizar a un trabajador, en Seguridad → Autorizaciones, para que vea, cargue y corrija la nómina de las tres empresas. La carga de un PDF identifica empresa y período sin selectores. Acepta reportes con texto seleccionable del formato de Lista de Raya de CONTPAQi mostrado por María; admite las tres empresas y alias de razón social del directorio. Los PDFs escaneados, protegidos, de otra estructura o que no concilien no se guardan. No hay OCR ni un servicio externo de pago.
 
 ## Subir una carpeta
 
@@ -29,9 +29,24 @@ Incluyen salario diario, días, cada concepto de percepción y deducción, infor
 
 ## Persistencia y privacidad
 
-Se utiliza la base existente `(default)` del proyecto `rey-pez-admin-react`, sin crear otra base ni cambiar el plan. Colección administrativa `nominas`, un documento por período. `registrosJson` es un contenido de intercambio serializado de hasta 240000 bytes; los validadores del cliente comprueban cada recibo al escribir y leer. Las reglas validan los metadatos, los tamaños y el acceso, no interpretan ese JSON. Trabajadores, terminales y visitantes no pueden consultar ni escribir esta colección.
+Se utiliza la base existente `(default)` del proyecto `rey-pez-admin-react`, sin crear otra base ni cambiar el plan. Colección `nominas`, un documento por período. `registrosJson` es un contenido de intercambio serializado de hasta 240000 bytes; los validadores del cliente comprueban cada recibo al escribir y leer. Las reglas validan los metadatos, los tamaños y el acceso, no interpretan ese JSON. Nadie puede borrar un período.
 
-Las reglas de Nómina son un prototipo con acceso exclusivo al UID administrativo ya sellado. La revisión y fechas de creación son protegidas; la actualización exige la siguiente revisión para rechazar clientes desactualizados. Su alcance se verifica en el emulador y debe revisarse antes de ampliar el acceso a otras personas.
+## Quién puede entrar
+
+María siempre. Un trabajador solo si su ficha en `operacion/config` tiene `permissions[idEmpleado].nomina` en `true`. Esa configuración la escribe únicamente María; el trabajador puede leerla, como ya leía sus bitácoras, pero no modificarla.
+
+Con el permiso, en la captura aparece el botón **Nómina**, además de sus bitácoras. Abre la misma sección: ver, cargar y corregir períodos de Allan, Edgar y Estuardo. No ve Personal, Asistencia administrativa, Reportes, Configuración, Seguridad, Mantenimiento ni el resto del panel. Sin el permiso, el botón no aparece y la ruta `#nomina` sigue denegada: el trabajador queda como hoy, solo con sus bitácoras.
+
+`actualizadoPor` y la auditoría guardan quién escribió: `MARIA`, o el ID del trabajador. La revisión y las fechas de creación siguen protegidas; una corrección exige la revisión siguiente. Las reglas rechazan a un trabajador sin el permiso, el borrado de cualquiera y el acceso de ese trabajador a empresas, horarios, mantenimiento, revisiones, respaldos, alertas de seguridad y empleados de otra empresa. Los nombres de empresa que usa la página salen del directorio que ya está en `operacion/config` y de los tres nombres fijos; no se abre la colección `empresas` ni el catálogo completo de personal. Los recibos viajan dentro de la propia nómina.
+
+## Activar a Claudia
+
+1. Entra María y abre Seguridad → Autorizaciones.
+2. Empresa autorizada: la de Claudia, ESTUARDO.
+3. Usuario activo: Claudia.
+4. Marca **Nómina de las tres empresas**. Las bitácoras se eligen aparte y siguen limitadas a Estuardo.
+5. Guardar permisos.
+6. Claudia entra en captura, pulsa Nómina y trabaja Allan, Edgar y Estuardo. El resto de la administración no se abre.
 
 El PDF se lee localmente y no se envía a ningún servicio de extracción. Se guardan sus datos, nombre y huella SHA-256, no el PDF binario. No requiere Firebase Storage, Functions, Blaze ni facturación. Los datos están incluidos en los respaldos completos ya existentes y en su restauración local. No se añaden empleados ni se modifican sus accesos desde este módulo.
 
@@ -39,6 +54,6 @@ El PDF se lee localmente y no se envía a ningún servicio de extracción. Se gu
 
 Las pruebas usan únicamente nombres e importes ficticios: lectura de PDF real generado en pruebas, tres empresas, conciliación de conceptos informativos, duplicados, reemplazos, conservación de otros períodos, correcciones manuales, persistencia, permisos y XLSX reabierto para verificar hojas y fórmulas. El PDF real adjunto se coteja fuera del repositorio; no se publica información de nómina.
 
-Ejecutar formato, verificación, navegador y emulador como indica la guía de trabajo. Publicar tanto las reglas de Firestore como Hosting. Si solo se publica Hosting, Firestore rechazará las lecturas de Nómina hasta publicar las reglas.
+Ejecutar formato, verificación, navegador y emulador como indica la guía de trabajo. Para que Claudia pueda usar Nómina hay que publicar **Hosting y las reglas de Firestore** (`hosting` y `firestore:rules`). Si solo se publica Hosting, Firestore rechazará sus lecturas y escrituras hasta publicar las reglas. No hace falta Storage ni Functions para este permiso. El aviso de acceso denegado del servidor de acceso también reconoce la sección cuando ese servicio se vuelve a publicar; el permiso efectivo lo imponen las reglas.
 
 Para Windows, `herramientas/actualizarNomina.ps1` recibe el SHA completo de una versión revisada y la carpeta existente. Descarga esa versión, conserva copia del código anterior fuera del proyecto, mantiene `.env.local` y los datos privados, instala dependencias, valida configuración y pruebas, y publica solo `firestore:rules,hosting`. No despliega Storage ni Functions. Requiere la sesión de Firebase CLI de la computadora de publicación.
