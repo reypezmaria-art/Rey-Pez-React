@@ -18,15 +18,19 @@ function montar(snapshot) {
   editor = createUniver({
     locale: LocaleType.ES_ES,
     locales: { [LocaleType.ES_ES]: mergeLocales(es) },
-    presets: [UniverSheetsCorePreset({ container: "editor" })],
+    presets: [
+      UniverSheetsCorePreset({ container: "editor", ribbonType: "grid" }),
+    ],
   });
   editor.univerAPI.createWorkbook(snapshot);
+  $("nombre-libro").textContent = snapshot.name || "Libro de nómina";
+  $("nombre-libro").title = snapshot.name || "Libro de nómina";
 }
 const snapshot = () => editor.univerAPI.getActiveWorkbook().save();
 async function ejecutar(fn) {
   if (ocupado) return;
   ocupado = true;
-  document.querySelectorAll("button").forEach((b) => {
+  document.querySelectorAll(".barra-titulo button").forEach((b) => {
     b.disabled = true;
   });
   $("archivo").disabled = true;
@@ -36,7 +40,7 @@ async function ejecutar(fn) {
     aviso(e.message || "No se pudo completar la prueba.");
   } finally {
     ocupado = false;
-    document.querySelectorAll("button").forEach((b) => {
+    document.querySelectorAll(".barra-titulo button").forEach((b) => {
       b.disabled = false;
     });
     $("archivo").disabled = false;
@@ -136,16 +140,60 @@ $("archivo").onchange = () =>
     aviso(`${f.name}: copia abierta. El archivo original no se modifica.`);
     $("archivo").value = "";
   });
-$("guardar").onclick = () => ejecutar(guardar);
-$("recuperar").onclick = () => ejecutar(recuperar);
+const cerrarArchivo = () => $("menu-archivo").removeAttribute("open");
+$("abrir").onclick = () => {
+  cerrarArchivo();
+  $("archivo").click();
+};
+$("guardar").onclick = $("guardar-menu").onclick = () => {
+  cerrarArchivo();
+  return ejecutar(guardar);
+};
+$("recuperar").onclick = () => {
+  cerrarArchivo();
+  return ejecutar(recuperar);
+};
+$("deshacer").onclick = () =>
+  ejecutar(async () => {
+    const cambio = await editor.univerAPI.undo();
+    aviso(
+      cambio
+        ? "Cambio deshecho. Guarda para conservar el resultado."
+        : "No hay cambios para deshacer.",
+    );
+  });
+$("rehacer").onclick = () =>
+  ejecutar(async () => {
+    const cambio = await editor.univerAPI.redo();
+    aviso(
+      cambio
+        ? "Cambio rehecho. Guarda para conservar el resultado."
+        : "No hay cambios para rehacer.",
+    );
+  });
 $("descargar").onclick = () =>
   ejecutar(async () => {
+    cerrarArchivo();
     if (!prueba) throw Error("Abre una copia de tu Excel antes de descargar.");
     descargar(await exportarCopia(prueba, snapshot()), prueba.nombre);
     aviso(
       "Copia descargada. Excel recalculará las fórmulas internas al abrirla; los vínculos externos siguen necesitando su archivo.",
     );
   });
+document.addEventListener("pointerdown", (event) => {
+  if (!$("menu-archivo").contains(event.target)) cerrarArchivo();
+});
+document.addEventListener("keydown", (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    cerrarArchivo();
+    ejecutar(guardar);
+  }
+  if (event.key === "Escape" && $("menu-archivo").open) {
+    cerrarArchivo();
+    $("menu-archivo").querySelector("summary").focus();
+  }
+});
 const demo = {
   id: "rey-pez-demo",
   name: "Nómina de demostración",

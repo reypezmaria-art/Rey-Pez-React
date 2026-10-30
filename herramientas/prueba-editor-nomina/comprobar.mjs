@@ -1,4 +1,4 @@
-/* global process, console, window, document, Blob */
+/* global process, console, window, document */
 import { Buffer } from "node:buffer";
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
@@ -7,7 +7,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { preview } from "vite";
 import { chromium } from "../../node_modules/@playwright/test/index.mjs";
-import JSZip from "jszip";
 import ExcelJS from "exceljs";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
@@ -36,6 +35,17 @@ try {
   const demo = await page.evaluate(() => window.pruebaEditor.snapshot());
   assert.equal(demo.sheetOrder.length, 3);
   assert.equal(demo.sheets.acumulado.name, "Acumulado 2026");
+  await page.locator("#menu-archivo > summary").click();
+  await page.locator("#abrir").waitFor({ state: "visible" });
+  await page.keyboard.press("Escape");
+  assert.equal(await page.locator("#menu-archivo").getAttribute("open"), null);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#menu-archivo > summary").click();
+  const panel = await page.locator(".panel-archivo").boundingBox();
+  assert.ok(panel.x >= 0 && panel.x + panel.width <= 390);
+  await page.keyboard.press("Escape");
+  await page.setViewportSize({ width: 1450, height: 950 });
+  console.log("PASS: menú Archivo accesible con teclado y visible en móvil");
   const fuente = new ExcelJS.Workbook();
   const ene = fuente.addWorksheet("Enero");
   ene.addRow(["Persona demo", 100, 20, { formula: "B1-C1", result: 80 }]);
@@ -64,12 +74,34 @@ try {
         .getValue() === 105,
   );
   console.log("PASS: edición y recálculo de fórmula interna");
-  await page.locator("#guardar").click();
+  await page.locator("#deshacer").click();
+  await page.waitForFunction(
+    () =>
+      window.pruebaEditor
+        .api()
+        .getActiveWorkbook()
+        .getSheetByName("Enero")
+        .getRange("B1")
+        .getRawValue() === 100,
+  );
+  await page.locator("#rehacer").click();
+  await page.waitForFunction(
+    () =>
+      window.pruebaEditor
+        .api()
+        .getActiveWorkbook()
+        .getSheetByName("Enero")
+        .getRange("B1")
+        .getRawValue() === 125,
+  );
+  console.log("PASS: accesos rápidos Deshacer y Rehacer modifican la celda");
+  await page.keyboard.press("Control+s");
   await page.waitForFunction(() =>
     document.getElementById("estado").textContent.startsWith("Prueba guardada"),
   );
   await page.reload();
   await page.waitForFunction(() => window.pruebaEditor);
+  await page.locator("#menu-archivo > summary").click();
   await page.locator("#recuperar").click();
   await page.waitForFunction(() =>
     document.getElementById("estado").textContent.startsWith("Se reabrieron"),
@@ -84,6 +116,11 @@ try {
   const bytes = await page.evaluate(async () =>
     Array.from(await window.pruebaEditor.exportar()),
   );
+  await page.locator("#menu-archivo > summary").click();
+  const descarga = page.waitForEvent("download");
+  await page.locator("#descargar").click();
+  const archivoDescargado = await descarga;
+  assert.equal(archivoDescargado.suggestedFilename(), "PRUEBA_demo.xlsx");
   const resultado = new ExcelJS.Workbook();
   await resultado.xlsx.load(Buffer.from(bytes));
   assert.equal(resultado.getWorksheet("Enero").getCell("B1").value, 125);
@@ -130,91 +167,6 @@ try {
   console.log(
     "PASS: no descarga silenciosamente cambios de formato incompatibles",
   );
-  if (process.env.REYPEZ_EXCEL_PRUEBA) {
-    await page
-      .locator("#archivo")
-      .setInputFiles(process.env.REYPEZ_EXCEL_PRUEBA);
-    await page.waitForFunction(
-      () => window.pruebaEditor.resumen()?.formulas === 1935,
-    );
-    const r = await page.evaluate(() => window.pruebaEditor.resumen());
-    assert.equal(r.hojas, 5);
-    assert.equal(r.externas, 4);
-    await page.evaluate(() => {
-      const sheet = window.pruebaEditor
-        .api()
-        .getActiveWorkbook()
-        .getSheetByName("ACUMULADO 2026");
-      sheet.activate();
-      sheet.getRange("F29").setValue(999);
-    });
-    const copy = await page.evaluate(async () =>
-      Array.from(await window.pruebaEditor.exportar()),
-    );
-    const src = await JSZip.loadAsync(
-      await fs.readFile(process.env.REYPEZ_EXCEL_PRUEBA),
-    );
-    const dest = await JSZip.loadAsync(Buffer.from(copy));
-    const baseline = await page.evaluate(() => window.pruebaEditor.baseline());
-    assert.equal(baseline.sheetOrder.length, 5);
-    let iguales = 0;
-    const permitidos = new Set([
-      "xl/worksheets/sheet5.xml",
-      "xl/workbook.xml",
-      "xl/calcChain.xml",
-      "xl/_rels/workbook.xml.rels",
-      "[Content_Types].xml",
-    ]);
-    for (const [name, entry] of Object.entries(src.files)) {
-      if (entry.dir || permitidos.has(name)) continue;
-      assert.deepEqual(
-        await dest.file(name).async("uint8array"),
-        await entry.async("uint8array"),
-        name,
-      );
-      iguales++;
-    }
-    await resultado.xlsx.load(Buffer.from(copy));
-    assert.equal(
-      resultado.getWorksheet("ACUMULADO 2026").getCell("F29").value,
-      999,
-    );
-    assert.equal(
-      resultado.getWorksheet("ACUMULADO 2026").getCell("F33").formula,
-      "+'[1]SUBSIDIO AL EMPLEO'!$E$368",
-    );
-    console.log(
-      `PASS: libro privado: 5 hojas, 1935 fórmulas, 4 vínculos externos; ${iguales} componentes intactos`,
-    );
-    await page.locator("#guardar").click();
-    await page.waitForFunction(() =>
-      document
-        .getElementById("estado")
-        .textContent.startsWith("Prueba guardada"),
-    );
-    await page.reload();
-    await page.waitForFunction(() => window.pruebaEditor);
-    await page.locator("#recuperar").click();
-    await page.waitForFunction(() =>
-      document.getElementById("estado").textContent.startsWith("Se reabrieron"),
-    );
-    assert.equal(
-      await page.evaluate(() =>
-        window.pruebaEditor
-          .api()
-          .getActiveWorkbook()
-          .getSheetByName("ACUMULADO 2026")
-          .getRange("F29")
-          .getRawValue(),
-      ),
-      999,
-    );
-    console.log("PASS: guardado y reapertura del libro privado");
-    const jsonBytes = await page.evaluate(
-      () => new Blob([JSON.stringify(window.pruebaEditor.snapshot())]).size,
-    );
-    console.log("Tamaño del estado del editor en bytes:", jsonBytes);
-  }
   assert.deepEqual(errors, []);
   console.log(
     "PASS: sin errores del navegador. Captura ficticia:",

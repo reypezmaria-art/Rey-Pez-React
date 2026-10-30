@@ -15,6 +15,7 @@ Abrir la URL local mostrada por Vite. Primero aparecen datos ficticios. Se puede
 
 ## Qué se prueba
 
+- Cinta de herramientas de dos filas, con pestañas Inicio, Fórmulas y Vista, barra de fórmulas y hojas inferiores. Menú Archivo para abrir, guardar, reabrir y descargar. Accesos rápidos Guardar, Deshacer y Rehacer, más Ctrl+S para guardar localmente.
 - Editor de celdas y fórmulas con pestañas y herramientas en español.
 - Lectura de las hojas, fórmulas internas, formatos básicos, anchos y combinaciones del archivo.
 - Guardado completo del estado del editor y archivo de origen en IndexedDB. Se conservan tres versiones; el botón reabre la última. No es un respaldo en la nube ni sobrevive a borrar los datos del navegador.
@@ -42,10 +43,10 @@ No publicar archivos de nómina reales ni datos del navegador. La prueba debe re
 
 Se comprobó el recálculo de una fórmula interna tras editar una cantidad, la edición de una fórmula, el guardado y reapertura después de recargar la página, la descarga con preservación de moneda y fórmulas, y el rechazo de cambios de formato que esta exportación limitada no puede representar.
 
-Con el libro privado facilitado por María se leyeron cinco hojas y 1,935 fórmulas, incluidas cuatro referencias externas. Se modificó una cantidad en una copia de prueba, se descargó y reabrió, y se conservaron intactos los 22 componentes del ZIP que no requerían cambios. La prueba de guardado y reapertura también pasó con ese libro. No se verificaron individualmente los resultados de las 1,935 fórmulas.
-
-El estado completo del editor para ese libro ocupa 2,843,995 bytes sin comprimir. Esto confirma que el diseño del guardado en nube necesita trabajo adicional. La prueba usa almacenamiento local y no se presenta como un guardado en Firebase.
+La revisión de la interfaz también comprobó Deshacer/Rehacer con los botones, guardar con Ctrl+S, descargar y reabrir desde Archivo, cerrar el menú con Escape y que su panel cabe en un ancho de 390 px. Se normalizan objetos vacíos de estilo al comparar formatos, porque el editor puede eliminarlos al deshacer sin que cambie el aspecto de la celda.
 
 Auditoría de dependencias de la prueba: cero vulnerabilidades reportadas. La aplicación existente conserva sus 72 pruebas de lógica y 56 recorridos de navegador aprobados. No se modificó ni publicó la aplicación.
+
+Las pruebas publicadas usan únicamente libros sintéticos. No incluir en el repositorio resultados, conteos, referencias, nombres, tamaños ni otros metadatos derivados de archivos privados de nómina.
 
 ![Editor con datos ficticios](captura-demostracion.png)

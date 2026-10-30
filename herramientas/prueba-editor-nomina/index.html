@@ -6,39 +6,81 @@
     <title>Rey Pez · Prueba de editor</title>
   </head>
   <body>
-    <header>
-      <div><strong>REY PEZ</strong><span>Nómina · prueba de editor</span></div>
-      <nav>
-        <label class="button"
-          >Abrir copia de Excel<input
-            id="archivo"
-            type="file"
-            accept=".xlsx"
-            hidden /></label
-        ><button id="guardar">Guardar prueba</button
-        ><button id="recuperar">Reabrir guardado</button
-        ><button id="descargar">Descargar Excel de prueba</button>
+    <header class="barra-titulo">
+      <strong class="marca">REY PEZ</strong>
+      <details id="menu-archivo" class="menu-archivo">
+        <summary>Archivo</summary>
+        <nav aria-label="Opciones de archivo" class="panel-archivo">
+          <h2>Archivo</h2>
+          <button id="abrir">
+            Abrir Excel…<small>Trabajar con una copia .xlsx</small>
+          </button>
+          <button id="guardar-menu">
+            Guardar cambios<small>En este navegador de prueba</small>
+          </button>
+          <button id="recuperar">
+            Reabrir guardado<small>Recuperar la última versión local</small>
+          </button>
+          <button id="descargar">
+            Descargar Excel de prueba<small
+              >Exportar valores y fórmulas compatibles</small
+            >
+          </button>
+        </nav>
+      </details>
+      <nav aria-label="Acceso rápido" class="acceso-rapido">
+        <button id="guardar" title="Guardar cambios en este navegador (Ctrl+S)">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 3h12l4 4v14H3V3h2Zm2 0v7h10V3M7 21v-8h10v8M14 5v3" />
+          </svg>
+          Guardar
+        </button>
+        <button
+          id="deshacer"
+          title="Deshacer el último cambio"
+          aria-label="Deshacer"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m8 4-5 5 5 5M3 9h11a7 7 0 0 1 0 14" />
+          </svg>
+          <span>Deshacer</span>
+        </button>
+        <button
+          id="rehacer"
+          title="Rehacer el cambio deshecho"
+          aria-label="Rehacer"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m16 4 5 5-5 5m5-5H10a7 7 0 0 0 0 14" />
+          </svg>
+          <span>Rehacer</span>
+        </button>
       </nav>
+      <div class="nombre-libro" id="nombre-libro">Nómina de demostración</div>
+      <span class="etiqueta-prueba">Prueba local</span>
+      <input id="archivo" type="file" accept=".xlsx" hidden />
     </header>
     <aside>
       Prueba independiente. El guardado es únicamente en este navegador; todavía
       no se conecta con Firebase.
     </aside>
-    <p id="estado" role="status">
-      Datos ficticios para explorar el editor. Puedes abrir una copia de tu
-      Excel.
-    </p>
-    <details id="advertencias">
-      <summary>Compatibilidad de esta prueba</summary>
-      <p>
-        Se pueden editar todas las celdas y fórmulas. Guardar y reabrir conserva
-        el editor completo. La descarga de prueba admite cambios en valores y
-        fórmulas; detiene la exportación si se cambian formatos, nombres,
-        estructura o pestañas. Los vínculos externos conservan su último valor,
-        sin recalcularse. La integración completa sigue pendiente.
+    <div class="barra-informacion">
+      <p id="estado" role="status">
+        Datos ficticios. Para abrir tu archivo: Archivo → Abrir Excel.
       </p>
-      <ul id="hallazgos"></ul>
-    </details>
+      <details id="advertencias">
+        <summary>Compatibilidad de esta prueba</summary>
+        <p>
+          Se pueden editar todas las celdas y fórmulas. Guardar y reabrir
+          conserva el editor completo. La descarga de prueba admite cambios en
+          valores y fórmulas; detiene la exportación si se cambian formatos,
+          nombres, estructura o pestañas. Los vínculos externos conservan su
+          último valor, sin recalcularse. La integración completa sigue
+          pendiente.
+        </p>
+        <ul id="hallazgos"></ul>
+      </details>
+    </div>
     <main id="editor"></main>
     <script type="module" src="./principal.js"></script>
   </body>

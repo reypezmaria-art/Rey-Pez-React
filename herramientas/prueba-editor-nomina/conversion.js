@@ -161,7 +161,19 @@ function contenido(c) {
       };
 }
 function resolverEstilo(c, snapshot) {
-  return typeof c?.s === "string" ? snapshot.styles[c.s] : c?.s;
+  const style = typeof c?.s === "string" ? snapshot.styles[c.s] : c?.s;
+  // Deshacer/rehacer puede quitar objetos vacíos como bd: {} sin cambiar
+  // el formato. Comparar su significado evita bloquear una descarga válida.
+  const normalizar = (value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      return value;
+    const entries = Object.keys(value)
+      .sort()
+      .map((key) => [key, normalizar(value[key])])
+      .filter(([, v]) => v !== undefined);
+    return entries.length ? Object.fromEntries(entries) : undefined;
+  };
+  return normalizar(style);
 }
 const igual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
