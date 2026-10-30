@@ -1,4 +1,4 @@
-/* global document */
+/* global document, window, requestAnimationFrame */
 const rutas = {
   pegar: "M8 5H5v17h14V5h-3M9 2h6v5H9zM8 12h8M8 16h8",
   copiar: "M8 8h13v13H8zM4 16H2V2h14v2",
@@ -387,9 +387,52 @@ export function crearCinta({
   const tablist = nodo("div", undefined, "pestanas-cinta");
   tablist.setAttribute("role", "tablist");
   tablist.setAttribute("aria-label", "Pestañas de herramientas");
-  root.append(tablist);
+  const cabecera = nodo("div", undefined, "cabecera-cinta");
+  const contraer = nodo("button", undefined, "alternar-cinta");
+  contraer.type = "button";
+  contraer.setAttribute("aria-controls", "paneles-cinta");
+  const pantallaCompacta = window.matchMedia(
+    "(max-width: 900px), (max-height: 650px)",
+  );
+  let preferencia = null;
+  try {
+    preferencia = localStorage.getItem("reypez_cinta_contraida");
+  } catch {
+    // El editor también funciona cuando el navegador impide guardar preferencias.
+  }
+  let contraida =
+    preferencia === null ? pantallaCompacta.matches : preferencia === "si";
+  function ajustarCinta(valor, recordar = false) {
+    contraida = valor;
+    paneles.hidden = valor;
+    root.classList.toggle("contraida", valor);
+    contraer.textContent = valor
+      ? "⌄ Mostrar herramientas"
+      : "⌃ Contraer barra";
+    contraer.setAttribute("aria-expanded", String(!valor));
+    contraer.title = valor
+      ? "Mostrar herramientas"
+      : "Contraer barra para ver más filas";
+    if (recordar) {
+      preferencia = valor ? "si" : "no";
+      try {
+        localStorage.setItem("reypez_cinta_contraida", preferencia);
+      } catch {
+        // No impedir la navegación si el almacenamiento está deshabilitado.
+      }
+    }
+    requestAnimationFrame(() => window.dispatchEvent(new Event("resize")));
+  }
+  contraer.onclick = () => ajustarCinta(!contraida, true);
+  pantallaCompacta.addEventListener("change", () => {
+    if (preferencia === null) ajustarCinta(pantallaCompacta.matches);
+  });
+  cabecera.append(tablist, contraer);
+  root.append(cabecera);
   const paneles = nodo("div", undefined, "paneles-cinta");
+  paneles.id = "paneles-cinta";
   root.append(paneles);
+  ajustarCinta(contraida);
   const crearTab = (nombre, construir) => {
     pestana = nombre;
     const key = `cinta-${tabs.length}`,
@@ -402,7 +445,11 @@ export function crearCinta({
     panel.id = key;
     panel.setAttribute("role", "tabpanel");
     panel.setAttribute("aria-labelledby", b.id);
-    b.onclick = () => mostrar(nombre);
+    b.onclick = () => {
+      mostrar(nombre);
+      ajustarCinta(false);
+      b.scrollIntoView({ block: "nearest", inline: "nearest" });
+    };
     tablist.append(b);
     paneles.append(panel);
     tabs.push({ nombre, button: b, panel });

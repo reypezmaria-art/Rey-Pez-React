@@ -80,6 +80,27 @@ test("importa Excel, edita y reabre desde Nómina; descarga lo guardado y detect
   const child = page
     .frames()
     .find((f) => f.url().includes("editor-nomina/index.html"));
+  // La cinta libera espacio para filas y las pestañas vuelven a abrirla.
+  const paneles = frame.locator("#paneles-cinta");
+  if (page.viewportSize().width <= 900) await expect(paneles).toBeHidden();
+  if (await paneles.isHidden())
+    await frame.getByRole("button", { name: "Mostrar herramientas" }).click();
+  const altoExpandido = await frame
+    .locator("#editor")
+    .evaluate((n) => n.clientHeight);
+  await frame.getByRole("button", { name: "Contraer barra" }).click();
+  await expect(paneles).toBeHidden();
+  await expect
+    .poll(() => frame.locator("#editor").evaluate((n) => n.clientHeight))
+    .toBeGreaterThan(altoExpandido + 60);
+  await frame.getByRole("tab", { name: "Datos", exact: true }).click();
+  await expect(paneles).toBeVisible();
+  await frame.getByRole("tab", { name: "Inicio", exact: true }).click();
+  expect(
+    await child.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
   await child.evaluate(() => {
     const wb = window.pruebaEditor.api().getActiveWorkbook();
     wb.getSheetByName("enero").getRange("C5").setValue(1500);
@@ -103,6 +124,8 @@ test("importa Excel, edita y reabre desde Nómina; descarga lo guardado y detect
   await expect(frame.locator("#estado")).toContainText("Libro abierto", {
     timeout: 30000,
   });
+  await expect(paneles).toBeHidden();
+  await frame.getByRole("button", { name: "Mostrar herramientas" }).click();
   const nuevo = page
     .frames()
     .find((f) => f.url().includes("editor-nomina/index.html"));

@@ -179,7 +179,9 @@ body > aside {
 }
 #editor {
   flex: 1;
-  min-height: 300px;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
   background: white;
 }
 #cinta {
@@ -559,5 +561,77 @@ body > aside {
   .panel-archivo {
     left: -65px;
     width: min(300px, 90vw);
+  }
+}
+
+/* Mantener la navegación de la cinta dentro de la pantalla y dar el espacio libre a la hoja. */
+body {
+  overflow: hidden;
+}
+body > * {
+  min-width: 0;
+}
+.cabecera-cinta {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid #e3e8ee;
+}
+.cabecera-cinta .pestanas-cinta {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+}
+.alternar-cinta {
+  flex-shrink: 0;
+  border: 0;
+  border-left: 1px solid #d7dee6;
+  background: #edf3f9;
+  color: #173b60;
+  padding: 7px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+.alternar-cinta:hover {
+  background: #dce9f5;
+}
+.alternar-cinta:focus-visible {
+  outline: 2px solid #3c6f9b;
+  outline-offset: -2px;
+}
+.paneles-cinta[hidden] {
+  display: none;
+}
+@media (max-width: 1100px), (max-height: 750px) {
+  .panel-cinta {
+    min-height: 90px;
+    max-height: 125px;
+    padding-top: 4px;
+  }
+  .grupo-controles {
+    min-height: 68px;
+  }
+  .herramienta.grande {
+    height: 56px;
+    gap: 3px;
+  }
+  .herramienta.grande svg {
+    width: 22px;
+    height: 22px;
+  }
+}
+@media (max-width: 600px) {
+  .alternar-cinta {
+    max-width: 110px;
+    padding: 5px 8px;
+  }
+  .pestanas-cinta {
+    padding: 0 4px;
+  }
+  .pestanas-cinta button {
+    padding: 9px 10px 7px;
+  }
+  body > aside {
+    padding: 4px 10px;
+    font-size: 11px;
   }
 }
