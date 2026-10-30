@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { procesarCarpetaNomina } from "../utilidades/carpetaNomina.js";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import {
   Campo,
@@ -22,6 +23,8 @@ export default function Nomina() {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [mensaje, setMensaje] = useState("");
+  const [resultadosCarpeta, setResultadosCarpeta] = useState([]);
+  const [progresoCarpeta, setProgresoCarpeta] = useState(null);
   const [exportar, setExportar] = useState(""),
     [empresa, setEmpresa] = useState(""),
     [anio, setAnio] = useState(String(clock.getFullYear()));
@@ -66,6 +69,46 @@ export default function Nomina() {
       setError(err.message);
     } finally {
       setBusy(false);
+      input.value = "";
+    }
+  }
+  async function subirCarpeta(e) {
+    const input = e.currentTarget,
+      archivos = Array.from(input.files || []);
+    if (!archivos.length) return;
+    setError("");
+    setMensaje("");
+    setResultadosCarpeta([]);
+    setBusy(true);
+    try {
+      const { leerPdfNomina } = await import("../utilidades/pdfNomina.js");
+      const aliases = Object.fromEntries(
+        Object.entries(nombresEmpresas(data)).map(([k, v]) => [k, [v]]),
+      );
+      const { resultados, omitidos } = await procesarCarpetaNomina(archivos, {
+        leer: (archivo) => leerPdfNomina(archivo, aliases),
+        guardar: async (entrada) => {
+          let cambio = false;
+          await commit((state) => {
+            const next = guardarNomina(state, entrada);
+            cambio = next !== state;
+            return next;
+          });
+          return cambio;
+        },
+        alProgreso: setProgresoCarpeta,
+      });
+      setResultadosCarpeta(resultados);
+      const contar = (estado) =>
+        resultados.filter((r) => r.estado === estado).length;
+      setMensaje(
+        `Carpeta procesada: ${contar("Guardado")} guardados, ${contar("Ya cargado")} ya cargados y ${contar("No guardado")} no guardados. ${omitidos} archivos que no son PDF omitidos.`,
+      );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+      setProgresoCarpeta(null);
       input.value = "";
     }
   }
@@ -122,8 +165,47 @@ export default function Nomina() {
           disabled={ocupado}
           onChange={(e) => subir(e)}
         />
-        {busy && <p role="status">Procesando nómina…</p>}
+        <Campo
+          label="Seleccionar carpeta de nóminas"
+          type="file"
+          multiple
+          webkitdirectory=""
+          directory=""
+          disabled={ocupado}
+          onChange={subirCarpeta}
+        />
+        <p className="small">
+          Se revisan los PDF de la carpeta y sus subcarpetas, hasta 100 por
+          carga. Los períodos ya cargados no se duplican; las correcciones se
+          hacen en Modificar un mes.
+        </p>
+        {busy && (
+          <p role="status">
+            {progresoCarpeta
+              ? `Procesando ${progresoCarpeta.actual} de ${progresoCarpeta.total}: ${progresoCarpeta.archivo}`
+              : "Procesando nómina…"}
+          </p>
+        )}
       </section>
+      {resultadosCarpeta.length > 0 && (
+        <details className="panel payroll-folder-results" open>
+          <summary>
+            Resultado de la carpeta ({resultadosCarpeta.length} PDF)
+          </summary>
+          <Tabla
+            headings={["Archivo", "Estado", "Empresa, período o motivo"]}
+            count={resultadosCarpeta.length}
+          >
+            {resultadosCarpeta.map((r, i) => (
+              <tr key={i}>
+                <td>{r.archivo}</td>
+                <td>{r.estado}</td>
+                <td>{r.detalle}</td>
+              </tr>
+            ))}
+          </Tabla>
+        </details>
+      )}
       <div className="payroll-actions">
         <button
           className="panel payroll-export"

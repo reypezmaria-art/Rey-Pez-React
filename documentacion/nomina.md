@@ -2,6 +2,12 @@
 
 Disponible únicamente en administración, para María. La carga de un PDF identifica empresa y período sin selectores. Acepta reportes con texto seleccionable del formato de Lista de Raya de CONTPAQi mostrado por María; admite las tres empresas y alias de razón social del directorio. Los PDFs escaneados, protegidos, de otra estructura o que no concilien no se guardan. No hay OCR ni un servicio externo de pago.
 
+## Subir una carpeta
+
+Seleccionar carpeta de nóminas permite elegir una carpeta local con sus subcarpetas. Se procesan únicamente los PDF, hasta 100 y 200 MB en total por selección. Cada archivo identifica su empresa y período de manera independiente; pueden mezclarse las tres empresas y distintos meses/años. Se conserva el nombre del PDF, no la ruta local de la carpeta.
+
+Los archivos se leen y guardan uno a uno. El resultado informa Guardado, Ya cargado o No guardado, con su motivo; los archivos no PDF se omiten sin leerlos. Un PDF ilegible o un fallo de guardado no impide procesar los demás. Los períodos existentes con datos diferentes se conservan y requieren Volver a subir archivo en Modificar un mes. Se puede repetir la carpeta tras un corte: las nóminas idénticas ya guardadas no se duplican. La carpeta no se sube como ZIP ni se almacena su contenido binario.
+
 ## Importar y corregir
 
 - Se extraen nombre, identificador de nómina, salario diario, días pagados, percepciones y deducciones con código, concepto, valor e importe, y los tres totales del recibo. El RFC, cuando aparece, se usa como identidad privada estable para agrupar al trabajador, sin publicarlo en el directorio operativo.

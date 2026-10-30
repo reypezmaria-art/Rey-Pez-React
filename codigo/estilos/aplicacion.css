@@ -1210,3 +1210,10 @@ header .header-access button:hover {
     width: 100%;
   }
 }
+
+.payroll-folder-results td {
+  overflow-wrap: anywhere;
+}
+.payroll-folder-results > summary {
+  margin-bottom: 14px;
+}
