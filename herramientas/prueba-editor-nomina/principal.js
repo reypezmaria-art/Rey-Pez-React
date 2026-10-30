@@ -1,10 +1,16 @@
 /* global document, window, indexedDB */
 import { createUniver, LocaleType, mergeLocales } from "@univerjs/presets";
 import { UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
+import { UniverSheetsSortPreset } from "@univerjs/preset-sheets-sort";
+import { UniverSheetsFilterPreset } from "@univerjs/preset-sheets-filter";
+import sortEs from "@univerjs/preset-sheets-sort/locales/es-ES";
+import filterEs from "@univerjs/preset-sheets-filter/locales/es-ES";
+import "@univerjs/preset-sheets-filter/lib/index.css";
 import es from "@univerjs/preset-sheets-core/locales/es-ES";
 import "@univerjs/preset-sheets-core/lib/index.css";
 import "./estilos.css";
 import { importar, exportarCopia } from "./conversion.js";
+import { crearCinta } from "./cinta.js";
 
 let editor,
   prueba,
@@ -17,22 +23,40 @@ function montar(snapshot) {
   editor?.univer.dispose();
   editor = createUniver({
     locale: LocaleType.ES_ES,
-    locales: { [LocaleType.ES_ES]: mergeLocales(es) },
+    locales: { [LocaleType.ES_ES]: mergeLocales(es, sortEs, filterEs) },
     presets: [
-      UniverSheetsCorePreset({ container: "editor", ribbonType: "grid" }),
+      UniverSheetsCorePreset({
+        container: "editor",
+        header: true,
+        toolbar: false,
+        formulaBar: true,
+      }),
+      UniverSheetsSortPreset(),
+      UniverSheetsFilterPreset(),
     ],
   });
+  editor.univerAPI.addEvent(editor.univerAPI.Event.SelectionChanged, () =>
+    cinta.sincronizar(),
+  );
+  editor.univerAPI.addEvent(editor.univerAPI.Event.LifeCycleChanged, () =>
+    cinta.sincronizar(),
+  );
   editor.univerAPI.createWorkbook(snapshot);
   $("nombre-libro").textContent = snapshot.name || "Libro de nómina";
   $("nombre-libro").title = snapshot.name || "Libro de nómina";
+  cinta.sincronizar();
 }
 const snapshot = () => editor.univerAPI.getActiveWorkbook().save();
 async function ejecutar(fn) {
   if (ocupado) return;
   ocupado = true;
-  document.querySelectorAll(".barra-titulo button").forEach((b) => {
-    b.disabled = true;
-  });
+  document
+    .querySelectorAll(
+      ".barra-titulo button, #cinta button, #cinta select, #cinta input",
+    )
+    .forEach((b) => {
+      b.disabled = true;
+    });
   $("archivo").disabled = true;
   try {
     await fn();
@@ -40,10 +64,15 @@ async function ejecutar(fn) {
     aviso(e.message || "No se pudo completar la prueba.");
   } finally {
     ocupado = false;
-    document.querySelectorAll(".barra-titulo button").forEach((b) => {
-      b.disabled = false;
-    });
+    document
+      .querySelectorAll(
+        ".barra-titulo button, #cinta button, #cinta select, #cinta input",
+      )
+      .forEach((b) => {
+        b.disabled = false;
+      });
     $("archivo").disabled = false;
+    cinta.sincronizar();
   }
 }
 function baseDatos() {
@@ -83,16 +112,14 @@ async function guardar() {
     db.close();
   }
 }
-async function recuperar() {
+async function recuperar(id) {
   const db = await baseDatos();
   let record;
   try {
     record = await new Promise((resolve, reject) => {
-      const req = db
-        .transaction("versiones")
-        .objectStore("versiones")
-        .openCursor(null, "prev");
-      req.onsuccess = () => resolve(req.result?.value);
+      const store = db.transaction("versiones").objectStore("versiones");
+      const req = id ? store.get(id) : store.openCursor(null, "prev");
+      req.onsuccess = () => resolve(id ? req.result : req.result?.value);
       req.onerror = () => reject(Error("No se pudo leer el guardado."));
     });
   } finally {
@@ -103,6 +130,23 @@ async function recuperar() {
   prueba = record.prueba;
   montar(record.snapshot);
   aviso("Se reabrieron los cambios guardados en este navegador.");
+}
+async function listarVersiones() {
+  const db = await baseDatos();
+  try {
+    return await new Promise((resolve, reject) => {
+      const req = db.transaction("versiones").objectStore("versiones").getAll();
+      req.onsuccess = () =>
+        resolve(
+          req.result
+            .reverse()
+            .map((r) => ({ id: r.id, nombre: r.snapshot.name })),
+        );
+      req.onerror = () => reject(Error("No se pudo leer el historial local."));
+    });
+  } finally {
+    db.close();
+  }
 }
 function descargar(bytes, name) {
   const url = URL.createObjectURL(
@@ -186,6 +230,7 @@ document.addEventListener("pointerdown", (event) => {
 document.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
     event.preventDefault();
+    if ($("dialogo-cinta").open) return;
     cerrarArchivo();
     ejecutar(guardar);
   }
@@ -206,6 +251,13 @@ const demo = {
   sheetOrder: ["acumulado", "enero", "febrero"],
   sheets: {},
 };
+const cinta = crearCinta({
+  api: () => editor?.univerAPI,
+  ejecutar,
+  aviso,
+  listarVersiones,
+  recuperar,
+});
 for (const [id, name] of [
   ["acumulado", "Acumulado 2026"],
   ["enero", "Enero"],

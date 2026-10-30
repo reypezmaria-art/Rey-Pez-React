@@ -179,6 +179,16 @@ const igual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export async function exportarCopia(prueba, snapshot) {
   const original = prueba.baseline;
+  const filtro = (data) => {
+    const resource = data.resources?.find(
+      (r) => r.name === "SHEET_FILTER_PLUGIN",
+    );
+    return JSON.stringify(resource?.data ? JSON.parse(resource.data) : {});
+  };
+  if (filtro(original) !== filtro(snapshot))
+    throw Error(
+      "La descarga de prueba aún no exporta cambios en filtros. Guarda la versión completa en este navegador.",
+    );
   if (!igual(snapshot.sheetOrder, original.sheetOrder))
     throw Error(
       "La prueba aún no exporta hojas agregadas, eliminadas o reordenadas. El guardado local sí las conserva.",
@@ -194,6 +204,8 @@ export async function exportarCopia(prueba, snapshot) {
       "mergeData",
       "rowData",
       "columnData",
+      "freeze",
+      "showGridlines",
     ]) {
       if (!igual(a[k], b[k]))
         throw Error(

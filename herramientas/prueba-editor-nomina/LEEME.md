@@ -15,13 +15,17 @@ Abrir la URL local mostrada por Vite. Primero aparecen datos ficticios. Se puede
 
 ## Qué se prueba
 
-- Cinta de herramientas de dos filas, con pestañas Inicio, Fórmulas y Vista, barra de fórmulas y hojas inferiores. Menú Archivo para abrir, guardar, reabrir y descargar. Accesos rápidos Guardar, Deshacer y Rehacer, más Ctrl+S para guardar localmente.
+- Cinta con las pestañas Inicio, Insertar, Disposición de página, Fórmulas, Datos, Revisar, Vista y Ayuda, barra de fórmulas y hojas inferiores. Grupos Portapapeles, Fuente, Alineación, Número, Estilos, Celdas y Edición. Menú Archivo para abrir, guardar, reabrir y descargar. Accesos rápidos Guardar, Deshacer y Rehacer, más Ctrl+S para guardar localmente.
+- Buscador de herramientas por nombre, con acceso a la pestaña y al botón correspondiente. Pestañas navegables con flechas, Inicio y Fin; nombres accesibles y ayuda al pasar el cursor.
+- Copiar/pegar mediante el portapapeles del navegador; formato, inserción de filas/columnas/hojas, duplicado de hojas, funciones SUMA/PROMEDIO/MÍNIMO/MÁXIMO/CONTAR, búsqueda de celdas, ordenación de la selección y filtros. Los módulos de ordenación y filtros también son Apache-2.0, de la misma versión que el núcleo.
+- Revisión de errores presentes en los resultados, localización de vínculos externos, selector de versiones locales, inmovilización de filas/columnas, cuadrícula y zoom.
+- Configuración de papel, orientación, márgenes y área para una vista imprimible simplificada de valores. Esa vista no reproduce formatos avanzados ni combinaciones. Su botón abre la impresión del navegador; no usa un servicio PDF externo. Estas preferencias de impresión duran la sesión.
 - Editor de celdas y fórmulas con pestañas y herramientas en español.
 - Lectura de las hojas, fórmulas internas, formatos básicos, anchos y combinaciones del archivo.
 - Guardado completo del estado del editor y archivo de origen en IndexedDB. Se conservan tres versiones; el botón reabre la última. No es un respaldo en la nube ni sobrevive a borrar los datos del navegador.
 - Exportación de cambios en valores y fórmulas sobre el ZIP original. Mantiene los componentes no editados, incluidos los vínculos externos y sus valores originales. Solicita recálculo en Excel. Los resultados guardados de fórmulas dependientes pueden estar desactualizados hasta ese recálculo.
 - Las fórmulas externas se muestran con su último valor, sin ejecutarlas. Al cambiar esa celda se sustituye su fórmula externa por el nuevo contenido en la copia exportada.
-- Para no descargar un archivo que descarte cambios, la exportación rechaza modificaciones de formato, filas/columnas, fusiones y pestañas. Esas modificaciones sí quedan en el guardado completo del editor.
+- Para no descargar un archivo que descarte cambios, la exportación rechaza modificaciones de formato, filas/columnas, fusiones, pestañas, filtros, inmovilización y cuadrícula. Esas modificaciones sí quedan en el guardado completo del editor. Esto no implica que se importen todos los filtros u objetos avanzados de un XLSX externo.
 
 ## Pendiente antes de integrar
 
@@ -44,6 +48,8 @@ No publicar archivos de nómina reales ni datos del navegador. La prueba debe re
 Se comprobó el recálculo de una fórmula interna tras editar una cantidad, la edición de una fórmula, el guardado y reapertura después de recargar la página, la descarga con preservación de moneda y fórmulas, y el rechazo de cambios de formato que esta exportación limitada no puede representar.
 
 La revisión de la interfaz también comprobó Deshacer/Rehacer con los botones, guardar con Ctrl+S, descargar y reabrir desde Archivo, cerrar el menú con Escape y que su panel cabe en un ancho de 390 px. Se normalizan objetos vacíos de estilo al comparar formatos, porque el editor puede eliminarlos al deshacer sin que cambie el aspecto de la celda.
+
+El recorrido de la cinta usa exclusivamente datos ficticios y comprueba copiar/pegar, formato, rechazo de combinaciones que perderían valores, inserción y cálculo de una función, búsqueda de celdas, creación de hoja, ordenación de filas completas, filtros, buscador de herramientas, inmovilización, zoom, vista de impresión y reapertura de una versión con filtro. También comprueba que un filtro nuevo impide una descarga incompleta y que retirar ese filtro permite exportar de nuevo.
 
 Auditoría de dependencias de la prueba: cero vulnerabilidades reportadas. La aplicación existente conserva sus 72 pruebas de lógica y 56 recorridos de navegador aprobados. No se modificó ni publicó la aplicación.
 

@@ -81,7 +81,18 @@
         <ul id="hallazgos"></ul>
       </details>
     </div>
+    <section
+      id="cinta"
+      aria-label="Herramientas de la hoja de cálculo"
+    ></section>
     <main id="editor"></main>
+    <dialog id="dialogo-cinta" aria-labelledby="titulo-dialogo">
+      <header>
+        <h2 id="titulo-dialogo"></h2>
+        <button type="button" id="cerrar-dialogo" aria-label="Cerrar">×</button>
+      </header>
+      <div id="contenido-dialogo"></div>
+    </dialog>
     <script type="module" src="./principal.js"></script>
   </body>
 </html>

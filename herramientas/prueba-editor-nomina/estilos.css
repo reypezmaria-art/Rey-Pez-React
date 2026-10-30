@@ -182,6 +182,347 @@ body > aside {
   min-height: 300px;
   background: white;
 }
+#cinta {
+  flex-shrink: 0;
+  background: #fafbfc;
+  border-bottom: 1px solid #cbd5df;
+  font-size: 12px;
+}
+.pestanas-cinta {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 0 12px;
+  border-bottom: 1px solid #e3e8ee;
+}
+.pestanas-cinta button {
+  flex-shrink: 0;
+  padding: 9px 13px 7px;
+  border: 0;
+  border-bottom: 3px solid transparent;
+  color: #29394b;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.pestanas-cinta button[aria-selected="true"] {
+  font-weight: 600;
+  color: #173b60;
+  border-bottom-color: #b98c25;
+  background: white;
+}
+.pestanas-cinta button:hover {
+  background: #eaf0f6;
+}
+.panel-cinta {
+  display: flex;
+  min-height: 110px;
+  overflow-x: auto;
+  padding: 8px 8px 0;
+}
+.panel-cinta[hidden] {
+  display: none;
+}
+.grupo-cinta {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0 8px;
+  border-right: 1px solid #d7dee6;
+  max-width: 280px;
+}
+.grupo-controles {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  align-items: center;
+  gap: 3px;
+  max-width: 260px;
+  min-height: 90px;
+}
+.grupo-nombre {
+  font-size: 10px;
+  text-align: center;
+  color: #617183;
+  padding: 4px 2px;
+}
+.herramienta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 4px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 4px;
+  min-height: 28px;
+  background: transparent;
+  font: inherit;
+  color: #26384b;
+  cursor: pointer;
+}
+.herramienta svg {
+  width: 17px;
+  height: 17px;
+  stroke: #3e607b;
+  stroke-width: 1.4;
+  fill: none;
+  flex-shrink: 0;
+}
+.herramienta.grande {
+  flex-direction: column;
+  width: 84px;
+  height: 72px;
+  justify-content: flex-start;
+  gap: 6px;
+  padding-top: 7px;
+}
+.herramienta.grande svg {
+  width: 29px;
+  height: 29px;
+}
+.herramienta.grande span {
+  line-height: 1.2;
+  text-align: center;
+  font-size: 11px;
+}
+.herramienta:hover,
+.herramienta[aria-pressed="true"] {
+  background: #e3edf7;
+  border-color: #bacddd;
+}
+.herramienta:focus-visible,
+#cinta select:focus-visible,
+.pestanas-cinta button:focus-visible {
+  outline: 2px solid #3c6f9b;
+  outline-offset: -2px;
+}
+.herramienta:disabled {
+  opacity: 0.5;
+}
+.icono-letra {
+  min-width: 17px;
+  font:
+    bold 18px Georgia,
+    serif;
+  line-height: 20px;
+}
+.grande .icono-letra {
+  font-size: 29px;
+  line-height: 30px;
+}
+.grupo-controles select {
+  height: 27px;
+  max-width: 150px;
+  font: inherit;
+  color: #25374b;
+  border: 1px solid #c8d3df;
+  background: white;
+  border-radius: 2px;
+}
+.grupo-cinta[data-grupo="Fuente"] {
+  width: 225px;
+}
+.grupo-cinta[data-grupo="Fuente"] .herramienta span,
+.grupo-cinta[data-grupo="Número"] .herramienta span {
+  display: none;
+}
+.grupo-cinta[data-grupo="Número"] {
+  width: 155px;
+}
+.grupo-cinta[data-grupo="Estilos"] {
+  width: 125px;
+}
+.grupo-cinta[data-grupo="Celdas"] {
+  width: 150px;
+}
+.grupo-cinta[data-grupo="Edición"] {
+  width: 130px;
+}
+.grupo-cinta[data-grupo="Portapapeles"] {
+  width: 120px;
+}
+.grupo-cinta[data-grupo="Portapapeles"] .grande {
+  width: 48px;
+}
+.color-cinta {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  padding: 3px;
+}
+.color-cinta input {
+  width: 22px;
+  height: 23px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.buscador-herramientas {
+  position: relative;
+  width: 240px;
+  flex-shrink: 0;
+}
+.buscador-herramientas > input {
+  width: 100%;
+  height: 29px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: #20374d;
+  border: 1px solid #8fa8bd;
+  border-radius: 4px;
+  background: #f3f7fb;
+}
+.resultados-herramientas {
+  position: absolute;
+  z-index: 2100;
+  top: 35px;
+  left: 0;
+  width: 300px;
+  background: white;
+  padding: 6px;
+  border: 1px solid #cbd5df;
+  box-shadow: 0 8px 20px #112b4b22;
+}
+.resultados-herramientas button {
+  display: block;
+  width: 100%;
+  padding: 9px;
+  text-align: left;
+  background: white;
+  color: #24364c;
+}
+.resultados-herramientas button:hover,
+.resultados-herramientas button:focus {
+  background: #e8f0f8;
+}
+.resultados-herramientas p {
+  color: #24364c;
+  font-size: 12px;
+  padding: 0 8px;
+}
+#dialogo-cinta {
+  width: min(780px, 94vw);
+  max-height: 86vh;
+  border: 1px solid #b5c6d6;
+  border-radius: 7px;
+  padding: 0;
+  color: #24364c;
+  box-shadow: 0 14px 60px #112b4b44;
+}
+#dialogo-cinta::backdrop {
+  background: #10294255;
+}
+#dialogo-cinta > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: #edf3f9;
+  border-bottom: 1px solid #cbd5df;
+}
+#dialogo-cinta h2 {
+  font-size: 18px;
+  font-weight: 500;
+  margin: 0;
+}
+#cerrar-dialogo {
+  background: transparent;
+  border: 0;
+  font-size: 25px;
+  color: #3d5267;
+  cursor: pointer;
+}
+#contenido-dialogo {
+  padding: 16px 20px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+#contenido-dialogo p:first-child {
+  margin-top: 0;
+}
+.campo-cinta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 14px;
+}
+.campo-cinta input,
+.campo-cinta select {
+  padding: 9px;
+  border: 1px solid #bdcddb;
+  border-radius: 4px;
+  color: #24364c;
+  font: inherit;
+}
+#contenido-dialogo footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+#contenido-dialogo button {
+  font: inherit;
+  font-size: 13px;
+  border: 1px solid #bdcddb;
+  border-radius: 4px;
+  padding: 8px 13px;
+  cursor: pointer;
+  background: #f5f8fb;
+  color: #24364c;
+}
+#contenido-dialogo .primario {
+  background: #173b60;
+  color: white;
+  border-color: #173b60;
+}
+#contenido-dialogo .resultado-cinta {
+  display: block;
+  width: 100%;
+  margin-bottom: 7px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.error-dialogo {
+  color: #a81d2a;
+}
+.vista-impresion {
+  display: block;
+  width: 100%;
+  height: 380px;
+  border: 1px solid #cbd5df;
+  margin: 12px 0;
+}
+@media (max-width: 1100px) {
+  .buscador-herramientas {
+    width: 190px;
+  }
+  .acceso-rapido button span {
+    display: none;
+  }
+}
+@media (max-width: 800px) {
+  .buscador-herramientas {
+    order: 2;
+    width: 100%;
+    margin-bottom: 6px;
+  }
+  .buscador-herramientas > input {
+    height: 30px;
+  }
+  .nombre-libro {
+    flex-basis: auto;
+  }
+  .panel-cinta {
+    min-height: 118px;
+  }
+  .grupo-nombre {
+    font-size: 11px;
+  }
+}
 @media (max-width: 800px) {
   .barra-titulo {
     gap: 6px;

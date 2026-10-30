@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 import { preview } from "vite";
 import { chromium } from "../../node_modules/@playwright/test/index.mjs";
 import ExcelJS from "exceljs";
+import { probarCinta } from "./recorridoCinta.mjs";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const temporal = await fs.mkdtemp(path.join(os.tmpdir(), "rey-editor-"));
@@ -29,12 +30,13 @@ try {
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto("http://127.0.0.1:5191");
   await page.waitForFunction(() => window.pruebaEditor);
-  await page.locator("canvas").first().waitFor();
+  await page.locator("canvas:visible").first().waitFor();
   await page.waitForTimeout(1500);
   await page.screenshot({ path: path.join(temporal, "editor-demo.png") });
   const demo = await page.evaluate(() => window.pruebaEditor.snapshot());
   assert.equal(demo.sheetOrder.length, 3);
   assert.equal(demo.sheets.acumulado.name, "Acumulado 2026");
+  await probarCinta(page);
   await page.locator("#menu-archivo > summary").click();
   await page.locator("#abrir").waitFor({ state: "visible" });
   await page.keyboard.press("Escape");
@@ -147,6 +149,37 @@ try {
     "SUM(B2:B3)",
   );
   console.log("PASS: edición de fórmula se exporta como fórmula");
+  await page.evaluate(() =>
+    window.pruebaEditor
+      .api()
+      .getActiveWorkbook()
+      .getActiveSheet()
+      .getRange("A1:D2")
+      .createFilter(),
+  );
+  const rechazoFiltro = await page.evaluate(async () => {
+    try {
+      await window.pruebaEditor.exportar();
+      return "";
+    } catch (e) {
+      return e.message;
+    }
+  });
+  assert.match(rechazoFiltro, /filtros/);
+  await page.evaluate(() =>
+    window.pruebaEditor
+      .api()
+      .getActiveWorkbook()
+      .getActiveSheet()
+      .getFilter()
+      .remove(),
+  );
+  await page.evaluate(async () => {
+    await window.pruebaEditor.exportar();
+  });
+  console.log(
+    "PASS: exportación rechaza un filtro nuevo y vuelve a funcionar al retirarlo",
+  );
   await page.evaluate(() =>
     window.pruebaEditor
       .api()
