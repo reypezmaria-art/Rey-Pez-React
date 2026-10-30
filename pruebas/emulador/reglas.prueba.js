@@ -1,3 +1,5 @@
+import { guardarNomina } from "../../codigo/dominio/nomina.js";
+import { entradaNominaEjemplo } from "../soporte/nominaEjemplo.js";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -147,6 +149,46 @@ test("las reglas separan a María, la empresa y la secuencia", async () => {
     const terminal = entorno.authenticatedContext("terminal");
     const dbTrabajo = trabajadora.firestore();
     const dbTerminal = terminal.firestore();
+    const nomina = guardarNomina(
+      { payroll: [], audit: [] },
+      entradaNominaEjemplo(),
+    ).payroll[0];
+    const nominaRef = doc(maria.firestore(), "nominas", nomina.id);
+    await assertSucceeds(setDoc(nominaRef, nomina));
+    await assertSucceeds(getDocs(collection(maria.firestore(), "nominas")));
+    for (const db of [
+      dbTrabajo,
+      dbTerminal,
+      anonimo.firestore(),
+      intruso.firestore(),
+    ]) {
+      await assertFails(getDoc(doc(db, "nominas", nomina.id)));
+      await assertFails(getDocs(collection(db, "nominas")));
+      await assertFails(
+        setDoc(doc(db, "nominas", nomina.id), { ...nomina, revision: 2 }),
+      );
+    }
+    for (const cambio of [
+      { revision: 1 },
+      { empresa_codigo: "EDGAR", revision: 2 },
+      { creadoMs: nomina.creadoMs - 1000, revision: 2 },
+      { extra: "campo ajeno", revision: 2 },
+      { registrosJson: "x".repeat(240001), revision: 2 },
+      { registrosJson: [], revision: 2 },
+      { anio: "2026", revision: 2 },
+      { mes: 13, revision: 2 },
+      { actualizadoPor: "OTRO", revision: 2 },
+      { actualizadoMs: Date.now() + 3600000, revision: 2 },
+      { archivo: "x".repeat(201), revision: 2 },
+      { huella: "incorrecta", revision: 2 },
+    ])
+      await assertFails(setDoc(nominaRef, { ...nomina, ...cambio }));
+    const incompleta = { ...nomina, revision: 2 };
+    delete incompleta.archivo;
+    await assertFails(setDoc(nominaRef, incompleta));
+    await assertSucceeds(setDoc(nominaRef, { ...nomina, revision: 2 }));
+    await assertFails(setDoc(nominaRef, { ...nomina, revision: 2 }));
+
     await assertSucceeds(
       setDoc(doc(maria.firestore(), "empresas", "ALLAN"), {
         codigo: "ALLAN",

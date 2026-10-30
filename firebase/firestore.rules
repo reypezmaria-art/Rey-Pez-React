@@ -144,6 +144,46 @@ service cloud.firestore {
       allow create: if esAdmin() || bitacoraDeTrabajador(request.resource.data);
       allow update, delete: if esAdmin();
     }
+    // Nómina privada de administración. Registros serializados, hasta 240 KB;
+    // el lector valida recibos y conciliación. Nunca contiene permisos ni roles.
+    function nominaValida(d, id) {
+      return d.keys().hasAll(['id','empresa_codigo','empresa_nombre','desde','hasta','anio','mes','numeroPeriodo','archivo','huella','registrosJson','revision','creadoEn','actualizadoEn','creadoMs','actualizadoMs','actualizadoPor'])
+        && d.keys().hasOnly(['id','empresa_codigo','empresa_nombre','desde','hasta','anio','mes','numeroPeriodo','archivo','huella','registrosJson','revision','creadoEn','actualizadoEn','creadoMs','actualizadoMs','actualizadoPor'])
+        && d.id is string && d.id == id
+        && d.empresa_codigo in ['ALLAN','EDGAR','ESTUARDO']
+        && d.id == d.empresa_codigo + '_' + d.desde + '_' + d.hasta
+        && d.empresa_nombre is string && d.empresa_nombre.size() > 0 && d.empresa_nombre.size() <= 200
+        && d.desde is string && d.hasta is string
+        && d.desde.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && d.hasta.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && d.desde <= d.hasta
+        && d.anio is int && d.anio >= 2000 && d.anio <= 2100
+        && d.mes is int && d.mes >= 1 && d.mes <= 12
+        && d.numeroPeriodo is int && d.numeroPeriodo >= 0 && d.numeroPeriodo <= 366
+        && d.archivo is string && d.archivo.size() > 0 && d.archivo.size() <= 200
+        && d.huella is string && d.huella.matches('^[a-f0-9]{64}$')
+        && d.registrosJson is string && d.registrosJson.size() > 0 && d.registrosJson.size() <= 240000
+        && d.revision is int && d.revision > 0
+        && d.creadoEn is string && d.creadoEn.size() == 24
+        && d.actualizadoEn is string && d.actualizadoEn.size() == 24
+        && d.creadoMs is int && d.actualizadoMs is int && d.creadoMs <= d.actualizadoMs
+        && d.actualizadoMs >= request.time.toMillis() - 5 * 60 * 1000
+        && d.actualizadoMs <= request.time.toMillis() + 60 * 1000
+        && d.actualizadoPor == 'MARIA';
+    }
+    match /nominas/{id} {
+      allow read: if esAdmin();
+      allow create: if esAdmin() && nominaValida(request.resource.data,id)
+        && request.resource.data.revision == 1
+        && request.resource.data.creadoMs == request.resource.data.actualizadoMs;
+      allow update: if esAdmin() && nominaValida(request.resource.data,id)
+        && request.resource.data.revision == resource.data.revision + 1
+        && request.resource.data.creadoEn == resource.data.creadoEn
+        && request.resource.data.creadoMs == resource.data.creadoMs
+        && request.resource.data.actualizadoMs >= resource.data.actualizadoMs
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['id','empresa_codigo','desde','hasta','anio','mes']);
+      allow delete: if false;
+    }
+
     match /empresas/{codigo} {
       allow read, write: if esAdmin();
     }

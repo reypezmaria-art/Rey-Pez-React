@@ -8,6 +8,7 @@ Lee `LEEME.md` para iniciar y `documentacion/reglas-pendientes.md` para los acue
 | --------------------------------------- | -------------------------------------------------------------------------- |
 | Navegación y vistas por tipo de equipo  | `codigo/aplicacion/Aplicacion.jsx`                                         |
 | Sesión y operaciones autorizadas        | `codigo/aplicacion/ProveedorAplicacion.jsx`                                |
+| Nómina, PDF y Excel                     | `codigo/paginas/Nomina.jsx`, `codigo/dominio/nomina.js`                    |
 | Personal y expediente                   | `codigo/paginas/Personal.jsx`, `codigo/componentes/FormularioEmpleado.jsx` |
 | Asistencia, rotación y ausencias        | `codigo/dominio/asistencia.js`, `codigo/dominio/operaciones.js`            |
 | Formularios de bitácoras y temperaturas | `codigo/paginas/Bitacoras.jsx`, `codigo/dominio/bitacoras.js`              |

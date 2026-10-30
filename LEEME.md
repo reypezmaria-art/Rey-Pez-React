@@ -23,6 +23,7 @@ Un clon público sin el archivo privado usa datos ficticios. No publiques emplea
 
 ## Revisar los cambios
 
+- Nómina: importar PDF con detección automática de empresa/período, corregir y exportar Excel acumulado mensual o anual por trabajador. Ver [Nómina](documentacion/nomina.md).
 - Personal: agregar, modificar, dar de baja, identificación, contacto, funciones e importación CSV opcional.
 - Seguridad: asigna la contraseña de cada trabajador antes de registrar; autoriza su empresa y bitácoras. Brenda se limita a Estuardo; selecciona explícitamente qué puede capturar.
 - Asistencia: un botón Registrar; cuatro movimientos, 10 minutos de tolerancia, comida desde salida real, rotación semanal de Edgar y excepción fija de Pedro. Las alertas se muestran solo en administración.

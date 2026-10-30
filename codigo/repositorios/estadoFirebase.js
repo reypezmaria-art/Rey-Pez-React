@@ -3,6 +3,7 @@ import { defaultSchedules } from "../datos/horariosIniciales.js";
 import { migrateState } from "./repositorioLocal.js";
 
 export const COLECCIONES = [
+  { estado: "payroll", coleccion: "nominas", id: "id" },
   { estado: "companies", coleccion: "empresas", id: "codigo" },
   { estado: "employees", coleccion: "empleados", id: "id_empleado" },
   { estado: "attendance", coleccion: "asistencia", id: "id_registro" },
@@ -165,6 +166,7 @@ export function armarEstado({
     ...structuredClone(baseOperation),
     employees: listas.employees || [],
     companies: listas.companies || [],
+    payroll: listas.payroll || [],
     attendance: porReciente(listas.attendance || [], RECIENTES.attendance),
     schedules: listas.schedules ?? structuredClone(defaultSchedules),
     alerts: porReciente(listas.alerts || [], RECIENTES.alerts),
@@ -240,6 +242,7 @@ export function fechaLocalGuatemala(ms) {
 export function tieneOperacionPropia(state) {
   return [
     "employees",
+    "payroll",
     "attendance",
     "logs",
     "maintenance",

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAplicacion } from "./ContextoAplicacion.js";
 import DetallePanel from "../paginas/DetallePanel.jsx";
 import PanelPrincipal from "../paginas/PanelPrincipal.jsx";
+import Nomina from "../paginas/Nomina.jsx";
 import Personal from "../paginas/Personal.jsx";
 import Asistencia from "../paginas/Asistencia.jsx";
 import Configuracion from "../paginas/Configuracion.jsx";
@@ -21,6 +22,7 @@ const pages = {
   dashboard: PanelPrincipal,
   dashboardDetail: DetallePanel,
   employees: Personal,
+  payroll: Nomina,
   attendance: Asistencia,
   logs: CarpetasBitacoras,
   reports: Reportes,
@@ -31,6 +33,7 @@ const pages = {
 const navigation = [
   ["dashboard", "▦", "Inicio"],
   ["employees", "♙", "Personal"],
+  ["payroll", "▤", "Nómina"],
   ["kiosk", "◉", "Asistencia 1 · Trabajador"],
   ["attendance", "◷", "Asistencia 2 · Administración"],
   ["logs", "☷", "Bitácoras de salud"],

@@ -50,6 +50,7 @@ function listasVacias() {
   return {
     employees: [],
     companies: [],
+    payroll: [],
     attendance: [],
     alerts: [],
     schedules: [],
@@ -307,6 +308,7 @@ export function createFirebaseRepository() {
         {
           employees: [],
           companies: [],
+          payroll: [],
           attendance: [],
           schedules: structuredClone(defaultSchedules),
           alerts: [],
@@ -323,6 +325,7 @@ export function createFirebaseRepository() {
         {
           employees: [],
           companies: [],
+          payroll: [],
           attendance: [],
           schedules: structuredClone(defaultSchedules),
           alerts: [],

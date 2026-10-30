@@ -34,7 +34,6 @@ export default defineConfig({
   build: {
     outDir: "compilado",
     assetsDir: "recursos",
-    rolldownOptions: { output: { codeSplitting: false } },
   },
   plugins: [react(), localEmployeeCatalog()],
   server: { port: 5173, strictPort: true },

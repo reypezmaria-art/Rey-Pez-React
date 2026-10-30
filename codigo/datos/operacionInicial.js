@@ -77,6 +77,7 @@ export const initialPrograms = [
 ];
 export const baseOperation = {
   companies: [],
+  payroll: [],
   companyDirectory: {},
   logs: [],
   maintenance: [],

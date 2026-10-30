@@ -1,0 +1,454 @@
+import { useState } from "react";
+import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
+import {
+  Campo,
+  EncabezadoPagina,
+  Mensaje,
+  OpcionesEmpresa,
+  Tabla,
+} from "../componentes/ElementosInterfaz.jsx";
+import { nombresEmpresas } from "../dominio/empresas.js";
+import {
+  centavos,
+  guardarNomina,
+  modificarReciboNomina,
+  recibosNomina,
+} from "../dominio/nomina.js";
+const pesos = (n) =>
+  (n / 100).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+const etiqueta = (p) => `${p.empresa_nombre} · ${p.desde} al ${p.hasta}`;
+export default function Nomina() {
+  const { data, commit, pending, clock } = useAplicacion();
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [mensaje, setMensaje] = useState("");
+  const [exportar, setExportar] = useState(""),
+    [empresa, setEmpresa] = useState(""),
+    [anio, setAnio] = useState(String(clock.getFullYear()));
+  const [editar, setEditar] = useState(false),
+    [modo, setModo] = useState("manual"),
+    [periodoId, setPeriodoId] = useState(""),
+    [trabajador, setTrabajador] = useState("");
+  const periodos = [...(data.payroll || [])].sort(
+    (a, b) =>
+      b.desde.localeCompare(a.desde) ||
+      a.empresa_nombre.localeCompare(b.empresa_nombre),
+  );
+  const periodo = periodos.find((p) => p.id === periodoId);
+  const recibos = periodo ? recibosNomina(periodo) : [];
+  const recibo = recibos.find((r) => r.clave === trabajador);
+  const ocupado = busy || pending;
+  async function subir(e, reemplazar = false) {
+    const input = e.currentTarget,
+      archivo = input.files?.[0];
+    if (!archivo) return;
+    setError("");
+    setMensaje("");
+    setBusy(true);
+    try {
+      const { leerPdfNomina } = await import("../utilidades/pdfNomina.js");
+      const aliases = Object.fromEntries(
+        Object.entries(nombresEmpresas(data)).map(([k, v]) => [k, [v]]),
+      );
+      const entrada = await leerPdfNomina(archivo, aliases);
+      let huboCambio = false;
+      await commit((state) => {
+        const next = guardarNomina(state, entrada, { reemplazar });
+        huboCambio = next !== state;
+        return next;
+      });
+      setMensaje(
+        huboCambio
+          ? `${reemplazar ? "Nómina corregida" : "Nómina guardada"}: ${etiqueta(entrada)} · ${recibosNomina(entrada).length} trabajadores.`
+          : "Este archivo ya estaba cargado. No se duplicó la nómina.",
+      );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+      input.value = "";
+    }
+  }
+  async function generar(e) {
+    e.preventDefault();
+    setError("");
+    setMensaje("");
+    setBusy(true);
+    try {
+      const { descargarExcelNomina } =
+        await import("../utilidades/excelNomina.js");
+      await descargarExcelNomina(data, empresa, Number(anio), exportar);
+      setMensaje(
+        `Excel ${exportar} generado: ${nombresEmpresas(data)[empresa]} · ${anio}.`,
+      );
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function guardarManual(cambios, motivo) {
+    setError("");
+    setMensaje("");
+    try {
+      await commit((state) =>
+        modificarReciboNomina(state, periodoId, trabajador, cambios, motivo),
+      );
+      setMensaje(
+        "Corrección de nómina guardada. Los demás períodos se conservan.",
+      );
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+  return (
+    <section className="payroll-page">
+      <EncabezadoPagina
+        title="Nómina"
+        subtitle="Carga, consulta y exportación por empresa"
+      />
+      <Mensaje error>{error}</Mensaje>
+      <Mensaje>{mensaje}</Mensaje>
+      <section className="panel" aria-label="Cargar nómina" aria-busy={ocupado}>
+        <h2>Subir archivo de nómina</h2>
+        <p>
+          La empresa, el período y los trabajadores se identifican
+          automáticamente.
+        </p>
+        <Campo
+          label="Seleccionar PDF de nómina"
+          type="file"
+          accept=".pdf,application/pdf"
+          disabled={ocupado}
+          onChange={(e) => subir(e)}
+        />
+        {busy && <p role="status">Procesando nómina…</p>}
+      </section>
+      <div className="payroll-actions">
+        <button
+          className="panel payroll-export"
+          disabled={ocupado}
+          onClick={() => setExportar("mensual")}
+        >
+          <strong>Generar mensual</strong>
+          <span>Todos los meses cargados · una hoja por mes</span>
+        </button>
+        <button
+          className="panel payroll-export"
+          disabled={ocupado}
+          onClick={() => setExportar("anual")}
+        >
+          <strong>Generar anual</strong>
+          <span>Una hoja por trabajador · todos sus períodos</span>
+        </button>
+      </div>
+      {exportar && (
+        <section
+          className="panel"
+          aria-label="Opciones de exportación de nómina"
+        >
+          <div className="payroll-heading">
+            <h2>Generar {exportar}</h2>
+            <button
+              onClick={() => setExportar("")}
+              aria-label="Cerrar exportación de nómina"
+            >
+              Cerrar
+            </button>
+          </div>
+          <form onSubmit={generar}>
+            <div className="formgrid">
+              <Campo
+                label="Empresa para exportar nómina"
+                as="select"
+                required
+                value={empresa}
+                onChange={(e) => setEmpresa(e.target.value)}
+              >
+                <option value="">Selecciona una empresa…</option>
+                <OpcionesEmpresa />
+              </Campo>
+              <Campo
+                label="Año de nómina"
+                type="number"
+                min="2000"
+                max="2100"
+                required
+                value={anio}
+                onChange={(e) => setAnio(e.target.value)}
+              />
+            </div>
+            <p>
+              {exportar === "mensual"
+                ? "Los meses cargados se ordenan consecutivamente, con todos los trabajadores de cada mes."
+                : "Cada trabajador tiene su hoja con todas sus nóminas cargadas del año."}
+            </p>
+            <button className="primary" disabled={ocupado}>
+              Descargar Excel {exportar}
+            </button>
+          </form>
+        </section>
+      )}
+      <div className="payroll-manage">
+        <button onClick={() => setEditar(!editar)} aria-expanded={editar}>
+          Modificar un mes
+        </button>
+      </div>
+      {editar && (
+        <section className="panel" aria-label="Modificar un mes">
+          <h2>Modificar un mes</h2>
+          <fieldset className="payroll-method">
+            <legend>¿Cómo quieres modificarlo?</legend>
+            <label>
+              <input
+                type="radio"
+                name="modo-nomina"
+                value="manual"
+                checked={modo === "manual"}
+                onChange={() => setModo("manual")}
+              />{" "}
+              Editar datos manualmente
+            </label>
+            <label>
+              <input
+                type="radio"
+                name="modo-nomina"
+                value="archivo"
+                checked={modo === "archivo"}
+                onChange={() => setModo("archivo")}
+              />{" "}
+              Volver a subir archivo
+            </label>
+          </fieldset>
+          {modo === "archivo" ? (
+            <div>
+              <p>
+                Sube el PDF corregido. Se detectarán automáticamente la empresa
+                y el período cargado para actualizarlos.
+              </p>
+              <Campo
+                label="Seleccionar PDF corregido"
+                type="file"
+                accept=".pdf,application/pdf"
+                disabled={ocupado}
+                onChange={(e) => subir(e, true)}
+              />
+            </div>
+          ) : (
+            <>
+              <div className="formgrid">
+                <Campo
+                  label="Nómina a modificar"
+                  as="select"
+                  value={periodoId}
+                  onChange={(e) => {
+                    setPeriodoId(e.target.value);
+                    setTrabajador("");
+                  }}
+                >
+                  <option value="">Selecciona una nómina cargada…</option>
+                  {periodos.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {etiqueta(p)}
+                    </option>
+                  ))}
+                </Campo>
+                <Campo
+                  label="Trabajador de la nómina"
+                  as="select"
+                  value={trabajador}
+                  disabled={!periodo}
+                  onChange={(e) => setTrabajador(e.target.value)}
+                >
+                  <option value="">Selecciona un trabajador…</option>
+                  {recibos.map((r) => (
+                    <option key={r.clave} value={r.clave}>
+                      {r.nombre}
+                    </option>
+                  ))}
+                </Campo>
+              </div>
+              {recibo && (
+                <EditarRecibo
+                  key={`${periodo.id}-${periodo.revision}-${recibo.clave}`}
+                  recibo={recibo}
+                  guardar={guardarManual}
+                  disabled={ocupado}
+                />
+              )}
+            </>
+          )}
+        </section>
+      )}
+      <details className="panel payroll-files">
+        <summary>Archivos cargados ({periodos.length})</summary>
+        {!periodos.length ? (
+          <p>Aún no hay nóminas cargadas.</p>
+        ) : (
+          periodos.map((p) => (
+            <details key={p.id} className="payroll-file">
+              <summary>{etiqueta(p)}</summary>
+              <p>
+                {p.archivo} · Revisión {p.revision} · {recibosNomina(p).length}{" "}
+                trabajadores
+              </p>
+              <DesgloseNomina periodo={p} />
+            </details>
+          ))
+        )}
+      </details>
+    </section>
+  );
+}
+function DesgloseNomina({ periodo }) {
+  const registros = recibosNomina(periodo);
+  return (
+    <>
+      <Tabla
+        headings={[
+          "Trabajador",
+          "Salario diario",
+          "Percepciones",
+          "Deducciones",
+          "Neto a pagar",
+        ]}
+        count={registros.length}
+      >
+        {registros.map((r) => (
+          <tr key={r.clave}>
+            <td>{r.nombre}</td>
+            <td>{pesos(r.salarioDiario)}</td>
+            <td>{pesos(r.totalPercepciones)}</td>
+            <td>{pesos(r.totalDeducciones)}</td>
+            <td>{pesos(r.neto)}</td>
+          </tr>
+        ))}
+      </Tabla>
+      {registros.map((r) => (
+        <details className="payroll-receipt" key={r.clave}>
+          <summary>Desglose · {r.nombre}</summary>
+          <Tabla
+            headings={["Tipo", "Código", "Concepto", "Importe", "Aplicación"]}
+            count={r.percepciones.length + r.deducciones.length}
+          >
+            {["percepciones", "deducciones"].flatMap((campo) =>
+              r[campo].map((c) => (
+                <tr key={`${campo}-${c.codigo}`}>
+                  <td>
+                    {campo === "percepciones" ? "Percepción" : "Deducción"}
+                  </td>
+                  <td>{c.codigo}</td>
+                  <td>{c.concepto}</td>
+                  <td>{pesos(c.importe)}</td>
+                  <td>
+                    {c.informativo
+                      ? "Informativo; no suma al descuento"
+                      : "Aplicado"}
+                  </td>
+                </tr>
+              )),
+            )}
+          </Tabla>
+        </details>
+      ))}
+    </>
+  );
+}
+function EditarRecibo({ recibo, guardar, disabled }) {
+  const [form, setForm] = useState(() => ({
+    ...structuredClone(recibo),
+    salarioDiario: (recibo.salarioDiario / 100).toFixed(2),
+    percepciones: recibo.percepciones.map((c) => ({
+      ...c,
+      importe: (c.importe / 100).toFixed(2),
+    })),
+    deducciones: recibo.deducciones.map((c) => ({
+      ...c,
+      importe: (c.importe / 100).toFixed(2),
+    })),
+  }));
+  const [motivo, setMotivo] = useState(""),
+    [error, setError] = useState("");
+  const campo = (clave) => ({
+    value: form[clave],
+    onChange: (e) => setForm({ ...form, [clave]: e.target.value }),
+  });
+  async function enviar(e) {
+    e.preventDefault();
+    setError("");
+    try {
+      const cambios = {
+        ...form,
+        salarioDiario: centavos(form.salarioDiario),
+        diasPagados: Number(form.diasPagados),
+      };
+      for (const lista of ["percepciones", "deducciones"])
+        cambios[lista] = form[lista].map((c) => ({
+          ...c,
+          importe: centavos(c.importe),
+        }));
+      await guardar(cambios, motivo);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+  return (
+    <form onSubmit={enviar}>
+      <Mensaje error>{error}</Mensaje>
+      <div className="formgrid">
+        <Campo
+          label="Salario diario"
+          type="number"
+          step="0.01"
+          min="0"
+          required
+          {...campo("salarioDiario")}
+        />
+        <Campo
+          label="Días pagados"
+          type="number"
+          step="0.01"
+          min="0"
+          max="31"
+          required
+          {...campo("diasPagados")}
+        />
+        {["percepciones", "deducciones"].flatMap((lista) =>
+          form[lista].map((c, i) => (
+            <Campo
+              key={`${lista}-${c.codigo}`}
+              label={`${lista === "percepciones" ? "Percepción" : "Deducción"} ${c.codigo}: ${c.concepto}${c.informativo ? " (informativo)" : ""}`}
+              type="number"
+              step="0.01"
+              required
+              value={c.importe}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  [lista]: form[lista].map((actual, j) =>
+                    j === i ? { ...actual, importe: e.target.value } : actual,
+                  ),
+                })
+              }
+            />
+          )),
+        )}
+        <Campo
+          label="Motivo de la corrección de nómina"
+          required
+          minLength={3}
+          maxLength={500}
+          value={motivo}
+          onChange={(e) => setMotivo(e.target.value)}
+        />
+      </div>
+      <p>
+        Se conservan el recibo anterior y los demás períodos. Los totales se
+        calculan con los conceptos aplicados.
+      </p>
+      <button className="primary" disabled={disabled}>
+        Guardar corrección de nómina
+      </button>
+    </form>
+  );
+}

@@ -1128,3 +1128,85 @@ header .header-access button:hover {
 .security-history[open] > summary {
   margin-bottom: 16px;
 }
+
+.payroll-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin: 18px 0;
+}
+.payroll-export {
+  text-align: left;
+  color: var(--navy);
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+}
+.payroll-export strong {
+  font-size: 18px;
+}
+.payroll-export span {
+  font-size: 13px;
+}
+.payroll-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.payroll-manage {
+  display: flex;
+  justify-content: flex-end;
+  margin: 16px 0;
+}
+.payroll-method {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 12px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+.payroll-method label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.payroll-method input {
+  width: auto;
+}
+.payroll-page summary {
+  cursor: pointer;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.payroll-files > summary {
+  font-size: 18px;
+}
+.payroll-file {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+.payroll-file > summary {
+  font-weight: 600;
+}
+.payroll-file p {
+  overflow-wrap: anywhere;
+}
+.payroll-receipt {
+  padding: 12px 0;
+}
+.payroll-page input[type="file"] {
+  width: 100%;
+  max-width: 100%;
+}
+@media (max-width: 650px) {
+  .payroll-actions {
+    grid-template-columns: 1fr;
+  }
+  .payroll-export {
+    width: 100%;
+  }
+}
