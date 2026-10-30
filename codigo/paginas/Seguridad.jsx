@@ -42,6 +42,8 @@ export default function Seguridad({ detalleInicial }) {
     [allowed, setAllowed] = useState([]),
     [nomina, setNomina] = useState(false);
   const [permissionId, setPermissionId] = useState("");
+  const [consultaNomina, setConsultaNomina] = useState(false);
+  const [secciones, setSecciones] = useState([]);
   const activeEmployees = data.employees.filter(
     (e) =>
       e.empresa_codigo === company &&
@@ -87,7 +89,9 @@ export default function Seguridad({ detalleInicial }) {
   }
   function selectPermission(id) {
     setPermissionId(id);
+    setSecciones(data.access.permissions[id]?.secciones || []);
     const p = data.access.permissions[id];
+    setConsultaNomina(p?.consultaNominaTodas === true);
     setAllowed(p?.company === company ? p.logs || [] : []);
     setNomina(Boolean(p?.company === company && p?.nomina));
     setMessage("");
@@ -157,13 +161,29 @@ export default function Seguridad({ detalleInicial }) {
       if (!employee) throw Error("Selecciona un usuario activo.");
       if (company !== employee.empresa_codigo)
         throw Error("Autoriza únicamente la empresa del empleado.");
+      if (
+        secciones.includes("maintenance") &&
+        data.rooms.filter((r) => r.company === company).length > 10
+      )
+        throw Error(
+          "Hay más de diez cuartos en esta empresa. Revisa el alcance de consulta antes de guardar.",
+        );
       await commit((state) => ({
         ...state,
         access: {
           ...state.access,
           permissions: {
             ...state.access.permissions,
-            [permissionId]: permisoGuardado(company, allowed, nomina),
+            [permissionId]: {
+              ...state.access.permissions[permissionId],
+              ...permisoGuardado(company, allowed, nomina),
+              nomina,
+              consultaNominaTodas: consultaNomina,
+              secciones,
+              cuartosConsulta: state.rooms
+                .filter((r) => r.company === company)
+                .map((r) => r.id),
+            },
           },
         },
       }));
@@ -338,6 +358,8 @@ export default function Seguridad({ detalleInicial }) {
               setPermissionId("");
               setAllowed([]);
               setNomina(false);
+              setConsultaNomina(false);
+              setSecciones([]);
               setMessage("");
               setError("");
             }}
@@ -383,19 +405,76 @@ export default function Seguridad({ detalleInicial }) {
               ))}
             </fieldset>
           </details>
-          <label className="check-field">
-            <input
-              type="checkbox"
-              checked={nomina}
+          <details className="authorization-picker">
+            <summary>
+              Secciones ·{" "}
+              {secciones.length + (nomina || consultaNomina ? 1 : 0)}{" "}
+              seleccionadas
+            </summary>
+            <fieldset
               disabled={!permissionId}
-              onChange={(e) => setNomina(e.target.checked)}
-            />
-            Nómina de las tres empresas
-          </label>
-          <p className="small">
-            Con este permiso puede ver, cargar y corregir la nómina de Allan,
-            Edgar y Estuardo. No abre las demás secciones de administración.
-          </p>
+              aria-label="Secciones autorizadas"
+            >
+              <label>
+                <input
+                  type="checkbox"
+                  checked={secciones.includes("employees")}
+                  onChange={(e) =>
+                    setSecciones(
+                      e.target.checked
+                        ? [...secciones, "employees"]
+                        : secciones.filter((v) => v !== "employees"),
+                    )
+                  }
+                />
+                Personal
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={nomina || consultaNomina}
+                  onChange={(e) => {
+                    setNomina(e.target.checked);
+                    setConsultaNomina(e.target.checked);
+                  }}
+                />
+                Nómina de las tres empresas
+              </label>
+              {(nomina || consultaNomina) && (
+                <Campo
+                  label="Acceso a Nómina"
+                  as="select"
+                  value={nomina ? "edicion" : "consulta"}
+                  onChange={(e) => {
+                    setConsultaNomina(true);
+                    setNomina(e.target.value === "edicion");
+                  }}
+                >
+                  <option value="consulta">Consulta y exportación</option>
+                  <option value="edicion">Captura y edición</option>
+                </Campo>
+              )}
+              {[
+                ["maintenance", "Mantenimiento y compras"],
+                ["reports", "Reportes y CSV"],
+              ].map(([key, label]) => (
+                <label key={key}>
+                  <input
+                    type="checkbox"
+                    checked={secciones.includes(key)}
+                    onChange={(e) =>
+                      setSecciones(
+                        e.target.checked
+                          ? [...secciones, key]
+                          : secciones.filter((v) => v !== key),
+                      )
+                    }
+                  />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+          </details>
           <button
             className="primary"
             disabled={

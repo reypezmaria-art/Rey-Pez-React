@@ -1,4 +1,4 @@
-/* global document, window, indexedDB */
+/* global document, window, indexedDB, location */
 import { createUniver, LocaleType, mergeLocales } from "@univerjs/presets";
 import { UniverSheetsCorePreset } from "@univerjs/preset-sheets-core";
 import { UniverSheetsSortPreset } from "@univerjs/preset-sheets-sort";
@@ -10,8 +10,66 @@ import es from "@univerjs/preset-sheets-core/locales/es-ES";
 import "@univerjs/preset-sheets-core/lib/index.css";
 import "./estilos.css";
 import { importar, exportarCopia } from "./conversion.js";
+import { exportarCompleto } from "./exportacionCompleta.js";
 import { crearCinta } from "./cinta.js";
 
+const parametros = new URLSearchParams(location.search);
+const integrado =
+  parametros.get("integrado") === "1" && window.parent !== window;
+const canal = parametros.get("canal");
+let soloConsulta = false,
+  baseGuardada = "",
+  nube = false;
+let secuencia = 0;
+const solicitudes = new Map();
+function solicitar(accion, datos) {
+  return new Promise((resolve, reject) => {
+    const id = ++secuencia;
+    const timeout = setTimeout(() => {
+      solicitudes.delete(id);
+      reject(
+        Error(
+          "No se recibió confirmación. Tus cambios siguen abiertos; comprueba la conexión antes de cerrar.",
+        ),
+      );
+    }, 60000);
+    solicitudes.set(id, { resolve, reject, timeout });
+    window.parent.postMessage({ canal, id, accion, datos }, location.origin);
+  });
+}
+window.addEventListener("message", (e) => {
+  if (
+    !integrado ||
+    e.origin !== location.origin ||
+    e.source !== window.parent ||
+    e.data?.canal !== canal
+  )
+    return;
+  const pendiente = solicitudes.get(e.data.id);
+  if (!pendiente) return;
+  clearTimeout(pendiente.timeout);
+  solicitudes.delete(e.data.id);
+  if (e.data.error) pendiente.reject(Error(e.data.error));
+  else pendiente.resolve(e.data.resultado);
+});
+async function abrirIntegrado(revision) {
+  const datos = await solicitar("abrir", { revision });
+  soloConsulta = !!datos.soloConsulta;
+  nube = !!datos.nube;
+  prueba = await importar(datos.bytes, datos.nombre);
+  montar(datos.snapshot || prueba.snapshot);
+  if (soloConsulta) editor.univerAPI.getActiveWorkbook().setEditable(false);
+  baseGuardada = JSON.stringify(snapshot());
+  window.parent.postMessage(
+    { canal, accion: "cambios", datos: false },
+    location.origin,
+  );
+  aviso(
+    soloConsulta
+      ? "Consulta de nómina · puedes descargar el Excel."
+      : "Libro abierto. Guarda para conservar los cambios.",
+  );
+}
 let editor,
   prueba,
   ocupado = false;
@@ -42,6 +100,26 @@ function montar(snapshot) {
     cinta.sincronizar(),
   );
   editor.univerAPI.createWorkbook(snapshot);
+  if (integrado) {
+    let pendiente = false;
+    editor.univerAPI.getActiveWorkbook().onCommandExecuted(() => {
+      if (pendiente || soloConsulta) return;
+      pendiente = true;
+      queueMicrotask(() => {
+        pendiente = false;
+        window.parent.postMessage(
+          {
+            canal,
+            accion: "cambios",
+            datos:
+              JSON.stringify(editor.univerAPI.getActiveWorkbook().save()) !==
+              baseGuardada,
+          },
+          location.origin,
+        );
+      });
+    });
+  }
   $("nombre-libro").textContent = snapshot.name || "Libro de nómina";
   $("nombre-libro").title = snapshot.name || "Libro de nómina";
   cinta.sincronizar();
@@ -86,6 +164,22 @@ function baseDatos() {
   });
 }
 async function guardar() {
+  if (integrado) {
+    if (soloConsulta) throw Error("Tu acceso es de consulta y exportación.");
+    await editor.univerAPI.getActiveWorkbook().endEditingAsync(true);
+    const actual = snapshot();
+    if (!prueba) throw Error("No hay un libro abierto.");
+    const guardado = await solicitar("guardar", {
+      snapshot: actual,
+      bytes: prueba.bytes,
+      nombre: prueba.nombre,
+    });
+    baseGuardada = JSON.stringify(actual);
+    aviso(
+      `Versión ${guardado.revision} guardada ${nube ? "en Firebase" : "en este navegador (modo local)"}.`,
+    );
+    return;
+  }
   const db = await baseDatos();
   try {
     await new Promise((resolve, reject) => {
@@ -113,6 +207,7 @@ async function guardar() {
   }
 }
 async function recuperar(id) {
+  if (integrado) return abrirIntegrado(typeof id === "number" ? id : undefined);
   const db = await baseDatos();
   let record;
   try {
@@ -132,6 +227,7 @@ async function recuperar(id) {
   aviso("Se reabrieron los cambios guardados en este navegador.");
 }
 async function listarVersiones() {
+  if (integrado) return solicitar("versiones");
   const db = await baseDatos();
   try {
     return await new Promise((resolve, reject) => {
@@ -156,7 +252,7 @@ function descargar(bytes, name) {
   );
   const a = document.createElement("a");
   a.href = url;
-  a.download = `PRUEBA_${name}`;
+  a.download = integrado ? name : `PRUEBA_${name}`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
 }
@@ -219,7 +315,12 @@ $("descargar").onclick = () =>
   ejecutar(async () => {
     cerrarArchivo();
     if (!prueba) throw Error("Abre una copia de tu Excel antes de descargar.");
-    descargar(await exportarCopia(prueba, snapshot()), prueba.nombre);
+    descargar(
+      await (integrado
+        ? exportarCompleto(snapshot())
+        : exportarCopia(prueba, snapshot())),
+      prueba.nombre,
+    );
     aviso(
       "Copia descargada. Excel recalculará las fórmulas internas al abrirla; los vínculos externos siguen necesitando su archivo.",
     );
@@ -302,7 +403,29 @@ for (const [id, name] of [
     columnHeader: { height: 24 },
   };
 }
-montar(demo);
+if (integrado) {
+  document.querySelector(".etiqueta-prueba").textContent = "Nómina";
+  document.querySelector("aside").textContent =
+    "Editor de nómina · Cada formato conserva su propio libro y sus propias versiones. Guarda los cambios antes de cerrar.";
+  document.querySelector("#advertencias p").textContent =
+    "Se guardan celdas, fórmulas, formatos y hojas. Excel recalcula fórmulas internas al abrir. Los vínculos externos muestran el último valor del archivo y se exportan como valores con una nota; no se calculan pagos fiscales. Los filtros de la vista se conservan en el editor; la descarga incluye todas las filas. Macros, tablas dinámicas y gráficos originales no se editan ni se exportan.";
+  $("guardar-menu").querySelector("small").textContent =
+    "Conservar una versión del libro";
+  $("recuperar").querySelector("small").textContent =
+    "Abrir la última versión guardada";
+  $("descargar").firstChild.textContent = "Descargar Excel ";
+  $("estado").textContent = "Abriendo nómina…";
+  $("abrir").hidden = true;
+  ejecutar(() => abrirIntegrado());
+  setInterval(() => {
+    if (!editor || soloConsulta) return;
+    const datos = JSON.stringify(snapshot()) !== baseGuardada;
+    window.parent.postMessage(
+      { canal, accion: "cambios", datos },
+      location.origin,
+    );
+  }, 1200);
+} else montar(demo);
 // API exclusiva de esta prueba local, para comprobar importación y persistencia sin servicios externos.
 window.pruebaEditor = {
   api: () => editor.univerAPI,
@@ -311,5 +434,8 @@ window.pruebaEditor = {
   baseline: () => prueba?.baseline,
   guardar,
   recuperar,
-  exportar: () => exportarCopia(prueba, snapshot()),
+  exportar: () =>
+    integrado
+      ? exportarCompleto(snapshot())
+      : exportarCopia(prueba, snapshot()),
 };

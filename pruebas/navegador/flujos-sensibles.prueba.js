@@ -266,7 +266,7 @@ test("la trabajadora de demostración de Estuardo solo ve su empresa y bitácora
   await page
     .getByLabel("Usuario activo", { exact: true })
     .selectOption(TRABAJADORA_ESTUARDO);
-  await page.locator(".authorization-picker summary").click();
+  await page.locator(".authorization-picker summary").first().click();
   await page.getByLabel("Temperaturas", { exact: true }).check();
   await page.getByLabel("Cloro", { exact: true }).check();
   await page.getByLabel("Cloro", { exact: true }).uncheck();

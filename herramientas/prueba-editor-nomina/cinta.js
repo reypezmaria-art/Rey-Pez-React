@@ -324,7 +324,7 @@ export function crearCinta({
   }
   async function historial() {
     const versiones = await listarVersiones(),
-      body = abrir("Historial de versiones locales");
+      body = abrir("Historial de versiones guardadas");
     body.append(
       nodo(
         "p",
@@ -841,7 +841,7 @@ export function crearCinta({
           "Inicio: cambia fuentes, alineación, números y estilos sobre la selección. Insertar agrega filas, columnas y hojas.",
           "Fórmulas: elige una función, indica el rango de origen y aplica en la celda seleccionada.",
           "Datos: selecciona todas las columnas relacionadas antes de ordenar. El filtro usa la primera fila como encabezado.",
-          "La descarga de este prototipo conserva cambios de valores y fórmulas. Los cambios de estructura o formato se guardan localmente, pero su exportación completa sigue pendiente.",
+          "Consulta Archivo → Compatibilidad para conocer las opciones de descarga y guardado de esta vista.",
           "No incluye macros, tablas dinámicas, gráficos avanzados ni conexiones con otros archivos. Todavía no guarda en Firebase.",
         ]),
       { grande: true },

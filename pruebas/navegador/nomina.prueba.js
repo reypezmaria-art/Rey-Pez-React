@@ -87,7 +87,9 @@ test("sube, acumula, corrige automáticamente un PDF y exporta XLSX mensual y an
     const libro = new ExcelJS.Workbook();
     await libro.xlsx.load(await readFile(await file.path()));
     expect(libro.worksheets.map((h) => h.name)).toEqual(
-      tipo === "mensual" ? ["enero", "febrero"] : ["PERSONA DEMO UNO"],
+      tipo === "mensual"
+        ? ["Acumulado 2026", "enero", "febrero"]
+        : ["Acumulado 2026", "PERSONA DEMO UNO"],
     );
   }
   await page.reload();

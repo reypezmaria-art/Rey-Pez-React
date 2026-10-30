@@ -24,6 +24,14 @@ service cloud.firestore {
         && (!exists(/databases/$(database)/documents/controlAccesos/$(ficha().idEmpleado))
           || get(/databases/$(database)/documents/controlAccesos/$(ficha().idEmpleado)).data.bloqueado != true);
     }
+    function consultaNomina() {
+      return puedeNomina() || (esTrabajador() && permiso().get('consultaNominaTodas', false) == true);
+    }
+    function consultaSeccion(nombre) {
+      return esTrabajador() && permiso().get('secciones',[]) is list
+        && nombre in permiso().get('secciones',[])
+        && empresaDelEmpleado() == permiso().company;
+    }
     function esTerminal() {
       return firmado()
         && ficha().rol == "terminal"
@@ -203,7 +211,7 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/nominas/$(d.periodo)).data.actualizadoPor == d.by;
     }
     match /nominas/{id} {
-      allow read: if puedeNomina();
+      allow read: if consultaNomina();
       allow create: if puedeNomina() && nominaValida(request.resource.data,id)
         && request.resource.data.revision == 1
         && request.resource.data.creadoMs == request.resource.data.actualizadoMs;
@@ -216,11 +224,55 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Libros privados: cabecera y metadatos pequeños; cada contenido comprimido
+    // es una versión inmutable. Las tres escrituras deben ser atómicas.
+    function libroNominaValido(d,id,contenido) {
+      return d.keys().hasAll(['id','empresa','anio','tipo','revision','fecha','autor'])
+        && (contenido
+          ? d.keys().hasOnly(['id','empresa','anio','tipo','revision','fecha','autor','carga'])
+          : d.keys().hasOnly(['id','empresa','anio','tipo','revision','fecha','autor']))
+        && d.id == id && d.empresa in ['ALLAN','EDGAR','ESTUARDO']
+        && d.anio is int && d.anio >= 2000 && d.anio <= 2100
+        && d.tipo in ['mensual','anual']
+        && id == d.empresa + '_' + string(d.anio) + '_' + d.tipo
+        && d.revision is int && d.revision > 0
+        && d.fecha is timestamp && d.fecha == request.time
+        && d.autor == request.auth.uid
+        && (!contenido || (d.carga is string && d.carga.size() > 0 && d.carga.size() <= 750000));
+    }
+    function versionLibroCompleta(d,id) {
+      let rev = string(d.revision);
+      return existsAfter(/databases/$(database)/documents/librosNomina/$(id)/versiones/$(rev))
+        && existsAfter(/databases/$(database)/documents/librosNomina/$(id)/contenidos/$(rev))
+        && getAfter(/databases/$(database)/documents/librosNomina/$(id)/versiones/$(rev)).data.revision == d.revision
+        && getAfter(/databases/$(database)/documents/librosNomina/$(id)/contenidos/$(rev)).data.revision == d.revision;
+    }
+    match /librosNomina/{id} {
+      allow read: if consultaNomina();
+      allow create: if puedeNomina() && libroNominaValido(request.resource.data,id,false)
+        && request.resource.data.revision == 1 && versionLibroCompleta(request.resource.data,id);
+      allow update: if puedeNomina() && libroNominaValido(request.resource.data,id,false)
+        && request.resource.data.revision == resource.data.revision + 1
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['id','empresa','anio','tipo'])
+        && versionLibroCompleta(request.resource.data,id);
+      allow delete: if false;
+      match /{lista}/{revision} {
+        allow read: if consultaNomina() && lista in ['versiones','contenidos'];
+        allow create: if puedeNomina() && lista in ['versiones','contenidos']
+          && libroNominaValido(request.resource.data,id,lista == 'contenidos')
+          && revision == string(request.resource.data.revision)
+          && getAfter(/databases/$(database)/documents/librosNomina/$(id)).data.revision == request.resource.data.revision
+          && versionLibroCompleta(request.resource.data,id);
+        allow update, delete: if false;
+      }
+    }
+
     match /empresas/{codigo} {
       allow read, write: if esAdmin();
     }
     match /mantenimiento/{id} {
-      allow read, write: if esAdmin();
+      allow read: if esAdmin() || (consultaSeccion("maintenance") && permiso().get("cuartosConsulta",[]) is list && permiso().get("cuartosConsulta",[]).size() <= 10 && resource.data.room in permiso().get("cuartosConsulta",[]));
+      allow write: if esAdmin();
     }
     match /revisiones/{id} {
       allow read, write: if esAdmin();
@@ -236,6 +288,7 @@ service cloud.firestore {
     }
     match /asistencia/{id} {
       allow read: if esAdmin() || esTerminal()
+        || (consultaSeccion("reports") && resource.data.empresa_codigo == permiso().company)
         || (esTrabajador() && resource.data.id_empleado == ficha().idEmpleado);
       allow create: if esAdmin()
         || (request.resource.data.id_registro == id
@@ -261,7 +314,7 @@ service cloud.firestore {
       allow delete: if esAdmin();
     }
     match /alertas/{id} {
-      allow read: if esAdmin() || esTerminal();
+      allow read: if esAdmin() || esTerminal() || (consultaSeccion("reports") && resource.data.empresa_codigo == permiso().company);
       allow create: if esAdmin()
         || ((esTerminal()
             || (esTrabajador() && request.resource.data.id_empleado == ficha().idEmpleado))

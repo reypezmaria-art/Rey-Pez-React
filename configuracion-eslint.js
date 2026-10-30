@@ -6,7 +6,9 @@ export default [
   {
     ignores: [
       "compilado/**",
+      "publico/editor-nomina/**",
       "dist/**",
+      "herramientas/prueba-editor-nomina/dist/**",
       "test-results/**",
       "playwright-report/**",
       "node_modules/**",

@@ -20,6 +20,8 @@ Los archivos se leen y guardan uno a uno. El resultado informa Guardado, Ya carg
 
 ## Excel
 
+El editor integrado y la importación de acumulados Excel se describen en [Editor de nómina](editor-nomina.md). Ambos formatos incluyen la hoja Acumulado antes del detalle.
+
 Solo dos exportaciones, ambas piden empresa y año:
 
 1. Generar mensual: un archivo acumulado, una hoja por mes cargado, de enero a diciembre en orden. Dentro de cada mes se separan los trabajadores y sus períodos. No crea meses sin carga.

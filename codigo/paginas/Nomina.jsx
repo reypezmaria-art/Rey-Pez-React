@@ -1,4 +1,13 @@
-import { useState } from "react";
+import EditorNomina from "../componentes/EditorNomina.jsx";
+import {
+  repositorioLibrosNomina,
+  listarLibrosNomina,
+} from "../repositorios/librosNomina.js";
+import {
+  empaquetarLibro,
+  desempaquetarLibro,
+} from "../utilidades/paqueteLibroNomina.js";
+import { useState, useEffect } from "react";
 import { procesarCarpetaNomina } from "../utilidades/carpetaNomina.js";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import {
@@ -18,9 +27,14 @@ import {
 const pesos = (n) =>
   (n / 100).toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 const etiqueta = (p) => `${p.empresa_nombre} · ${p.desde} al ${p.hasta}`;
-export default function Nomina() {
-  const { data, persistirNomina, pending, clock, session } = useAplicacion();
+export default function Nomina({ soloConsulta = false }) {
+  const { data, persistirNomina, pending, clock, aviso, session } =
+    useAplicacion();
   const responsable = session?.role === "worker" ? session.id : "MARIA";
+  const [editor, setEditor] = useState(null);
+  const [libros, setLibros] = useState([]);
+  const [versionLibros, setVersionLibros] = useState(0);
+  const [importacion, setImportacion] = useState(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [mensaje, setMensaje] = useState("");
@@ -33,6 +47,19 @@ export default function Nomina() {
     [modo, setModo] = useState("manual"),
     [periodoId, setPeriodoId] = useState(""),
     [trabajador, setTrabajador] = useState("");
+  useEffect(() => {
+    let activo = true;
+    listarLibrosNomina()
+      .then((lista) => {
+        if (activo) setLibros(lista);
+      })
+      .catch((err) => {
+        if (activo) setError(err.message);
+      });
+    return () => {
+      activo = false;
+    };
+  }, [versionLibros]);
   const periodos = [...(data.payroll || [])].sort(
     (a, b) =>
       b.desde.localeCompare(a.desde) ||
@@ -113,20 +140,167 @@ export default function Nomina() {
       input.value = "";
     }
   }
+  async function abrirEditor() {
+    if (!empresa || !anio) {
+      setError("Selecciona la empresa y el año.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const ambito = { empresa, anio: Number(anio), tipo: exportar };
+      const guardado = await repositorioLibrosNomina(ambito).abrir();
+      let inicial;
+      if (!guardado && !soloConsulta) {
+        const { crearLibroNomina } =
+          await import("../utilidades/excelNomina.js");
+        inicial = {
+          bytes: new Uint8Array(
+            await crearLibroNomina(
+              data,
+              empresa,
+              Number(anio),
+              exportar,
+            ).xlsx.writeBuffer(),
+          ),
+          nombre: `Nomina_${empresa}_${anio}_${exportar}.xlsx`,
+        };
+      }
+      if (!guardado && soloConsulta)
+        throw Error(
+          "María debe guardar primero el libro de esta empresa y año.",
+        );
+      setEditor({ ambito, inicial });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function generar(e) {
     e.preventDefault();
     setError("");
     setMensaje("");
     setBusy(true);
     try {
-      const { descargarExcelNomina } =
-        await import("../utilidades/excelNomina.js");
-      await descargarExcelNomina(data, empresa, Number(anio), exportar);
+      const repo = repositorioLibrosNomina({
+        empresa,
+        anio: Number(anio),
+        tipo: exportar,
+      });
+      const guardado = await repo.abrir();
+      if (guardado) {
+        const { snapshot, nombre } = await desempaquetarLibro(guardado.carga);
+        const { exportarCompleto } =
+          await import("../../herramientas/prueba-editor-nomina/exportacionCompleta.js");
+        const bytes = await exportarCompleto(snapshot);
+        const url = URL.createObjectURL(
+          new Blob([bytes], {
+            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          }),
+        );
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = nombre;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      } else {
+        const { descargarExcelNomina } =
+          await import("../utilidades/excelNomina.js");
+        await descargarExcelNomina(data, empresa, Number(anio), exportar);
+      }
       setMensaje(
         `Excel ${exportar} generado: ${nombresEmpresas(data)[empresa]} · ${anio}.`,
       );
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function subirExcel(e) {
+    const input = e.currentTarget,
+      archivo = input.files?.[0];
+    if (!archivo) return;
+    setBusy(true);
+    setError("");
+    setMensaje("");
+    try {
+      const { extraerAcumuladoNomina } =
+        await import("../utilidades/importarAcumuladoNomina.js");
+      const bytes = new Uint8Array(await archivo.arrayBuffer());
+      const fuente = await extraerAcumuladoNomina(bytes, nombresEmpresas(data));
+      setImportacion({ fuente, bytes });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      input.value = "";
+      setBusy(false);
+    }
+  }
+  async function confirmarImportacion() {
+    setBusy(true);
+    setError("");
+    setMensaje("");
+    const completados = [];
+    try {
+      const { crearExcelAcumulado } =
+        await import("../utilidades/importarAcumuladoNomina.js");
+      const { importar } =
+        await import("../../herramientas/prueba-editor-nomina/conversion.js");
+      const { fuente, bytes } = importacion;
+      const previo = await repositorioLibrosNomina({
+        empresa: fuente.empresa,
+        anio: fuente.anio,
+        tipo: "mensual",
+      }).abrir();
+      let combinada = fuente;
+      if (previo) {
+        if (
+          !window.confirm(
+            "Ya hay un libro guardado. Se generará una nueva versión desde el archivo, conservando los periodos importados anteriormente. Los ajustes manuales del editor quedarán en el historial anterior. ¿Continuar?",
+          )
+        )
+          return;
+        const anterior = (await desempaquetarLibro(previo.carga)).fuente;
+        if (anterior) {
+          const key = (r) =>
+            `${r.rfc || r.nss || r.nombre}|${r.mes}|${r.periodo.match(/\d+\s*-\s*\d+/)?.[0].replace(/\s/g, "") || r.periodo}`;
+          const registros = new Map(anterior.registros.map((r) => [key(r), r]));
+          fuente.registros.forEach((r) => registros.set(key(r), r));
+          combinada = { ...fuente, registros: [...registros.values()] };
+        }
+      }
+      for (const tipo of ["mensual", "anual"]) {
+        const ambito = { empresa: fuente.empresa, anio: fuente.anio, tipo };
+        const repo = repositorioLibrosNomina(ambito),
+          actual = await repo.abrir();
+        const nombre = `Nomina_${fuente.empresa}_${fuente.anio}_${tipo}.xlsx`;
+        const organizado = await importar(
+          await crearExcelAcumulado(combinada, tipo),
+          nombre,
+        );
+        const carga = await empaquetarLibro({
+          snapshot: organizado.snapshot,
+          nombre,
+          bytes,
+          fuente: combinada,
+        });
+        await repo.guardar(carga, actual?.actual || 0);
+        completados.push(tipo);
+      }
+      setEmpresa(fuente.empresa);
+      setAnio(String(fuente.anio));
+      setExportar("mensual");
+      setImportacion(null);
+      setVersionLibros((v) => v + 1);
+      setMensaje(
+        "Nómina importada y guardada en los libros mensual y anual. Ya puedes abrirlos y exportarlos.",
+      );
+    } catch (err) {
+      setError(
+        `${completados.length ? `Se guardó: ${completados.join(", ")}. ` : ""}${err.message}`,
+      );
     } finally {
       setBusy(false);
     }
@@ -159,43 +333,57 @@ export default function Nomina() {
         title="Nómina"
         subtitle="Carga, consulta y exportación por empresa"
       />
+      <Mensaje>{aviso}</Mensaje>
       <Mensaje error>{error}</Mensaje>
       <Mensaje>{mensaje}</Mensaje>
-      <section className="panel" aria-label="Cargar nómina" aria-busy={ocupado}>
-        <h2>Subir archivo de nómina</h2>
-        <p>
-          La empresa, el período y los trabajadores se identifican
-          automáticamente.
-        </p>
-        <Campo
-          label="Seleccionar PDF de nómina"
-          type="file"
-          accept=".pdf,application/pdf"
-          disabled={ocupado}
-          onChange={(e) => subir(e)}
-        />
-        <Campo
-          label="Seleccionar carpeta de nóminas"
-          type="file"
-          multiple
-          webkitdirectory=""
-          directory=""
-          disabled={ocupado}
-          onChange={subirCarpeta}
-        />
-        <p className="small">
-          Se revisan los PDF de la carpeta y sus subcarpetas, hasta 100 por
-          carga. Los períodos ya cargados no se duplican; las correcciones se
-          hacen en Modificar un mes.
-        </p>
-        {busy && (
-          <p role="status">
-            {progresoCarpeta
-              ? `Procesando ${progresoCarpeta.actual} de ${progresoCarpeta.total}: ${progresoCarpeta.archivo}`
-              : "Procesando nómina…"}
+      {!soloConsulta && (
+        <section
+          className="panel"
+          aria-label="Cargar nómina"
+          aria-busy={ocupado}
+        >
+          <h2>Subir archivo de nómina</h2>
+          <p>
+            La empresa, el período y los trabajadores se identifican
+            automáticamente.
           </p>
-        )}
-      </section>
+          <Campo
+            label="Seleccionar Excel acumulado de nómina"
+            type="file"
+            accept=".xlsx"
+            disabled={ocupado}
+            onChange={subirExcel}
+          />
+          <Campo
+            label="Seleccionar PDF de nómina"
+            type="file"
+            accept=".pdf,application/pdf"
+            disabled={ocupado}
+            onChange={(e) => subir(e)}
+          />
+          <Campo
+            label="Seleccionar carpeta de nóminas"
+            type="file"
+            multiple
+            webkitdirectory=""
+            directory=""
+            disabled={ocupado}
+            onChange={subirCarpeta}
+          />
+          <p className="small">
+            Se revisan los PDF de la carpeta y sus subcarpetas, hasta 100 por
+            carga. Los períodos ya cargados no se duplican; las correcciones se
+            hacen en Modificar un mes.
+          </p>
+          {busy && (
+            <p role="status">
+              {progresoCarpeta
+                ? `Procesando ${progresoCarpeta.actual} de ${progresoCarpeta.total}: ${progresoCarpeta.archivo}`
+                : "Procesando nómina…"}
+            </p>
+          )}
+        </section>
+      )}
       {resultadosCarpeta.length > 0 && (
         <details className="panel payroll-folder-results" open>
           <summary>
@@ -214,6 +402,35 @@ export default function Nomina() {
             ))}
           </Tabla>
         </details>
+      )}
+      {importacion && (
+        <section className="panel" aria-label="Revisar importación de Excel">
+          <h2>
+            Archivo identificado:{" "}
+            {nombresEmpresas(data)[importacion.fuente.empresa]} ·{" "}
+            {importacion.fuente.anio}
+          </h2>
+          <p>
+            {importacion.fuente.registros.length} registros con importes ·{" "}
+            {new Set(importacion.fuente.registros.map((r) => r.mes)).size}{" "}
+            meses.
+          </p>
+          <ul>
+            {importacion.fuente.advertencias.map((a, i) => (
+              <li key={i}>{a}</li>
+            ))}
+          </ul>
+          <button
+            disabled={ocupado}
+            className="primary"
+            onClick={confirmarImportacion}
+          >
+            Guardar nómina identificada
+          </button>
+          <button disabled={ocupado} onClick={() => setImportacion(null)}>
+            Cancelar
+          </button>
+        </section>
       )}
       <div className="payroll-actions">
         <button
@@ -274,18 +491,23 @@ export default function Nomina() {
                 ? "Los meses cargados se ordenan consecutivamente, con todos los trabajadores de cada mes."
                 : "Cada trabajador tiene su hoja con todas sus nóminas cargadas del año."}
             </p>
+            <button type="button" disabled={ocupado} onClick={abrirEditor}>
+              {soloConsulta ? "Ver libro guardado" : "Abrir editor de nómina"}
+            </button>
             <button className="primary" disabled={ocupado}>
               Descargar Excel {exportar}
             </button>
           </form>
         </section>
       )}
-      <div className="payroll-manage">
-        <button onClick={() => setEditar(!editar)} aria-expanded={editar}>
-          Modificar un mes
-        </button>
-      </div>
-      {editar && (
+      {!soloConsulta && (
+        <div className="payroll-manage">
+          <button onClick={() => setEditar(!editar)} aria-expanded={editar}>
+            Modificar un mes
+          </button>
+        </div>
+      )}
+      {editar && !soloConsulta && (
         <section className="panel" aria-label="Modificar un mes">
           <h2>Modificar un mes</h2>
           <fieldset className="payroll-method">
@@ -372,8 +594,25 @@ export default function Nomina() {
         </section>
       )}
       <details className="panel payroll-files">
-        <summary>Archivos cargados ({periodos.length})</summary>
-        {!periodos.length ? (
+        <summary>Archivos cargados ({periodos.length + libros.length})</summary>
+        {libros.map((l) => (
+          <p key={`${l.empresa}-${l.anio}-${l.tipo}`}>
+            <strong>
+              {nombresEmpresas(data)[l.empresa]} · {l.anio} · {l.tipo}
+            </strong>{" "}
+            · Versión {l.revision}{" "}
+            <button
+              onClick={() =>
+                setEditor({
+                  ambito: { empresa: l.empresa, anio: l.anio, tipo: l.tipo },
+                })
+              }
+            >
+              {soloConsulta ? "Ver libro" : "Abrir libro"}
+            </button>
+          </p>
+        ))}
+        {!periodos.length && !libros.length ? (
           <p>Aún no hay nóminas cargadas.</p>
         ) : (
           periodos.map((p) => (
@@ -388,6 +627,16 @@ export default function Nomina() {
           ))
         )}
       </details>
+      {editor && (
+        <EditorNomina
+          {...editor}
+          soloConsulta={soloConsulta}
+          onClose={() => {
+            setEditor(null);
+            setVersionLibros((v) => v + 1);
+          }}
+        />
+      )}
     </section>
   );
 }

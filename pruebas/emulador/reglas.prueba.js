@@ -16,6 +16,7 @@ import {
   query,
   deleteDoc,
   setDoc,
+  serverTimestamp,
   where,
   writeBatch,
 } from "firebase/firestore";
@@ -532,6 +533,167 @@ test("las reglas separan a María, la empresa y la secuencia", async () => {
     );
     await assertFails(getDoc(doc(dbTrabajo, "bitacoras", "suya")));
     await assertFails(getBytes(fotoPropia));
+    // Libros de nómina: historial atómico, datos acotados y delegación solo de lectura.
+    const dbAdmin = maria.firestore();
+    const libroId = "ALLAN_2027_mensual";
+    const camposLibro = (revision, extra = {}) => ({
+      id: libroId,
+      empresa: "ALLAN",
+      anio: 2027,
+      tipo: "mensual",
+      revision,
+      fecha: serverTimestamp(),
+      autor: "maria",
+      ...extra,
+    });
+    const guardarLibro = async (db, revision, extra = {}) => {
+      const lote = writeBatch(db),
+        datos = camposLibro(revision, extra);
+      lote.set(doc(db, "librosNomina", libroId), datos);
+      lote.set(
+        doc(db, "librosNomina", libroId, "versiones", String(revision)),
+        datos,
+      );
+      lote.set(
+        doc(db, "librosNomina", libroId, "contenidos", String(revision)),
+        { ...datos, carga: "contenido-comprimido" },
+      );
+      return lote.commit();
+    };
+    await assertFails(
+      setDoc(doc(dbAdmin, "librosNomina", libroId), camposLibro(1)),
+    );
+    await assertSucceeds(guardarLibro(dbAdmin, 1));
+    await assertFails(getDocs(collection(anonimo.firestore(), "librosNomina")));
+    await assertFails(getDoc(doc(dbTrabajo, "librosNomina", libroId)));
+    await assertFails(getDoc(doc(dbTerminal, "librosNomina", libroId)));
+    await assertFails(guardarLibro(dbAdmin, 3));
+    await assertFails(guardarLibro(dbAdmin, 2, { autor: "otro" }));
+    await assertFails(guardarLibro(dbAdmin, 2, { campoAjeno: true }));
+    await assertFails(guardarLibro(dbAdmin, 2, { anio: "2027" }));
+    await assertFails(guardarLibro(dbAdmin, 2, { fecha: new Date(0) }));
+    await assertSucceeds(guardarLibro(dbAdmin, 2));
+    await assertFails(
+      setDoc(doc(dbAdmin, "librosNomina", libroId, "contenidos", "2"), {
+        ...camposLibro(2),
+        carga: "alterado",
+      }),
+    );
+    await assertFails(
+      deleteDoc(doc(dbAdmin, "librosNomina", libroId, "versiones", "1")),
+    );
+    await entorno.withSecurityRulesDisabled(async (contexto) => {
+      const db = contexto.firestore();
+      await setDoc(doc(db, "controlAccesos", "ES-01"), {
+        bloqueado: false,
+        intentos: 0,
+      });
+      await setDoc(doc(db, "operacion", "config"), {
+        permissions: {
+          "ES-01": {
+            company: "ESTUARDO",
+            logs: ["epp"],
+            consultaNominaTodas: true,
+          },
+        },
+      });
+    });
+    await assertSucceeds(getDocs(collection(dbTrabajo, "librosNomina")));
+    await assertSucceeds(
+      getDoc(doc(dbTrabajo, "librosNomina", libroId, "contenidos", "2")),
+    );
+    await assertSucceeds(getDocs(collection(dbTrabajo, "nominas")));
+    await assertFails(guardarLibro(dbTrabajo, 3));
+    await assertFails(
+      setDoc(doc(dbTrabajo, "operacion", "config"), {
+        permissions: { "ES-01": { consultaNominaTodas: true } },
+      }),
+    );
+    await assertFails(getDocs(collection(dbTrabajo, "empresas")));
+    await assertFails(getDoc(doc(dbTrabajo, "empleados", "AL-01")));
+    await entorno.withSecurityRulesDisabled(async (contexto) => {
+      await setDoc(doc(contexto.firestore(), "operacion", "config"), {
+        permissions: {
+          "ES-01": {
+            company: "ESTUARDO",
+            logs: ["epp"],
+            consultaNominaTodas: false,
+          },
+        },
+      });
+    });
+    await assertFails(
+      getDoc(doc(dbTrabajo, "librosNomina", libroId, "contenidos", "2")),
+    );
+    await entorno.withSecurityRulesDisabled(async (contexto) => {
+      const db = contexto.firestore();
+      await setDoc(doc(db, "operacion", "config"), {
+        permissions: {
+          "ES-01": {
+            company: "ESTUARDO",
+            logs: ["epp"],
+            secciones: ["employees", "maintenance", "reports"],
+            cuartosConsulta: ["EST-DEMO"],
+          },
+        },
+      });
+      await setDoc(doc(db, "mantenimiento", "propio"), {
+        room: "EST-DEMO",
+        description: "Actividad ficticia",
+      });
+      await setDoc(doc(db, "mantenimiento", "ajeno"), {
+        room: "ALL-DEMO",
+        description: "Actividad ajena",
+      });
+      await setDoc(doc(db, "asistencia", "consulta-seccion"), {
+        empresa_codigo: "ESTUARDO",
+        id_empleado: "ES-02",
+      });
+      await setDoc(doc(db, "alertas", "consulta-seccion"), {
+        empresa_codigo: "ESTUARDO",
+        id_empleado: "ES-02",
+      });
+    });
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(dbTrabajo, "mantenimiento"),
+          where("room", "in", ["EST-DEMO"]),
+        ),
+      ),
+    );
+    await assertFails(getDoc(doc(dbTrabajo, "mantenimiento", "ajeno")));
+    await assertFails(
+      setDoc(doc(dbTrabajo, "mantenimiento", "propio"), {
+        room: "EST-DEMO",
+        description: "Cambio",
+      }),
+    );
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(dbTrabajo, "asistencia"),
+          where("empresa_codigo", "==", "ESTUARDO"),
+        ),
+      ),
+    );
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(dbTrabajo, "alertas"),
+          where("empresa_codigo", "==", "ESTUARDO"),
+        ),
+      ),
+    );
+    await assertFails(getDocs(collection(dbTrabajo, "asistencia")));
+    await assertFails(
+      getDocs(
+        query(
+          collection(dbTrabajo, "asistencia"),
+          where("empresa_codigo", "==", "ALLAN"),
+        ),
+      ),
+    );
     await entorno.withSecurityRulesDisabled(async (contexto) => {
       await setDoc(doc(contexto.firestore(), "controlAccesos", "MARIA"), {
         bloqueado: true,

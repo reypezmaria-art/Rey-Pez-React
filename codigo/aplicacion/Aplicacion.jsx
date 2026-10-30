@@ -1,3 +1,9 @@
+import ConsultaSeccion from "../componentes/ConsultaSeccion.jsx";
+import AutorizarNominaInicial from "../componentes/AutorizarNominaInicial.jsx";
+import {
+  puedeConsultarNomina,
+  puedeConsultarSeccion,
+} from "../dominio/accesoNomina.js";
 import { useEffect, useRef, useState } from "react";
 import { useAplicacion } from "./ContextoAplicacion.js";
 import DetallePanel from "../paginas/DetallePanel.jsx";
@@ -104,12 +110,33 @@ export default function Aplicacion() {
   if (!session) return <Acceso operational={mode === "captura"} />;
   if (mode === "captura" || session.role === "worker") {
     const verNomina =
-      session.role === "worker" && puedeVerNomina(data, session);
+      session.role === "worker" && puedeConsultarNomina(data, session);
     const enNomina = verNomina && route.startsWith("#nomina");
+    const consulta = route.startsWith("#seccion?")
+      ? new URLSearchParams(route.split("?")[1]).get("tipo")
+      : "";
     return (
       <>
         <Encabezado detalle={session.name} onLogout={logout} />
         <main className="capture-main">
+          <div className="toolbar">
+            {[
+              ["employees", "Personal"],
+              ["maintenance", "Mantenimiento y compras"],
+              ["reports", "Reportes y CSV"],
+            ]
+              .filter(([tipo]) => puedeConsultarSeccion(data, session, tipo))
+              .map(([tipo, titulo]) => (
+                <button
+                  key={tipo}
+                  onClick={() => {
+                    location.hash = `#seccion?tipo=${tipo}`;
+                  }}
+                >
+                  {titulo}
+                </button>
+              ))}
+          </div>
           {verNomina && (
             <div className="toolbar">
               <button
@@ -123,8 +150,10 @@ export default function Aplicacion() {
               </button>
             </div>
           )}
-          {enNomina ? (
-            <Nomina />
+          {consulta ? (
+            <ConsultaSeccion key={consulta} tipo={consulta} />
+          ) : enNomina ? (
+            <Nomina soloConsulta={!puedeVerNomina(data, session)} />
           ) : (
             <CarpetasBitacoras key={route} operational />
           )}
@@ -135,6 +164,7 @@ export default function Aplicacion() {
   const Page = pages[page];
   return (
     <>
+      <AutorizarNominaInicial />
       <a className="skip-link" href="#main">
         Saltar al contenido
       </a>

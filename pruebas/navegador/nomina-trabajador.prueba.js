@@ -65,8 +65,9 @@ test("María autoriza Nómina y Claudia edita las tres empresas sin abrir el res
   await page
     .getByLabel("Usuario activo", { exact: true })
     .selectOption("ES-01");
-  await page.locator(".authorization-picker summary").click();
+  await page.locator(".authorization-picker summary").first().click();
   await page.getByLabel("Temperaturas", { exact: true }).check();
+  await page.getByText(/^Secciones ·/).click();
   await page
     .getByRole("checkbox", { name: "Nómina de las tres empresas", exact: true })
     .check();

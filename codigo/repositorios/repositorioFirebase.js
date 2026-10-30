@@ -140,6 +140,25 @@ export function createFirebaseRepository() {
             estado: "payroll",
             referencia: collection(db, "nominas"),
           };
+        if (consulta.estado === "maintenance")
+          return {
+            estado: "maintenance",
+            referencia: query(
+              collection(db, "mantenimiento"),
+              where("room", "in", consulta.cuartos),
+            ),
+          };
+        if (["attendance", "alerts"].includes(consulta.estado))
+          return {
+            estado: consulta.estado,
+            referencia: query(
+              collection(
+                db,
+                consulta.estado === "attendance" ? "asistencia" : "alertas",
+              ),
+              where("empresa_codigo", "==", consulta.empresa),
+            ),
+          };
         if (consulta.estado === "logs")
           return {
             estado: "logs",

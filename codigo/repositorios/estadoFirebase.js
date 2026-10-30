@@ -17,6 +17,7 @@ export const COLECCIONES = [
 ];
 export const CAMPOS_OPERACION = [
   "companyDirectory",
+  "permisosInicialesAplicados",
   "rooms",
   "areas",
   "programs",
@@ -94,7 +95,19 @@ export function consultasDeTrabajador(permiso, idEmpleado) {
     if (tipos.length)
       consultas.push({ estado: "logs", empresa: permiso.company, tipos });
   }
-  if (permiso?.nomina === true) consultas.push({ estado: "payroll" });
+  if (permiso?.nomina === true || permiso?.consultaNominaTodas === true)
+    consultas.push({ estado: "payroll" });
+  if (
+    permiso?.company &&
+    permiso.secciones?.includes("maintenance") &&
+    permiso.cuartosConsulta?.length
+  )
+    consultas.push({ estado: "maintenance", cuartos: permiso.cuartosConsulta });
+  if (permiso?.company && permiso.secciones?.includes("reports"))
+    consultas.push(
+      { estado: "attendance", empresa: permiso.company },
+      { estado: "alerts", empresa: permiso.company },
+    );
   return consultas;
 }
 export function configuracionDe(state) {

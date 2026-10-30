@@ -25,3 +25,4 @@ credenciales-*.json
 *-service-account.json
 
 .wrangler/
+publico/editor-nomina/

@@ -88,12 +88,19 @@ export async function importar(bytes, nombre) {
         if (c.isMerged && c.master.address !== c.address) return;
         const v = c.value;
         const d = { v: null, s: estilo(c) };
+        if (c.note)
+          d.custom = {
+            notaOriginal:
+              typeof c.note === "string"
+                ? c.note
+                : (c.note.texts || []).map((t) => t.text || "").join(""),
+          };
         if (c.formula) {
           formulas++;
           d.v = c.result ?? null;
           if (c.formula.includes("[")) {
             externas++;
-            d.custom = { formulaExterna: c.formula };
+            d.custom = { ...d.custom, formulaExterna: c.formula };
           } else d.f = `=${c.formula}`;
         } else if (v instanceof Date) d.v = v.getTime() / 86400000 + 25569;
         else if (v && typeof v === "object")

@@ -40,7 +40,52 @@ export function crearLibroNomina(state, empresa, anio, tipo) {
   const libro = new ExcelJS.Workbook();
   libro.creator = "Rey Pez";
   libro.calcProperties.fullCalcOnLoad = true;
-  const usados = new Set();
+  const acumulado = libro.addWorksheet(`Acumulado ${anio}`);
+  acumulado.addRow([companyNames[empresa]]);
+  acumulado.addRow([`Acumulado ${anio} · MXN`]);
+  acumulado.addRow([
+    "Mes",
+    "Total percepciones",
+    "Total deducciones",
+    "Neto a pagar",
+    "ISR enterado (captura manual)",
+  ]);
+  for (const mes of [...new Set(filas.map((r) => r.mes))].sort(
+    (a, b) => a - b,
+  )) {
+    const registros = filas.filter((r) => r.mes === mes);
+    acumulado.addRow([
+      MESES_NOMINA[mes - 1],
+      ...["totalPercepciones", "totalDeducciones", "neto"].map(
+        (k) => registros.reduce((s, r) => s + r[k], 0) / 100,
+      ),
+      null,
+    ]);
+  }
+  const finResumen = acumulado.rowCount,
+    totalResumen = acumulado.addRow(["Total"]);
+  for (let c = 2; c <= 4; c++) {
+    const l = acumulado.getColumn(c).letter;
+    totalResumen.getCell(c).value = {
+      formula: `SUM(${l}4:${l}${finResumen})`,
+      result:
+        filas.reduce(
+          (s, r) =>
+            s + r[["totalPercepciones", "totalDeducciones", "neto"][c - 2]],
+          0,
+        ) / 100,
+    };
+  }
+  acumulado.addRow([
+    "ISR enterado requiere captura o revisión del responsable; no se calcula a partir de retenciones.",
+  ]);
+  acumulado.getColumn(1).width = 30;
+  for (let c = 2; c <= 5; c++) {
+    acumulado.getColumn(c).width = c === 5 ? 34 : 24;
+    acumulado.getColumn(c).numFmt = moneda;
+  }
+  acumulado.getRow(3).font = { bold: true, color: { argb: "FF173957" } };
+  const usados = new Set([acumulado.name.toLowerCase()]);
   const grupos = new Map();
   for (const fila of filas) {
     const key = tipo === "mensual" ? fila.mes : fila.clave;

@@ -3,12 +3,16 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
+  "workspaces": [
+    "herramientas/prueba-editor-nomina"
+  ],
   "engines": {
     "node": "^22.13.0 || >=24.0.0"
   },
   "scripts": {
     "iniciar": "vite --config configuracion-vite.js --host 127.0.0.1",
-    "compilar": "vite build --config configuracion-vite.js",
+    "compilar:editor": "node --max-old-space-size=4096 herramientas/prueba-editor-nomina/compilar.mjs --integrado",
+    "compilar": "npm run compilar:editor && vite build --config configuracion-vite.js",
     "previsualizar": "vite preview --config configuracion-vite.js --host 127.0.0.1",
     "revisar-codigo": "eslint --config configuracion-eslint.js .",
     "formatear": "prettier --config configuracion-formato.json --write .",
@@ -21,6 +25,7 @@
   },
   "dependencies": {
     "exceljs": "^4.4.0",
+    "jszip": "3.10.1",
     "firebase": "^13.0.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",

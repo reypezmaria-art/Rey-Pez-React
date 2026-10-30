@@ -2,7 +2,9 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidatePattern('^[a-f0-9]{40}$')]
     [string]$Version,
-    [string]$Proyecto = (Get-Location).Path
+    [string]$Proyecto = (Get-Location).Path,
+    [ValidatePattern('^[A-Za-z0-9._-]*$')]
+    [string]$CuentaNomina = ''
 )
 $ErrorActionPreference = 'Stop'
 $ubicacionAnterior = Get-Location
@@ -40,6 +42,13 @@ try {
         Copy-Item -LiteralPath $archivoNomina.FullName -Destination $destinoNomina -Force
     }
     Write-Host "Codigo anterior conservado en: $respaldoNomina"
+    if ($CuentaNomina) {
+        $rutaEnvNomina = Join-Path $Proyecto '.env.local'
+        $envNomina = [IO.File]::ReadAllText($rutaEnvNomina)
+        $envNomina = [regex]::Replace($envNomina, '(?m)^VITE_NOMINA_CONSULTA_INICIAL=.*\r?\n?', '')
+        $envNomina = $envNomina.TrimEnd() + "`nVITE_NOMINA_CONSULTA_INICIAL=" + $CuentaNomina.ToUpperInvariant() + "`n"
+        [IO.File]::WriteAllText($rutaEnvNomina, $envNomina, (New-Object Text.UTF8Encoding($false)))
+    }
     npm.cmd ci
     if ($LASTEXITCODE -ne 0) { throw 'No se completaron las dependencias. No se publico el sitio.' }
     node --input-type=module -e "import {loadEnv} from 'vite'; const e=loadEnv('production',process.cwd()); for(const k of ['VITE_FIREBASE_API_KEY','VITE_FIREBASE_PROJECT_ID','VITE_FIREBASE_APP_ID','VITE_ACCESO_API_URL']) if(!e[k]) throw Error('Falta '+k); if(e.VITE_FIREBASE_PROJECT_ID!=='rey-pez-admin-react') throw Error('Proyecto Firebase incorrecto'); console.log('Configuracion completa');"

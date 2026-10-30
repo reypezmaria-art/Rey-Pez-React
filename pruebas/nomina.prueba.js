@@ -169,16 +169,16 @@ test("exportaciones XLSX reales aíslan empresa, ordenan meses y separan trabaja
   const mensual = crearLibroNomina(s, "ALLAN", 2026, "mensual");
   assert.deepEqual(
     mensual.worksheets.map((h) => h.name),
-    ["enero", "febrero"],
+    ["Acumulado 2026", "enero", "febrero"],
   );
   const anual = crearLibroNomina(s, "ALLAN", 2026, "anual");
-  assert.equal(anual.worksheets.length, 2);
+  assert.equal(anual.worksheets.length, 3);
   assert.ok(anual.worksheets.every((h) => !h.name.includes("EDGAR")));
   const bytes = await anual.xlsx.writeBuffer();
   const { default: ExcelJS } = await import("exceljs");
   const leido = new ExcelJS.Workbook();
   await leido.xlsx.load(bytes);
-  assert.equal(leido.worksheets.length, 2);
+  assert.equal(leido.worksheets.length, 3);
   const hoja = leido.worksheets.find((h) => h.name === "PERSONA DEMO UNO");
   const total = hoja.lastRow;
   assert.equal(total.getCell(3).value, null);

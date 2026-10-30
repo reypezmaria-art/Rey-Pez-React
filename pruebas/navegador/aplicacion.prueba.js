@@ -336,7 +336,7 @@ test("temperaturas, mantenimiento, QR, permisos y terminal aislada", async ({
   await page
     .getByLabel("Usuario activo", { exact: true })
     .selectOption("ES-06");
-  await page.locator(".authorization-picker summary").click();
+  await page.locator(".authorization-picker summary").first().click();
   await page.getByLabel("Temperaturas", { exact: true }).check();
   await page.getByRole("button", { name: "Guardar permisos" }).click();
   await expect(page.getByRole("status")).toContainText("Permisos guardados");
