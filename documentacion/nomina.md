@@ -1,6 +1,6 @@
 # Nómina
 
-María la usa desde administración. También puede autorizar a un trabajador, en Seguridad → Autorizaciones, para que vea, cargue y corrija la nómina de las tres empresas. La carga de un PDF identifica empresa y período sin selectores. Acepta reportes con texto seleccionable del formato de Lista de Raya de CONTPAQi mostrado por María; admite las tres empresas y alias de razón social del directorio. Los PDFs escaneados, protegidos, de otra estructura o que no concilien no se guardan. No hay OCR ni un servicio externo de pago.
+María la usa desde administración. También puede autorizar a un trabajador, en Seguridad → Autorizaciones, para que vea, cargue y corrija la nómina de las tres empresas. La carga de un PDF identifica empresa y período por el contenido, sin selectores ni depender del nombre del archivo. Acepta reportes con texto seleccionable del formato de Lista de Raya de CONTPAQi mostrado por María; admite las tres empresas y alias de razón social del directorio. Los PDFs escaneados, protegidos, de otra estructura o que no concilien no se guardan. Un PDF sin texto muestra un aviso específico, sin inferir datos de su nombre. No hay OCR ni un servicio externo de pago.
 
 ## Importar y corregir
 

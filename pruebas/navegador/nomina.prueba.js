@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { baseOperation } from "../../codigo/datos/operacionInicial.js";
 import { makeCredential } from "../../codigo/dominio/seguridad.js";
 import { pdfNominaEjemplo } from "../soporte/nominaEjemplo.js";
+import { jsPDF } from "jspdf";
 import ExcelJS from "exceljs";
 import { readFile } from "node:fs/promises";
 const credencial = await makeCredential("Clave6");
@@ -44,10 +45,22 @@ test("sube, acumula, corrige automáticamente un PDF y exporta XLSX mensual y an
   page,
 }) => {
   const subir = page.getByLabel("Seleccionar PDF de nómina", { exact: true });
-  await subir.setInputFiles(pdf());
+  await subir.setInputFiles({
+    name: "nomina.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from(new jsPDF().output("arraybuffer")),
+  });
+  await expect(page.getByRole("alert")).toContainText(
+    "no contiene texto legible",
+  );
+  await expect(page.getByRole("status")).toHaveCount(0);
+  await subir.setInputFiles(pdf({}, "reporte sin fecha ni empresa.pdf"));
   await expect(page.getByRole("status")).toContainText("Nómina guardada");
   await subir.setInputFiles(
-    pdf({ desde: "01/Feb/2026", hasta: "15/Feb/2026" }),
+    pdf(
+      { desde: "01/Feb/2026", hasta: "15/Feb/2026" },
+      "Lista de raya 14ABRIL.pdf",
+    ),
   );
   await expect(page.getByRole("status")).toContainText("2026-02-01");
   await subir.setInputFiles(pdf({ empresa: "EDGAR" }));

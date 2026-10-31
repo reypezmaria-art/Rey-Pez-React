@@ -4,6 +4,8 @@ Nómina permite abrir un libro mensual o anual de una empresa y año. La cinta i
 
 La cinta se puede contraer con «Contraer barra» para disponer de más filas visibles. Las pestañas permanecen accesibles y al seleccionarlas se muestran las herramientas. En pantallas estrechas o de poca altura comienza contraída, salvo que exista una preferencia guardada en ese navegador. Las pestañas y los grupos de herramientas se desplazan horizontalmente dentro de la pantalla; la hoja ocupa el espacio restante.
 
+Los avisos superiores se pueden descartar con «Cerrar». Se retiran tanto el recordatorio como el mensaje y la compatibilidad, y la hoja recupera ese espacio. Un aviso nuevo de guardado o error vuelve a mostrarse y se puede cerrar de nuevo.
+
 Los libros guardan el estado completo del editor y una copia del archivo original, comprimidos en versiones privadas de Firestore. El encabezado, metadatos y contenido se escriben juntos; una revisión antigua no sobrescribe una nueva. Guardar confirma únicamente después de persistir. El historial permite recuperar versiones. Cada formato tiene su propio libro: editar el mensual no modifica automáticamente el anual, ni viceversa.
 
 La descarga del libro guardado conserva valores, fórmulas internas, notas, hojas, combinaciones, formato básico, dimensiones, cuadrícula e inmovilización. Los filtros se mantienen en la vista guardada; el Excel descargado incluye todas las filas. La vista de impresión es simplificada. Macros, gráficos, tablas dinámicas y objetos avanzados originales no se editan ni exportan. Las referencias externas se descargan como su último valor con una nota; no se contactan archivos externos. El original permanece dentro del respaldo de cada versión.

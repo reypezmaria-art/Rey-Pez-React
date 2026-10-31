@@ -81,6 +81,17 @@ test("importa Excel, edita y reabre desde Nómina; descarga lo guardado y detect
   const child = page
     .frames()
     .find((f) => f.url().includes("editor-nomina/index.html"));
+  const altoConAvisos = await frame
+    .locator("#editor")
+    .evaluate((n) => n.clientHeight);
+  await frame
+    .getByRole("button", { name: "Cerrar avisos", exact: true })
+    .click();
+  await expect(frame.locator("#aviso-editor")).toBeHidden();
+  await expect(frame.locator("#avisos-editor")).toBeHidden();
+  await expect
+    .poll(() => frame.locator("#editor").evaluate((n) => n.clientHeight))
+    .toBeGreaterThan(altoConAvisos + 35);
   // La cinta libera espacio para filas y las pestañas vuelven a abrirla.
   const paneles = frame.locator("#paneles-cinta");
   if (page.viewportSize().width <= 900) await expect(paneles).toBeHidden();
@@ -108,6 +119,8 @@ test("importa Excel, edita y reabre desde Nómina; descarga lo guardado y detect
   });
   await frame.getByRole("button", { name: "Guardar", exact: true }).click();
   await expect(frame.locator("#estado")).toContainText("Versión 2 guardada");
+  await expect(frame.locator("#avisos-editor")).toBeVisible();
+  await expect(frame.locator("#aviso-editor")).toBeHidden();
   await page
     .getByRole("button", { name: "Cerrar editor", exact: true })
     .click();

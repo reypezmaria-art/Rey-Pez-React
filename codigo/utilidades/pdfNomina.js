@@ -40,6 +40,10 @@ export async function leerPdfNomina(archivo, aliases = {}) {
         items: texto.items,
       });
     }
+    if (!paginas.some((p) => p.items.some((item) => item.str?.trim())))
+      throw Error(
+        "El PDF no contiene texto legible. Puede ser un documento escaneado; sube el reporte original con texto seleccionable. El nombre del archivo no permite recuperar los datos.",
+      );
     return {
       ...extraerNomina(paginas, aliases),
       archivo: archivo.name.slice(0, 200),

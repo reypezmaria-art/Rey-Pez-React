@@ -60,11 +60,11 @@
       <span class="etiqueta-prueba">Prueba local</span>
       <input id="archivo" type="file" accept=".xlsx" hidden />
     </header>
-    <aside>
+    <aside id="aviso-editor">
       Prueba independiente. El guardado es únicamente en este navegador; todavía
       no se conecta con Firebase.
     </aside>
-    <div class="barra-informacion">
+    <div id="avisos-editor" class="barra-informacion">
       <p id="estado" role="status">
         Datos ficticios. Para abrir tu archivo: Archivo → Abrir Excel.
       </p>
@@ -80,6 +80,9 @@
         </p>
         <ul id="hallazgos"></ul>
       </details>
+      <button type="button" id="cerrar-avisos" aria-label="Cerrar avisos">
+        Cerrar ×
+      </button>
     </div>
     <section
       id="cinta"

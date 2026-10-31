@@ -77,7 +77,9 @@ export default function Nomina({ soloConsulta = false }) {
       archivo = input.files?.[0];
     if (!archivo) return;
     setError("");
-    setMensaje("");
+    setMensaje(
+      "Analizando el contenido del PDF para identificar empresa, período y trabajadores…",
+    );
     setBusy(true);
     try {
       const { leerPdfNomina } = await import("../utilidades/pdfNomina.js");
@@ -97,6 +99,7 @@ export default function Nomina({ soloConsulta = false }) {
           : "Este archivo ya estaba cargado. No se duplicó la nómina.",
       );
     } catch (err) {
+      setMensaje("");
       setError(err.message);
     } finally {
       setBusy(false);
@@ -346,7 +349,6 @@ export default function Nomina({ soloConsulta = false }) {
             disabled={ocupado}
             onChange={(e) => subir(e)}
           />
-          {busy && <p role="status">Procesando nómina…</p>}
         </section>
       )}
       {importacion && (

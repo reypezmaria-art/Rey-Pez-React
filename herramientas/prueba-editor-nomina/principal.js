@@ -141,7 +141,20 @@ let editor,
 const $ = (id) => document.getElementById(id);
 const aviso = (texto) => {
   $("estado").textContent = texto;
+  $("avisos-editor").hidden = false;
+  window.requestAnimationFrame(() =>
+    window.dispatchEvent(new window.Event("resize")),
+  );
 };
+$("cerrar-avisos").addEventListener("click", () => {
+  $("aviso-editor").hidden = true;
+  $("avisos-editor").hidden = true;
+  $("advertencias").open = false;
+  $("guardar").focus();
+  window.requestAnimationFrame(() =>
+    window.dispatchEvent(new window.Event("resize")),
+  );
+});
 function montar(snapshot) {
   editor?.univer.dispose();
   editor = createUniver({
