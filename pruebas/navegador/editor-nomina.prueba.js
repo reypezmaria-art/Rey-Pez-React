@@ -103,7 +103,7 @@ test("importa Excel, edita y reabre desde Nómina; descarga lo guardado y detect
   ).toBe(true);
   await child.evaluate(() => {
     const wb = window.pruebaEditor.api().getActiveWorkbook();
-    wb.getSheetByName("enero").getRange("C5").setValue(1500);
+    wb.getSheetByName("enero").getRange("E5").setValue(1500);
   });
   await frame.getByRole("button", { name: "Guardar", exact: true }).click();
   await expect(frame.locator("#estado")).toContainText("Versión 2 guardada");
@@ -116,7 +116,7 @@ test("importa Excel, edita y reabre desde Nómina; descarga lo guardado y detect
     .click();
   const libro = new ExcelJS.Workbook();
   await libro.xlsx.load(await readFile(await (await descarga).path()));
-  expect(libro.getWorksheet("enero").getCell("C5").value).toBe(1500);
+  expect(libro.getWorksheet("enero").getCell("E5").value).toBe(1500);
   expect(libro.worksheets[0].name).toBe("Acumulado 2027");
   await page
     .getByRole("button", { name: "Abrir editor de nómina", exact: true })
@@ -133,7 +133,7 @@ test("importa Excel, edita y reabre desde Nómina; descarga lo guardado y detect
     await nuevo.evaluate(() => {
       const snap = window.pruebaEditor.snapshot();
       const hoja = Object.values(snap.sheets).find((h) => h.name === "enero");
-      return hoja.cellData[4][2].v;
+      return hoja.cellData[4][4].v;
     }),
   ).toBe(1500);
   // Otra sesión guarda mientras esta vista sigue en la revisión anterior.
@@ -153,7 +153,7 @@ test("importa Excel, edita y reabre desde Nómina; descarga lo guardado y detect
       .api()
       .getActiveWorkbook()
       .getSheetByName("enero")
-      .getRange("C5")
+      .getRange("E5")
       .setValue(1900),
   );
   await frame.getByRole("button", { name: "Guardar", exact: true }).click();
@@ -162,7 +162,7 @@ test("importa Excel, edita y reabre desde Nómina; descarga lo guardado y detect
     await nuevo.evaluate(() => {
       const snap = window.pruebaEditor.snapshot();
       return Object.values(snap.sheets).find((h) => h.name === "enero")
-        .cellData[4][2].v;
+        .cellData[4][4].v;
     }),
   ).toBe(1900);
 });
@@ -273,4 +273,112 @@ test("Secciones agrupa las cuatro opciones y abre consultas de la empresa sin ac
   await expect(
     page.getByRole("button", { name: "Guardar actividad", exact: true }),
   ).toHaveCount(0);
+});
+
+test("recupera el orden original de un libro anterior conservando ediciones y referencias", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await iniciar(page);
+  await importar(page);
+  await page
+    .getByRole("button", { name: "Abrir editor de nómina", exact: true })
+    .click();
+  const frame = page.frameLocator('iframe[title="Hoja de cálculo de nómina"]');
+  await expect(frame.locator("#estado")).toContainText("Libro abierto", {
+    timeout: 30000,
+  });
+  let child = page
+    .frames()
+    .find((f) => f.url().includes("editor-nomina/index.html"));
+  await child.evaluate(() => {
+    const libro = window.pruebaEditor.api().getActiveWorkbook();
+    const hoja = libro.getSheetByName("enero");
+    libro.setActiveSheet(hoja);
+    libro.getSheetByName("Acumulado 2027").getRange("D8").setValue("=enero!E5");
+    hoja.getRange("E5").setValue(1500);
+    hoja.getRange("A1:X2").breakApart();
+    hoja.getRange("E1").setValue("Nota manual de prueba");
+    const anterior = [
+      1, 2, 5, 12, 17, 19, 20, 21, 22, 23, 24, 6, 7, 8, 9, 10, 11, 13, 14, 15,
+      16, 18, 3, 4,
+    ];
+    const actual = Array.from({ length: 24 }, (_, i) => i + 1);
+    anterior.forEach((col, destino) => {
+      const origen = actual.indexOf(col);
+      if (origen !== destino) {
+        hoja.moveColumns(
+          hoja.getRange(0, origen, hoja.getMaxRows(), 1),
+          destino,
+        );
+        actual.splice(destino, 0, ...actual.splice(origen, 1));
+      }
+    });
+    hoja.getRange("C3").setValue("SUELDO DEL PERIODO");
+    hoja.getRange("D3").setValue("TOTAL PERCEPCIONES");
+    hoja.getRange("F3").setValue("IMSS (DEDUCCIÓN)");
+  });
+  await frame.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(frame.locator("#estado")).toContainText("Versión 2 guardada");
+  await page
+    .getByRole("button", { name: "Cerrar editor", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Descargar Excel mensual", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Abre el editor de nómina",
+  );
+  await page
+    .getByRole("button", { name: "Abrir editor de nómina", exact: true })
+    .click();
+  await expect(frame.locator("#estado")).toContainText(
+    "Orden del archivo original aplicado",
+    { timeout: 30000 },
+  );
+  child = page
+    .frames()
+    .find((f) => f.url().includes("editor-nomina/index.html"));
+  const datos = await child.evaluate(() => {
+    const hoja = window.pruebaEditor
+      .api()
+      .getActiveWorkbook()
+      .getSheetByName("enero");
+    return {
+      cabecera: hoja.getRange("A3:X3").getValues()[0],
+      sueldo:
+        window.pruebaEditor.snapshot().sheets[hoja.getSheetId()].cellData[4][4]
+          .v,
+      formula: hoja.getRange("X5").getFormula(),
+      nota: hoja.getRange("E1").getValue(),
+    };
+  });
+  expect(datos.cabecera.slice(0, 5)).toEqual([
+    "NOMBRE",
+    "PERIODO",
+    "IMSS",
+    "R.F.C.",
+    "SUELDO",
+  ]);
+  expect(datos.cabecera[23]).toBe("NETO");
+  expect(datos.sueldo).toBe(1500);
+  expect(datos.formula).toBe("=L5-S5");
+  expect(datos.nota).toBe("Nota manual de prueba");
+  await frame.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(frame.locator("#estado")).toContainText("Versión 3 guardada");
+  await page
+    .getByRole("button", { name: "Cerrar editor", exact: true })
+    .click();
+  const descarga = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Descargar Excel mensual", exact: true })
+    .click();
+  const libro = new ExcelJS.Workbook();
+  await libro.xlsx.load(await readFile(await (await descarga).path()));
+  expect(libro.getWorksheet("enero").getCell("E5").value).toBe(1500);
+  expect(libro.getWorksheet("enero").getCell("X5").formula).toBe("L5-S5");
+  expect(libro.getWorksheet("enero").getCell("X5").result).toBe(1490);
+  expect(libro.getWorksheet("Acumulado 2027").getCell("D8").formula).toMatch(
+    /!?E5$/,
+  );
 });

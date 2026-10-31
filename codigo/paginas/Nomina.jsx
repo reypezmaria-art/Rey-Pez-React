@@ -1,3 +1,4 @@
+import { hojasConOrdenAnterior } from "../../herramientas/prueba-editor-nomina/ordenColumnas.js";
 import EditorNomina from "../componentes/EditorNomina.jsx";
 import {
   repositorioLibrosNomina,
@@ -148,6 +149,10 @@ export default function Nomina({ soloConsulta = false }) {
       const guardado = await repo.abrir();
       if (guardado) {
         const { snapshot, nombre } = await desempaquetarLibro(guardado.carga);
+        if (hojasConOrdenAnterior(snapshot).length)
+          throw Error(
+            "Abre el editor de nómina y guarda el libro una vez para aplicar el orden de columnas del archivo original. Después podrás descargarlo.",
+          );
         const { exportarCompleto } =
           await import("../../herramientas/prueba-editor-nomina/exportacionCompleta.js");
         const { prepararAcumulado } =

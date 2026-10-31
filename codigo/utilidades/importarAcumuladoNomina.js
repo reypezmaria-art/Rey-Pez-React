@@ -68,7 +68,8 @@ export async function extraerAcumuladoNomina(bytes, nombres = companyNames) {
     texto(hoja.getCell(h, c + 1)),
   );
   const registros = [],
-    advertencias = [];
+    advertencias = [],
+    mesesSinImportes = new Set();
   for (let r = h + 1; r <= hoja.rowCount; r++) {
     const nombre = texto(hoja.getCell(r, 1)),
       periodo = texto(hoja.getCell(r, 2));
@@ -85,7 +86,10 @@ export async function extraerAcumuladoNomina(bytes, nombres = companyNames) {
       return Math.round(v * 100);
     });
     // Las filas de plantilla vacías o con todos los importes en cero no son nóminas cargadas.
-    if (!importes.some((v) => v !== null && v !== 0)) continue;
+    if (!importes.some((v) => v !== null && v !== 0)) {
+      mesesSinImportes.add(mes);
+      continue;
+    }
     const dias = periodo.match(/(\d{1,2})\s*-\s*(\d{1,2})/);
     if (
       !dias ||
@@ -110,6 +114,11 @@ export async function extraerAcumuladoNomina(bytes, nombres = companyNames) {
       filaOrigen: r,
     });
   }
+  for (const mes of [...mesesSinImportes].sort((a, b) => a - b))
+    if (!registros.some((r) => r.mes === mes))
+      advertencias.push(
+        `${MESES_NOMINA[mes - 1]} no se importó: las filas de ese mes están vacías o con todos los importes en cero.`,
+      );
   if (!registros.length)
     throw Error("No hay registros con importes en ACUM X MES.");
   const resumen = libro.worksheets.find(
@@ -226,18 +235,11 @@ export async function crearExcelAcumulado(entrada, tipo) {
       pattern: "solid",
       fgColor: { argb: "FFF4E6BD" },
     };
-    // Primero la información de consulta habitual; los demás conceptos y las
-    // identificaciones permanecen a la derecha, sin eliminar columnas.
-    const orden = [
-      1, 2, 5, 12, 17, 19, 20, 21, 22, 23, 24, 6, 7, 8, 9, 10, 11, 13, 14, 15,
-      16, 18, 3, 4,
-    ];
-    const destino = (original) => orden.indexOf(original) + 1;
-    const letra = (original) => hoja.getColumn(destino(original)).letter;
-    const encabezados = orden.map((c) => entrada.columnas[c - 1]);
-    encabezados[2] = "SUELDO DEL PERIODO";
-    encabezados[3] = "TOTAL PERCEPCIONES";
-    encabezados[5] = "IMSS (DEDUCCIÓN)";
+    // Conservar el orden de los conceptos del archivo de origen.
+    const orden = Array.from({ length: 24 }, (_, i) => i + 1);
+    const destino = (original) => original;
+    const letra = (original) => hoja.getColumn(original).letter;
+    const encabezados = [...entrada.columnas];
     const h = hoja.addRow(encabezados);
     h.height = 48;
     h.eachCell((c) => {
@@ -339,7 +341,8 @@ export async function crearExcelAcumulado(entrada, tipo) {
       };
     }
     for (let c = 1; c <= 24; c++)
-      hoja.getColumn(c).width = c === 1 ? 43 : c === 2 ? 20 : c >= 23 ? 23 : 18;
+      hoja.getColumn(c).width =
+        c === 1 ? 43 : c === 2 ? 20 : c === 3 || c === 4 ? 23 : 18;
     hoja.pageSetup = {
       orientation: "landscape",
       fitToPage: true,

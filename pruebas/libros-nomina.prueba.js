@@ -32,6 +32,12 @@ test("extracción identifica ejercicio, preserva importes y advierte fechas sin 
   assert.equal(fuente.registros[0].importes[0], 100000);
   assert.equal(fuente.registros[0].importes[1], null);
   assert.ok(fuente.advertencias.some((a) => a.includes("16-31")));
+  assert.ok(
+    fuente.advertencias.some((a) => a.includes("diciembre no se importó")),
+  );
+  assert.ok(
+    !fuente.advertencias.some((a) => a.includes("enero no se importó")),
+  );
   for (const tipo of ["mensual", "anual"]) {
     const libro = new ExcelJS.Workbook();
     await libro.xlsx.load(await crearExcelAcumulado(fuente, tipo));
@@ -39,8 +45,9 @@ test("extracción identifica ejercicio, preserva importes y advierte fechas sin 
     assert.equal(libro.worksheets[0].getCell("B2").value, 17);
     assert.equal(libro.worksheets.length, tipo === "mensual" ? 4 : 3);
     const h = libro.worksheets[1];
-    assert.equal(h.getCell("C4").value, 2000);
-    assert.equal(h.getCell("K4").formula, "D4-F4");
+    assert.deepEqual(h.getRow(3).values.slice(1, 25), fuente.columnas);
+    assert.equal(h.getCell("E4").value, 2000);
+    assert.equal(h.getCell("X4").formula, "L4-S4");
   }
 });
 test("paquete conserva snapshot, original y fuente y rechaza libros inválidos", async () => {

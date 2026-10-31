@@ -1,3 +1,4 @@
+import { recuperarOrdenOriginal } from "./ordenColumnas.js";
 import { prepararAcumulado } from "./formatoVista.js";
 /* global document, window, indexedDB, location */
 import { createUniver, LocaleType, mergeLocales } from "@univerjs/presets";
@@ -66,17 +67,20 @@ async function abrirIntegrado(revision) {
   estadoIntegrado("Preparando las hojas y el diseño de nómina…");
   prueba = await importar(datos.bytes, datos.nombre);
   montar(await prepararAcumulado(datos.snapshot || prueba.snapshot));
+  baseGuardada = JSON.stringify(snapshot());
+  const ordenActualizado = await recuperarOrdenOriginal(editor.univerAPI);
   if (soloConsulta) editor.univerAPI.getActiveWorkbook().setEditable(false);
   estadoIntegrado("");
-  baseGuardada = JSON.stringify(snapshot());
   window.parent.postMessage(
-    { canal, accion: "cambios", datos: false },
+    { canal, accion: "cambios", datos: ordenActualizado && !soloConsulta },
     location.origin,
   );
   aviso(
     soloConsulta
       ? "Consulta de nómina · puedes descargar el Excel."
-      : "Libro abierto. Guarda para conservar los cambios.",
+      : ordenActualizado
+        ? "Libro abierto. Orden del archivo original aplicado. Guarda para conservarlo."
+        : "Libro abierto. Guarda para conservar los cambios.",
   );
 }
 let editor,
