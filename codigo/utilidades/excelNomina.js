@@ -1,4 +1,7 @@
-import { darFormatoAcumulado } from "./formatoAcumulado.js";
+import {
+  darFormatoAcumulado,
+  unificarFuenteNomina,
+} from "./formatoAcumulado.js";
 import ExcelJS from "exceljs";
 import {
   MESES_NOMINA,
@@ -167,6 +170,7 @@ export function crearLibroNomina(state, empresa, anio, tipo) {
       maxCols = Math.max(maxCols, labels.length);
       const principio = hoja.rowCount + 1;
       const sumas = Array(labels.length).fill(0);
+      let alterna = 0;
       for (const r of lista.sort((a, b) => a.desde.localeCompare(b.desde))) {
         const amounts = columnas.map(
           (c) =>
@@ -186,10 +190,18 @@ export function crearLibroNomina(state, empresa, anio, tipo) {
           r.neto / 100,
         ];
         const row = hoja.addRow(valores);
+        row.height = 28;
         row.eachCell((c, i) => {
+          if (alterna % 2 === 0)
+            c.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FFF0F5FB" },
+            };
           if (i >= 3 && i !== 4) c.numFmt = moneda;
           if (i >= 3) c.alignment = { horizontal: "right" };
         });
+        alterna++;
         valores.forEach((v, i) => {
           if (typeof v === "number") sumas[i] += v;
         });
@@ -215,8 +227,28 @@ export function crearLibroNomina(state, empresa, anio, tipo) {
     for (let i = 1; i <= maxCols; i++)
       hoja.getColumn(i).width = i <= 2 ? 14 : i <= 4 ? 16 : 22;
     hoja.getColumn(1).width = 24;
+    for (const [r, color] of [
+      [1, "FF173957"],
+      [2, "FFF4E6BD"],
+    ]) {
+      hoja.mergeCells(r, 1, r, maxCols);
+      hoja.getRow(r).height = r === 1 ? 36 : 30;
+      for (let c = 1; c <= maxCols; c++) {
+        const celda = hoja.getCell(r, c);
+        celda.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: color },
+        };
+        celda.font = {
+          bold: true,
+          color: { argb: r === 1 ? "FFFFFFFF" : "FF173957" },
+        };
+      }
+    }
     hoja.headerFooter.oddFooter = "Rey Pez · Página &P de &N";
   }
+  unificarFuenteNomina(libro);
   return libro;
 }
 export async function descargarExcelNomina(state, empresa, anio, tipo) {

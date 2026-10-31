@@ -7,6 +7,7 @@ export function pdfNominaEjemplo({
   importe = 525000,
   nombre = "PERSONA DEMO UNO",
   codigo = "001",
+  nss,
 } = {}) {
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   doc.setFontSize(9);
@@ -24,6 +25,7 @@ export function pdfNominaEjemplo({
   text(`${codigo} ${nombre}`, 25, 90);
   text("Sal. diario: 350.00", 150, 105);
   text("Dias pagados: 15.00", 25, 120);
+  if (nss) text(`Afiliacion IMSS: ${nss}`, 350, 105);
   const money = (n) => (n / 100).toFixed(2);
   text("1 Sueldo", 25, 140);
   text("15.00", 210, 140);

@@ -46,6 +46,13 @@ export function validarRecibo(r) {
   )
     throw Error("El trabajador de la nómina no es válido.");
   if (
+    r.nss !== undefined &&
+    (typeof r.nss !== "string" || !/^\d{11}$/.test(r.nss.replace(/[- ]/g, "")))
+  )
+    throw Error(
+      "El NSS del recibo debe conservar sus once dígitos como texto.",
+    );
+  if (
     !Number.isSafeInteger(r.salarioDiario) ||
     r.salarioDiario < 0 ||
     r.salarioDiario > 1e11 ||
@@ -183,6 +190,48 @@ export function guardarNomina(
   validarPeriodoNomina(entrada);
   const lista = state.payroll || [];
   const previo = lista.find((p) => p.id === entrada.id);
+  // Releer el mismo PDF puede completar identificadores que el lector anterior omitía.
+  // Conservar los importes y correcciones ya guardados, incluso si cambió el recibo local.
+  const sinIdentificacion = (json) =>
+    JSON.stringify(
+      JSON.parse(json).map((r) => {
+        const copia = { ...r };
+        delete copia.nss;
+        delete copia.nssCompletado;
+        return copia;
+      }),
+    );
+  if (
+    previo &&
+    !reemplazar &&
+    (previo.huella === entrada.huella ||
+      sinIdentificacion(previo.registrosJson) ===
+        sinIdentificacion(entrada.registrosJson))
+  ) {
+    const nuevos = new Map(recibosNomina(entrada).map((r) => [r.clave, r]));
+    let completados = false;
+    const registros = recibosNomina(previo).map((r) => {
+      const nss = nuevos.get(r.clave)?.nss;
+      if (r.nss || !nss) return r;
+      completados = true;
+      return { ...r, nss, nssCompletado: true };
+    });
+    if (completados) {
+      entrada = { ...previo, registrosJson: JSON.stringify(registros) };
+      reemplazar = true;
+    } else if (
+      sinIdentificacion(previo.registrosJson) ===
+        sinIdentificacion(entrada.registrosJson) &&
+      recibosNomina(entrada).every(
+        (r) =>
+          !r.nss ||
+          recibosNomina(previo).find((a) => a.clave === r.clave)?.nss === r.nss,
+      )
+    ) {
+      return state;
+    }
+  }
+
   if (
     previo &&
     !reemplazar &&
@@ -282,6 +331,7 @@ export function modificarReciboNomina(
         )
       )
         throw Error("La corrección conserva los conceptos originales del PDF.");
+    delete nuevo.nssCompletado;
     nuevo.totalPercepciones = sumarConceptos(nuevo.percepciones);
     nuevo.totalDeducciones = sumarConceptos(nuevo.deducciones);
     nuevo.neto = nuevo.totalPercepciones - nuevo.totalDeducciones;

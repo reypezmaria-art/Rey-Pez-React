@@ -1,4 +1,7 @@
-import { darFormatoAcumulado } from "./formatoAcumulado.js";
+import {
+  darFormatoAcumulado,
+  unificarFuenteNomina,
+} from "./formatoAcumulado.js";
 import ExcelJS from "exceljs";
 import { companyNames } from "../datos/constantes.js";
 import { MESES_NOMINA } from "../dominio/nomina.js";
@@ -350,5 +353,6 @@ export async function crearExcelAcumulado(entrada, tipo) {
       fitToHeight: 0,
     };
   }
+  unificarFuenteNomina(libro);
   return libro.xlsx.writeBuffer();
 }

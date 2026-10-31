@@ -81,7 +81,8 @@ export function filaDesdePdf(p, r) {
       let col =
         tipo === "Percepción" ? percepciones[concepto] : deducciones[c.codigo];
       if (tipo === "Deducción" && col === undefined && !c.informativo) {
-        if (concepto.includes("INFONAVIT")) col = 19;
+        if (["ISRACOMPENSAR", "ISRACOMPESAR"].includes(concepto)) col = 15;
+        else if (concepto.includes("INFONAVIT")) col = 19;
         else if (concepto.includes("PENSION")) col = 20;
         else if (concepto.includes("SEGUROVIVIENDA")) col = 22;
       }
@@ -259,6 +260,35 @@ export function incorporarPdf(libro, periodos, tipo) {
           periodoIgual(texto(rows[row]?.[1]), fila[1]) &&
           perfil({ cellData: { [row]: rows[row] } }, r),
       );
+      const identificada = marcaFila ?? existente;
+      if (
+        identificada !== undefined &&
+        r.nss &&
+        (r.nssCompletado || !texto(rows[identificada]?.[2]))
+      ) {
+        const anteriorNss = texto(rows[identificada]?.[2]);
+        if (anteriorNss !== r.nss) {
+          const anterior = rows[identificada]?.[2] || {};
+          const formato =
+            typeof anterior.s === "string"
+              ? snap.styles?.[anterior.s] || {}
+              : anterior.s || {};
+          hoja.getRange(+identificada, 2).setValues([
+            [
+              {
+                ...anterior,
+                v: r.nss,
+                t: 1,
+                f: null,
+                p: null,
+                s: { ...formato, n: { pattern: "@" } },
+              },
+            ],
+          ]);
+          cambios = true;
+        }
+        if (r.nssCompletado) continue;
+      }
       // El Excel puede contener ya ese recibo, con correcciones manuales: conservarlo.
       if (marcaFila === undefined && existente !== undefined) continue;
       const total = Object.keys(rows)
@@ -294,7 +324,7 @@ export function incorporarPdf(libro, periodos, tipo) {
         }
       hoja.getRange(row, 0, 1, 24).setValues([
         fila.map((v, c) => ({
-          v,
+          v: c === 2 ? String(v ?? "") : v,
           f: null,
           p: null,
           s:
@@ -303,6 +333,7 @@ export function incorporarPdf(libro, periodos, tipo) {
               : c >= 4
                 ? dinero
                 : {},
+          ...(c === 2 ? { t: 1, s: { n: { pattern: "@" } } } : {}),
           ...(c === 0
             ? {
                 custom: {
@@ -364,7 +395,8 @@ const letraColumna = (n) => {
     texto = String.fromCharCode(65 + ((n - 1) % 26)) + texto;
   return texto;
 };
-function detalleResumen(snapshot, mes, concepto) {
+export function detalleResumen(snapshot, mes, concepto) {
+  const personas = new Set();
   let suma = 0;
   const refs = [];
   for (const s of Object.values(snapshot.sheets)) {
@@ -381,15 +413,26 @@ function detalleResumen(snapshot, mes, concepto) {
         normal(MESES_NOMINA[mes - 1]).slice(0, 3)
       )
         continue;
-      suma += Math.round(Number(d[col]?.v || 0) * 100);
-      refs.push(
-        `'${s.name.replace(/'/g, "''")}'!${letraColumna(+col)}${+r + 1}`,
-      );
+      if (concepto === "personas") {
+        personas.add(normal(texto(d[3])) || normal(texto(d[0])));
+        continue;
+      }
+      for (const indice of concepto === "isrRetenido" ? [15, 16] : [+col]) {
+        const v = d[indice]?.v;
+        suma +=
+          typeof v === "number" && Number.isFinite(v) ? Math.round(v * 100) : 0;
+        refs.push(
+          `'${s.name.replace(/'/g, "''")}'!${letraColumna(indice)}${+r + 1}`,
+        );
+      }
     }
   }
-  return { suma, formula: refs.length ? `=SUM(${refs.join(",")})` : "=0" };
+  return concepto === "personas"
+    ? { suma: personas.size * 100, formula: null }
+    : { suma, formula: refs.length ? `=SUM(${refs.join(",")})` : "=0" };
 }
-function actualizarResumen(libro, antes, meses) {
+export function actualizarResumen(libro, antes, meses) {
+  let cambios = false;
   const conceptos = {
     SUELDO: 4,
     AGUINALDO: 5,
@@ -402,6 +445,8 @@ function actualizarResumen(libro, antes, meses) {
     TOTALPERCEPCIONES: 11,
     TOTALDEDUCCIONES: "deducciones",
     NETOAPAGAR: 23,
+    ISRRETENIDO: "isrRetenido",
+    NUMEROTRABAJADORES: "personas",
   };
   for (const s of libro.getSheets()) {
     if (!/^Acumulado\s+\d{4}$/i.test(s.getSheetName())) continue;
@@ -413,7 +458,12 @@ function actualizarResumen(libro, antes, meses) {
       // No convertir las tablas fiscales de subsidios/exentos en cálculos de nómina.
       if (
         !Object.values(d).some((v) =>
-          ["SUELDO", "TOTALPERCEPCIONES"].includes(normal(texto(v))),
+          [
+            "SUELDO",
+            "TOTALPERCEPCIONES",
+            "ISRRETENIDO",
+            "NUMEROTRABAJADORES",
+          ].includes(normal(texto(v))),
         )
       )
         continue;
@@ -441,37 +491,135 @@ function actualizarResumen(libro, antes, meses) {
           fila = total;
           s.getRange(fila, +mesCol).setValue(MESES_NOMINA[mes - 1]);
           actual = libro.save().sheets[s.getSheetId()];
+          cambios = true;
         }
         for (const [c, header] of Object.entries(d)) {
           const concepto = conceptos[normal(texto(header))];
           if (concepto === undefined) continue;
           const celda = actual.cellData[fila]?.[c] || {};
-          const controlada =
-            celda.custom?.pdfResumenFormula &&
-            celda.f === celda.custom.pdfResumenFormula;
           const anterior = detalleResumen(antes, mes, concepto);
-          // Conservar ajustes manuales que difieran del detalle previo y fórmulas del usuario.
+          const controlada = celda.custom?.pdfResumenFormula
+            ? celda.f === celda.custom.pdfResumenFormula
+            : celda.custom?.pdfResumenValor !== undefined &&
+              celda.v === celda.custom.pdfResumenValor;
+          const vacia =
+            !celda.f &&
+            (celda.v === null ||
+              celda.v === undefined ||
+              celda.v === "" ||
+              celda.v === 0);
           if (
             !controlada &&
-            (celda.f ||
-              Math.round(Number(celda.v || 0) * 100) !== anterior.suma)
+            !vacia &&
+            (celda.f !== anterior.formula || !celda.f) &&
+            (celda.f || Math.round(Number(celda.v) * 100) !== anterior.suma)
           )
             continue;
           const nuevo = detalleResumen(libro.save(), mes, concepto);
+          if (
+            (celda.f || null) === nuevo.formula &&
+            Number(celda.v) === nuevo.suma / 100
+          )
+            continue;
+          cambios = true;
           s.getRange(fila, +c).setValues([
             [
               {
                 f: nuevo.formula,
                 v: nuevo.suma / 100,
-                s: celda.s || dinero,
-                custom: { ...celda.custom, pdfResumenFormula: nuevo.formula },
+                s:
+                  concepto === "personas"
+                    ? {
+                        ...(typeof celda.s === "string"
+                          ? libro.save().styles?.[celda.s] || {}
+                          : celda.s || {}),
+                        n: { pattern: "0" },
+                      }
+                    : celda.s || dinero,
+                custom: {
+                  ...celda.custom,
+                  pdfResumenFormula: nuevo.formula,
+                  pdfResumenValor: nuevo.suma / 100,
+                },
               },
             ],
           ]);
         }
       }
+      // Los totales importados eran valores fijos: enlazar solo los que aún coinciden
+      // con sus meses previos, sin sustituir un ajuste manual distinto.
+      const actual = libro.save().sheets[s.getSheetId()];
+      const total = Object.keys(actual.cellData)
+        .map(Number)
+        .find(
+          (r) =>
+            r > +h && normal(texto(actual.cellData[r][mesCol])) === "TOTAL",
+        );
+      const totalAntes = Object.keys(original.cellData)
+        .map(Number)
+        .find(
+          (r) =>
+            r > +h && normal(texto(original.cellData[r][mesCol])) === "TOTAL",
+        );
+      if (total === undefined || totalAntes === undefined) continue;
+      for (const [c, header] of Object.entries(d)) {
+        const concepto = conceptos[normal(texto(header))];
+        if (concepto === undefined || concepto === "personas") continue;
+        const celda = actual.cellData[total]?.[c] || {};
+        const antigua = original.cellData[totalAntes]?.[c] || {};
+        const sumaAnterior = Object.entries(original.cellData)
+          .filter(
+            ([r, row]) =>
+              +r > +h &&
+              +r < totalAntes &&
+              MESES_NOMINA.some(
+                (m) => normal(texto(row[mesCol])) === normal(m),
+              ),
+          )
+          .reduce(
+            (n, [, row]) => n + Math.round(Number(row[c]?.v || 0) * 100),
+            0,
+          );
+        const controlada =
+          celda.custom?.pdfResumenFormula &&
+          celda.f === celda.custom.pdfResumenFormula;
+        if (
+          !controlada &&
+          (antigua.f ||
+            Math.round(Number(antigua.v || 0) * 100) !== sumaAnterior)
+        )
+          continue;
+        const letra = letraColumna(+c),
+          formula = `=SUM(${letra}${+h + 2}:${letra}${total})`;
+        if (celda.f === formula) continue;
+        const suma = Object.entries(actual.cellData)
+          .filter(
+            ([r, row]) =>
+              +r > +h &&
+              +r < total &&
+              MESES_NOMINA.some(
+                (m) => normal(texto(row[mesCol])) === normal(m),
+              ),
+          )
+          .reduce(
+            (n, [, row]) => n + Math.round(Number(row[c]?.v || 0) * 100),
+            0,
+          );
+        s.getRange(total, +c).setValues([
+          [
+            {
+              ...celda,
+              f: formula,
+              v: suma / 100,
+              custom: { ...celda.custom, pdfResumenFormula: formula },
+            },
+          ],
+        ]);
+        cambios = true;
+      }
     }
   }
+  return cambios;
 }
 
 function actualizarTotal(libro, hoja, previo) {

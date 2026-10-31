@@ -195,6 +195,8 @@ export function extraerNomina(paginas, aliases = {}) {
     );
     if (rfc)
       actual.clave = "RFC:" + normalizarNomina(rfc[1]).replace(/[- ]/g, "");
+    const nss = f.texto.match(/Afiliaci[oó]n\s+IMSS:\s*([0-9][0-9 -]*[0-9])/i);
+    if (nss) actual.nss = nss[1].trim();
     const salario = f.texto.match(/Sal\.\s*diario:\s*(-?[\d,]+\.\d{2})/i);
     if (salario) actual.salarioDiario = centavos(salario[1]);
     const dias = f.texto.match(/D[ií]as pagados:\s*([\d.]+)/i);

@@ -37,3 +37,13 @@ Los registros PDF y los libros editables son fuentes distintas. El editor incorp
 Cada libro conserva las firmas de los PDF que ya incorporó. Reabrir no duplica periodos. Un PDF corregido actualiza sus filas identificadas y retira solo sus trabajadores ausentes; los demás periodos se conservan. Si un recibo ya estaba en el Excel importado, se mantiene esa fila para respetar sus ajustes. Los dos formatos se guardan por separado y una descarga pendiente pide abrir y guardar el libro correspondiente. El guardado conserva el historial; no se regenera el libro desde cero.
 
 El resumen actualiza conceptos identificables a partir del detalle cuando el valor anterior coincide con ese detalle o con una fórmula administrada por la integración. Conserva ajustes manuales distintos y no calcula exentos, subsidios fiscales ni ISR enterado. Una hoja con estructura personalizada no se interpreta automáticamente como tabla de nómina. Si la incorporación falla, el editor restaura su copia previa sin guardar cambios parciales.
+
+### Presentación, reparación de Acumulado e identificación
+
+Las hojas provenientes de PDF reutilizan la presentación de las hojas de Excel: encabezados, tamaños, bandas y totales. Este ajuste también se aplica a libros ya guardados y a su descarga, sin alterar valores, fórmulas ni marcas de los recibos.
+
+Al abrir se revisan los meses que tienen PDF aunque ya estén incorporados. Se completan los resúmenes vacíos o en cero desde el detalle, se enlazan los totales anuales que coinciden con los meses previos y se conservan ajustes manuales distintos. ISR retenido utiliza ISR más ISR a compensar, como el archivo de referencia; el número mensual de trabajadores cuenta personas distintas, no recibos. Subsidio causado/entregado, exentos e ISR enterado no se deducen de campos con otro significado.
+
+El lector guarda el NSS del PDF como texto de once dígitos. Para registros importados con el lector anterior hay que seleccionar de nuevo los PDF originales en la carga normal: si son el mismo archivo, o sus importes coinciden, se completa únicamente el NSS ausente y se mantiene el periodo, su auditoría y sus correcciones. Al incorporar esa identificación al libro, no se reemplazan sus importes editados. Una corrección económica posterior deja de ser una actualización exclusiva de identificación.
+
+La presentación fija utiliza Calibri de 11 puntos en datos y encabezados de tabla, títulos de 16 y subtítulos de 13. Mantiene azul marino, dorado, azul claro y blanco en editor, libros existentes, nuevas cargas y descargas. Las fuentes se normalizan sin modificar valores ni identificadores; negritas y demás énfasis se conservan.

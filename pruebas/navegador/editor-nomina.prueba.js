@@ -387,7 +387,7 @@ test("recupera el orden original de un libro anterior conservando ediciones y re
 test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones ni duplicar periodos", async ({
   page,
 }) => {
-  test.setTimeout(120000);
+  test.setTimeout(180000);
   await iniciar(page);
   const bytes = await excelSintetico(companyNames.ESTUARDO);
   const original = new ExcelJS.Workbook();
@@ -397,6 +397,17 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
   resumen.getCell("D4").value = "TOTAL";
   resumen.getCell("E4").value = "EXENTO";
   resumen.getCell("E5").value = 7;
+  resumen.getRow(12).values = [
+    null,
+    "MES",
+    "SUBSIDIO CAUSADO",
+    "ISR RETENIDO",
+    "ISR ENTERADO",
+    "NUMERO TRABAJADORES",
+  ];
+  resumen.getRow(13).values = [null, "ENERO", 0, 0, 0, 0];
+  resumen.getRow(14).values = [null, "OCTUBRE", 0, 0, 77.77, 0];
+  resumen.getRow(15).values = [null, "TOTAL", 0, 0, 77.77, 0];
   await page.getByLabel("Seleccionar Excel acumulado de nómina").setInputFiles({
     name: "sintetico.xlsx",
     mimeType:
@@ -505,7 +516,8 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
     const acum = libro.worksheets[0];
     let octubre;
     acum.eachRow((r) => {
-      if (String(r.getCell(2).value).toLowerCase() === "octubre") octubre = r;
+      if (!octubre && String(r.getCell(2).value).toLowerCase() === "octubre")
+        octubre = r;
     });
     expect(octubre.getCell(3).result).toBe(10500);
     expect(acum.getCell("E5").value).toBe(7);
@@ -575,7 +587,10 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
   expect(importes).toEqual([5500, 5250]);
   let resumenCorregido;
   libroCorregido.worksheets[0].eachRow((r) => {
-    if (String(r.getCell(2).value).toLowerCase() === "octubre")
+    if (
+      !resumenCorregido &&
+      String(r.getCell(2).value).toLowerCase() === "octubre"
+    )
       resumenCorregido = r;
   });
   expect(resumenCorregido.getCell(3).result).toBe(10750);
@@ -588,4 +603,102 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
     .getByRole("button", { name: "Descargar Excel anual", exact: true })
     .click();
   await expect(page.getByRole("alert")).toContainText("Hay PDF nuevos");
+  await page
+    .getByRole("button", { name: "Generar mensual", exact: false })
+    .first()
+    .click();
+  await page
+    .getByRole("button", { name: "Abrir editor de nómina", exact: true })
+    .click();
+  await expect(frame.locator("#estado")).toContainText("Libro abierto", {
+    timeout: 30000,
+  });
+  await page
+    .frames()
+    .find((f) => f.url().includes("editor-nomina/index.html"))
+    .evaluate(() => {
+      const wb = window.pruebaEditor.api().getActiveWorkbook();
+      wb.getSheetByName("octubre").getRange("E4").setValue(1234);
+      const s = Object.values(wb.save().sheets).find((s) =>
+        /^Acumulado/.test(s.name),
+      );
+      const r = Object.keys(s.cellData).find(
+        (r) => s.cellData[r][1]?.v?.toString().toLowerCase() === "octubre",
+      );
+      wb.getSheetBySheetId(s.id).getRange(+r, 2).setValue(0);
+    });
+  await frame.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(frame.locator("#estado")).toContainText("guardada");
+  await page
+    .getByRole("button", { name: "Cerrar editor", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Abrir editor de nómina", exact: true })
+    .click();
+  await expect(frame.locator("#estado")).toContainText(
+    "Acumulado actualizado",
+    { timeout: 30000 },
+  );
+  await frame.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(frame.locator("#estado")).toContainText("guardada");
+  await page
+    .getByRole("button", { name: "Cerrar editor", exact: true })
+    .click();
+  for (const [desde, hasta, importe] of [
+    ["01/Oct/2027", "15/Oct/2027", 550000],
+    ["16/Oct/2027", "31/Oct/2027", 525000],
+  ]) {
+    await page
+      .getByLabel("Seleccionar PDF de nómina", { exact: true })
+      .setInputFiles({
+        name: "nomina.pdf",
+        mimeType: "application/pdf",
+        buffer: Buffer.from(
+          pdfNominaEjemplo({
+            empresa: "ESTUARDO",
+            nombre: "PERSONA UNO",
+            desde,
+            hasta,
+            importe,
+            nss: desde.startsWith("16/") ? "00000000001" : "00-00-00-0000-1",
+          }),
+        ),
+      });
+    await expect(page.getByRole("status")).toContainText("Nómina guardada");
+  }
+  await page
+    .getByRole("button", { name: "Abrir editor de nómina", exact: true })
+    .click();
+  await expect(frame.locator("#estado")).toContainText("PDF incorporados", {
+    timeout: 30000,
+  });
+  await frame.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(frame.locator("#estado")).toContainText("guardada");
+  await page
+    .getByRole("button", { name: "Cerrar editor", exact: true })
+    .click();
+  const conNss = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Descargar Excel mensual", exact: true })
+    .click();
+  const final = new ExcelJS.Workbook();
+  await final.xlsx.load(await readFile(await (await conNss).path()));
+  const oct = final.getWorksheet("octubre"),
+    enero = final.getWorksheet("enero");
+  expect(oct.getCell("C4").value).toBe("00-00-00-0000-1");
+  expect(oct.getCell("C5").value).toBe("00000000001");
+  expect(oct.getCell("E4").value).toBe(1234);
+  expect(oct.getCell("A3").fill).toEqual(enero.getCell("A3").fill);
+  expect(oct.getCell("C4").font.name).toBe("Calibri");
+  expect(oct.getCell("C4").font.size).toBe(11);
+  expect(enero.getCell("A4").font.name).toBe("Calibri");
+  expect(oct.getRow(4).height).toBe(enero.getRow(4).height);
+  const meses = [];
+  final.worksheets[0].eachRow((r) => {
+    if (String(r.getCell(2).value).toLowerCase() === "octubre") meses.push(r);
+  });
+  expect(meses[0].getCell(3).result).toBe(6484);
+  expect(meses[1].getCell(4).result).toBe(200);
+  expect(meses[1].getCell(5).value).toBe(77.77);
+  expect(meses[1].getCell(6).value).toBe(1);
 });

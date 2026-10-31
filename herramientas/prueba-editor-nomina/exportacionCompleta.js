@@ -38,8 +38,15 @@ export async function exportarCompleto(snapshot) {
           : d.t === 3
             ? Boolean(v)
             : v;
-        const e =
-          typeof d.s === "string" ? snapshot.styles?.[d.s] || {} : d.s || {};
+        const resolver = (estilo) =>
+          typeof estilo === "string"
+            ? snapshot.styles?.[estilo] || {}
+            : estilo || {};
+        const e = {
+          ...resolver(snapshot.defaultStyle),
+          ...resolver(s.defaultStyle),
+          ...resolver(d.s),
+        };
         cell.font = {
           name: e.ff || "Arial",
           size: e.fs || 11,

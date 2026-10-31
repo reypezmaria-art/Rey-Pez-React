@@ -77,6 +77,7 @@ export default function EditorNomina({
               ? []
               : pdfPendientes(periodosPdf || [], fuente?.pdfAplicados, firmas),
             pdfAplicados: fuente?.pdfAplicados || {},
+            mesesPdf: [...new Set((periodosPdf || []).map((p) => p.mes))],
             firmasPdf: firmas,
           };
         } else if (accion === "guardar") {

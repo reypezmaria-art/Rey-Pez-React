@@ -1,4 +1,5 @@
-import { incorporarPdf } from "./pdfEnLibro.js";
+import { incorporarPdf, actualizarResumen } from "./pdfEnLibro.js";
+import { aplicarFormatoPdf } from "./formatoPdf.js";
 import { recuperarOrdenOriginal, esperarMotor } from "./ordenColumnas.js";
 import { prepararAcumulado } from "./formatoVista.js";
 /* global document, window, indexedDB, location */
@@ -67,7 +68,12 @@ async function abrirIntegrado(revision) {
   nube = !!datos.nube;
   estadoIntegrado("Preparando las hojas y el diseño de nómina…");
   prueba = await importar(datos.bytes, datos.nombre);
-  montar(await prepararAcumulado(datos.snapshot || prueba.snapshot));
+  montar(
+    aplicarFormatoPdf(
+      await prepararAcumulado(datos.snapshot || prueba.snapshot),
+      datos.tipo,
+    ),
+  );
   baseGuardada = JSON.stringify(snapshot());
   const ordenActualizado = await recuperarOrdenOriginal(editor.univerAPI);
   pdfAplicados = { ...(datos.pdfAplicados || {}) };
@@ -90,6 +96,16 @@ async function abrirIntegrado(revision) {
     for (const p of datos.periodosPdf)
       pdfAplicados[p.id] = datos.firmasPdf[p.id];
   }
+  await esperarMotor(editor.univerAPI);
+  const resumenActualizado = actualizarResumen(
+    editor.univerAPI.getActiveWorkbook(),
+    snapshot(),
+    datos.mesesPdf || [],
+  );
+  if (pdfActualizado) {
+    montar(aplicarFormatoPdf(snapshot(), datos.tipo));
+    await esperarMotor(editor.univerAPI);
+  }
   if (soloConsulta) editor.univerAPI.getActiveWorkbook().setEditable(false);
   estadoIntegrado("");
   window.parent.postMessage(
@@ -97,7 +113,10 @@ async function abrirIntegrado(revision) {
       canal,
       accion: "cambios",
       datos:
-        (ordenActualizado || pdfActualizado || datos.periodosPdf?.length > 0) &&
+        (ordenActualizado ||
+          pdfActualizado ||
+          resumenActualizado ||
+          datos.periodosPdf?.length > 0) &&
         !soloConsulta,
     },
     location.origin,
@@ -107,9 +126,11 @@ async function abrirIntegrado(revision) {
       ? "Consulta de nómina · puedes descargar el Excel."
       : pdfActualizado
         ? "Libro abierto. PDF incorporados al libro. Guarda para conservar los nuevos periodos."
-        : ordenActualizado
-          ? "Libro abierto. Orden del archivo original aplicado. Guarda para conservarlo."
-          : "Libro abierto. Guarda para conservar los cambios.",
+        : resumenActualizado
+          ? "Libro abierto. Acumulado actualizado. Guarda para conservar los importes."
+          : ordenActualizado
+            ? "Libro abierto. Orden del archivo original aplicado. Guarda para conservarlo."
+            : "Libro abierto. Guarda para conservar los cambios.",
   );
 }
 let editor,

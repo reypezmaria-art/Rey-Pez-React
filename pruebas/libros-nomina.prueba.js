@@ -1,7 +1,9 @@
+import { aplicarFormatoPdf } from "../herramientas/prueba-editor-nomina/formatoPdf.js";
 import {
   firmasPdf,
   pdfPendientes,
   filaDesdePdf,
+  detalleResumen,
 } from "../herramientas/prueba-editor-nomina/pdfEnLibro.js";
 import { entradaNominaEjemplo } from "./soporte/nominaEjemplo.js";
 import { darFormatoAcumulado } from "../codigo/utilidades/formatoAcumulado.js";
@@ -52,6 +54,9 @@ test("extracción identifica ejercicio, preserva importes y advierte fechas sin 
     assert.equal(libro.worksheets.length, tipo === "mensual" ? 4 : 3);
     const h = libro.worksheets[1];
     assert.deepEqual(h.getRow(3).values.slice(1, 25), fuente.columnas);
+    assert.equal(h.getCell("A4").font.name, "Calibri");
+    assert.equal(h.getCell("A4").font.size, 11);
+    assert.equal(h.getCell("A1").font.size, 16);
     assert.equal(h.getCell("E4").value, 2000);
     assert.equal(h.getCell("X4").formula, "L4-S4");
   }
@@ -111,6 +116,7 @@ test("consulta de nómina exige permiso explícito, cuenta activa y no concede a
 test("descarga completa conserva edición, fórmula, estilo, dimensiones, hojas y combina celdas", async () => {
   const snapshot = {
     styles: { azul: { bg: { rgb: "#173957" }, bl: 1, n: { pattern: "0.00" } } },
+    defaultStyle: { ff: "Calibri", fs: 11 },
     sheetOrder: ["uno", "dos"],
     sheets: {
       uno: {
@@ -135,6 +141,7 @@ test("descarga completa conserva edición, fórmula, estilo, dimensiones, hojas 
   const h = libro.worksheets[0];
   assert.equal(h.getCell("B2").formula, "A2*2");
   assert.equal(h.getCell("A1").fill.fgColor.argb, "FF173957");
+  assert.equal(h.getCell("A1").font.name, "Calibri");
   assert.equal(h.getCell("B1").master.address, "A1");
   assert.equal(h.getRow(1).height, 30);
 });
@@ -201,4 +208,113 @@ test("PDF pendiente se identifica por su contenido, conserva centavos y separa c
     filaDesdePdf(p, desconocido).extras["Percepción 987 · Concepto adicional"],
     1.23,
   );
+});
+
+test("presentación PDF reutiliza encabezados y bandas del Excel sin cambiar valores ni metadatos", () => {
+  const cabecera = {
+    0: {
+      v: "NOMBRE",
+      s: { bg: { rgb: "#173957" }, cl: { rgb: "#ffffff" }, bl: 1 },
+    },
+    1: { v: "PERIODO" },
+    4: { v: "SUELDO" },
+  };
+  const snapshot = {
+    styles: {},
+    sheetOrder: ["sep", "oct"],
+    sheets: {
+      sep: {
+        id: "sep",
+        name: "septiembre",
+        cellData: {
+          0: { 0: { v: "Empresa", s: { bg: { rgb: "#173957" } } } },
+          1: { 0: { v: "septiembre", s: { bg: { rgb: "#F4E6BD" } } } },
+          2: cabecera,
+          3: { 0: { v: "Persona" }, 1: { v: "SEP 01-15" }, 4: { v: 100 } },
+          4: { 0: { v: "Total" } },
+        },
+        mergeData: [
+          { startRow: 0, endRow: 0, startColumn: 0, endColumn: 10 },
+          { startRow: 1, endRow: 1, startColumn: 0, endColumn: 10 },
+        ],
+        columnData: { 0: { w: 306 } },
+        rowData: { 2: { h: 64 } },
+      },
+      oct: {
+        id: "oct",
+        name: "octubre",
+        cellData: {
+          0: { 0: { v: "Empresa" } },
+          1: { 0: { v: "octubre" } },
+          2: cabecera,
+          3: {
+            0: {
+              v: "Persona",
+              custom: {
+                pdfNomina: {
+                  periodo: "DEMO_2027-10-01_2027-10-15",
+                  clave: "DEMO",
+                },
+              },
+            },
+            1: { v: "OCT 01-15" },
+            2: { v: "00-00-00-0000-1" },
+            4: { v: 123 },
+            23: { v: 122, f: "=E4-1" },
+          },
+          4: { 0: { v: "Total" } },
+        },
+        mergeData: [],
+        columnData: {},
+        rowData: {},
+      },
+    },
+  };
+  const antes = structuredClone(snapshot);
+  const cambio = aplicarFormatoPdf(snapshot, "mensual");
+  assert.deepEqual(snapshot, antes);
+  assert.deepEqual(
+    cambio.sheets.oct.cellData[2][0].s,
+    cambio.sheets.sep.cellData[2][0].s,
+  );
+  assert.equal(cambio.sheets.oct.cellData[3][4].s.bg.rgb, "#F0F5FB");
+  assert.equal(cambio.sheets.sep.cellData[3][0].s.ff, "Calibri");
+  assert.equal(cambio.sheets.oct.cellData[3][2].s.fs, 11);
+  assert.equal(cambio.sheets.oct.cellData[3][2].v, "00-00-00-0000-1");
+  assert.equal(cambio.sheets.oct.cellData[3][23].f, "=E4-1");
+  assert.deepEqual(
+    cambio.sheets.oct.cellData[3][0].custom,
+    antes.sheets.oct.cellData[3][0].custom,
+  );
+  assert.deepEqual(aplicarFormatoPdf(cambio, "mensual"), cambio);
+});
+
+test("resumen cuenta personas distintas y conserva el ISR a compensar del formato de referencia", () => {
+  const snapshot = {
+    sheets: {
+      h: {
+        name: "octubre",
+        cellData: {
+          2: { 0: { v: "NOMBRE" }, 1: { v: "PERIODO" }, 4: { v: "SUELDO" } },
+          3: {
+            0: { v: "Persona demo" },
+            1: { v: "OCT 01-15" },
+            3: { v: "RFC-DEMO" },
+            15: { v: 3 },
+            16: { v: 5 },
+          },
+          4: {
+            0: { v: "Persona demo" },
+            1: { v: "OCT 16-31" },
+            3: { v: "RFC-DEMO" },
+            16: { v: 4 },
+          },
+        },
+      },
+    },
+  };
+  assert.equal(detalleResumen(snapshot, 10, "personas").suma, 100);
+  assert.equal(detalleResumen(snapshot, 10, "isrRetenido").suma, 1200);
+  assert.match(detalleResumen(snapshot, 10, "isrRetenido").formula, /P4/);
+  assert.match(detalleResumen(snapshot, 10, "isrRetenido").formula, /Q5/);
 });

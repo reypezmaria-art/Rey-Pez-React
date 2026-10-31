@@ -240,3 +240,43 @@ test("persistencia privada, copias antiguas y validación de fechas y payload", 
     /inválido/,
   );
 });
+
+test("completar NSS del mismo PDF conserva correcciones y no duplica periodos", () => {
+  const p = entradaNominaEjemplo();
+  let estado = guardarNomina(base(), p);
+  const modificado = recibosNomina(estado.payroll[0])[0];
+  const cambios = {
+    ...modificado,
+    percepciones: modificado.percepciones.map((c) => ({
+      ...c,
+      importe: c.importe + 100,
+    })),
+  };
+  estado = modificarReciboNomina(
+    estado,
+    p.id,
+    modificado.clave,
+    cambios,
+    "Ajuste de prueba",
+  );
+  const neto = recibosNomina(estado.payroll[0])[0].neto;
+  const conNss = {
+    ...p,
+    registrosJson: JSON.stringify(
+      recibosNomina(p).map((r) => ({ ...r, nss: "00-00-00-0000-1" })),
+    ),
+  };
+  const completo = guardarNomina(estado, conNss);
+  const r = recibosNomina(completo.payroll[0])[0];
+  assert.equal(r.nss, "00-00-00-0000-1");
+  assert.equal(r.neto, neto);
+  assert.equal(r.nssCompletado, true);
+  assert.equal(completo.payroll.length, 1);
+  assert.strictEqual(guardarNomina(completo, conNss), completo);
+  assert.ok(completo.audit[0].anterior);
+});
+
+test("lector PDF conserva NSS con ceros iniciales y once dígitos", async () => {
+  const p = await leer(pdfNominaEjemplo({ nss: "00-00-00-0000-1" }));
+  assert.equal(recibosNomina(p)[0].nss, "00-00-00-0000-1");
+});

@@ -218,3 +218,24 @@ export function darFormatoAcumulado(hoja) {
     oddFooter: "Rey Pez · Acumulado · Página &P de &N",
   };
 }
+
+export function unificarFuenteNomina(libro) {
+  for (const hoja of libro.worksheets) {
+    const acumulado = /^Acumulado\s+\d{4}$/i.test(hoja.name);
+    hoja.eachRow((fila, r) =>
+      fila.eachCell((celda) => {
+        const base = celda.font || {};
+        const size = acumulado
+          ? [16, 13].includes(base.size)
+            ? base.size
+            : 11
+          : r === 1
+            ? 16
+            : r === 2
+              ? 13
+              : 11;
+        celda.font = { ...base, name: "Calibri", size };
+      }),
+    );
+  }
+}

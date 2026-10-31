@@ -1,3 +1,4 @@
+import { aplicarFormatoPdf } from "../../herramientas/prueba-editor-nomina/formatoPdf.js";
 import {
   firmasPdf,
   pdfPendientes,
@@ -175,7 +176,9 @@ export default function Nomina({ soloConsulta = false }) {
           await import("../../herramientas/prueba-editor-nomina/exportacionCompleta.js");
         const { prepararAcumulado } =
           await import("../../herramientas/prueba-editor-nomina/formatoVista.js");
-        const bytes = await exportarCompleto(await prepararAcumulado(snapshot));
+        const bytes = await exportarCompleto(
+          aplicarFormatoPdf(await prepararAcumulado(snapshot), exportar),
+        );
         const url = URL.createObjectURL(
           new Blob([bytes], {
             type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
