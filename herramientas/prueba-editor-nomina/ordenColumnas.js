@@ -24,29 +24,7 @@ export function hojasConOrdenAnterior(snapshot) {
 export async function recuperarOrdenOriginal(api) {
   const libro = api.getActiveWorkbook();
   const ids = hojasConOrdenAnterior(libro.save());
-  // Los controladores que actualizan referencias se registran al terminar la carga.
-  const listo = api.Enum.LifecycleStages.Steady;
-  if (ids.length && api.getCurrentLifecycleStage() < listo) {
-    await new Promise((resolve, reject) => {
-      const temporizador = setTimeout(() => {
-        subscripcion.dispose();
-        reject(
-          Error(
-            "El editor sigue preparando las fórmulas. Cierra y vuelve a abrir el libro para aplicar el orden.",
-          ),
-        );
-      }, 15000);
-      const subscripcion = api.addEvent(
-        api.Event.LifeCycleChanged,
-        ({ stage }) => {
-          if (stage < listo) return;
-          clearTimeout(temporizador);
-          subscripcion.dispose();
-          resolve();
-        },
-      );
-    });
-  }
+  if (ids.length) await esperarMotor(api);
   const activa = libro.getActiveSheet().getSheetId();
   for (const id of ids) {
     const hoja = libro.getSheetBySheetId(id);
@@ -79,4 +57,30 @@ export async function recuperarOrdenOriginal(api) {
   }
   if (ids.length) libro.setActiveSheet(activa);
   return ids.length > 0;
+}
+
+export async function esperarMotor(api) {
+  // Los controladores que actualizan referencias se registran al terminar la carga.
+  const listo = api.Enum.LifecycleStages.Steady;
+  if (api.getCurrentLifecycleStage() < listo) {
+    await new Promise((resolve, reject) => {
+      const temporizador = setTimeout(() => {
+        subscripcion.dispose();
+        reject(
+          Error(
+            "El editor sigue preparando las fórmulas. Cierra y vuelve a abrir el libro para aplicar el orden.",
+          ),
+        );
+      }, 15000);
+      const subscripcion = api.addEvent(
+        api.Event.LifeCycleChanged,
+        ({ stage }) => {
+          if (stage < listo) return;
+          clearTimeout(temporizador);
+          subscripcion.dispose();
+          resolve();
+        },
+      );
+    });
+  }
 }

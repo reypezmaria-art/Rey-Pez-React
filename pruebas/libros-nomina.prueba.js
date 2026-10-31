@@ -1,3 +1,9 @@
+import {
+  firmasPdf,
+  pdfPendientes,
+  filaDesdePdf,
+} from "../herramientas/prueba-editor-nomina/pdfEnLibro.js";
+import { entradaNominaEjemplo } from "./soporte/nominaEjemplo.js";
 import { darFormatoAcumulado } from "../codigo/utilidades/formatoAcumulado.js";
 import { excelSintetico } from "./soporte/acumuladoEjemplo.js";
 import test from "node:test";
@@ -157,4 +163,42 @@ test("el formato de Acumulado conserva importes y fórmulas y puede aplicarse ot
     assert.equal(hoja.getCell("B4").font.color.argb, "FFFFFFFF");
     assert.equal(hoja.views[0].showGridLines, false);
   }
+});
+
+test("PDF pendiente se identifica por su contenido, conserva centavos y separa conceptos ajenos a las columnas originales", async () => {
+  const p = entradaNominaEjemplo({ empresa: "ESTUARDO", mes: 10 });
+  const r = JSON.parse(p.registrosJson)[0];
+  const { fila, extras } = filaDesdePdf(p, r);
+  assert.equal(fila[1], "OCT 01-15");
+  assert.equal(fila[4], 5250);
+  assert.equal(fila[18], 120);
+  assert.equal(fila[23], 5130);
+  assert.equal(extras["SALARIO DIARIO"], 350);
+  assert.equal(extras["DÍAS PAGADOS"], 15);
+  const firmas = await firmasPdf([p]);
+  assert.equal(pdfPendientes([p], {}, firmas).length, 1);
+  assert.equal(pdfPendientes([p], firmas, firmas).length, 0);
+  const corregido = {
+    ...p,
+    registrosJson: p.registrosJson.replace("525000", "526000"),
+  };
+  const nuevas = await firmasPdf([corregido]);
+  assert.equal(pdfPendientes([corregido], firmas, nuevas).length, 1);
+  const desconocido = {
+    ...r,
+    percepciones: [
+      ...r.percepciones,
+      {
+        codigo: "987",
+        concepto: "Concepto adicional",
+        importe: 123,
+        informativo: false,
+        valor: null,
+      },
+    ],
+  };
+  assert.equal(
+    filaDesdePdf(p, desconocido).extras["Percepción 987 · Concepto adicional"],
+    1.23,
+  );
 });

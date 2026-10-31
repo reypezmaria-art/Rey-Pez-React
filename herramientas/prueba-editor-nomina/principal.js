@@ -1,4 +1,5 @@
-import { recuperarOrdenOriginal } from "./ordenColumnas.js";
+import { incorporarPdf } from "./pdfEnLibro.js";
+import { recuperarOrdenOriginal, esperarMotor } from "./ordenColumnas.js";
 import { prepararAcumulado } from "./formatoVista.js";
 /* global document, window, indexedDB, location */
 import { createUniver, LocaleType, mergeLocales } from "@univerjs/presets";
@@ -69,21 +70,51 @@ async function abrirIntegrado(revision) {
   montar(await prepararAcumulado(datos.snapshot || prueba.snapshot));
   baseGuardada = JSON.stringify(snapshot());
   const ordenActualizado = await recuperarOrdenOriginal(editor.univerAPI);
+  pdfAplicados = { ...(datos.pdfAplicados || {}) };
+  basePdfAplicados = JSON.stringify(pdfAplicados);
+  let pdfActualizado = false;
+  if (datos.periodosPdf?.length) {
+    await esperarMotor(editor.univerAPI);
+    const antesPdf = snapshot();
+    try {
+      pdfActualizado = incorporarPdf(
+        editor.univerAPI.getActiveWorkbook(),
+        datos.periodosPdf,
+        datos.tipo,
+      );
+    } catch (error) {
+      montar(antesPdf);
+      editor.univerAPI.getActiveWorkbook().setEditable(!soloConsulta);
+      throw error;
+    }
+    for (const p of datos.periodosPdf)
+      pdfAplicados[p.id] = datos.firmasPdf[p.id];
+  }
   if (soloConsulta) editor.univerAPI.getActiveWorkbook().setEditable(false);
   estadoIntegrado("");
   window.parent.postMessage(
-    { canal, accion: "cambios", datos: ordenActualizado && !soloConsulta },
+    {
+      canal,
+      accion: "cambios",
+      datos:
+        (ordenActualizado || pdfActualizado || datos.periodosPdf?.length > 0) &&
+        !soloConsulta,
+    },
     location.origin,
   );
   aviso(
     soloConsulta
       ? "Consulta de nómina · puedes descargar el Excel."
-      : ordenActualizado
-        ? "Libro abierto. Orden del archivo original aplicado. Guarda para conservarlo."
-        : "Libro abierto. Guarda para conservar los cambios.",
+      : pdfActualizado
+        ? "Libro abierto. PDF incorporados al libro. Guarda para conservar los nuevos periodos."
+        : ordenActualizado
+          ? "Libro abierto. Orden del archivo original aplicado. Guarda para conservarlo."
+          : "Libro abierto. Guarda para conservar los cambios.",
   );
 }
 let editor,
+  pdfAplicados = {},
+  basePdfAplicados = "{}",
   prueba,
   ocupado = false;
 const $ = (id) => document.getElementById(id);
@@ -126,7 +157,8 @@ function montar(snapshot) {
             accion: "cambios",
             datos:
               JSON.stringify(editor.univerAPI.getActiveWorkbook().save()) !==
-              baseGuardada,
+                baseGuardada ||
+              JSON.stringify(pdfAplicados) !== basePdfAplicados,
           },
           location.origin,
         );
@@ -188,8 +220,10 @@ async function guardar() {
       snapshot: actual,
       bytes: prueba.bytes,
       nombre: prueba.nombre,
+      pdfAplicados,
     });
     baseGuardada = JSON.stringify(actual);
+    basePdfAplicados = JSON.stringify(pdfAplicados);
     aviso(
       `Versión ${guardado.revision} guardada ${nube ? "en Firebase" : "en este navegador (modo local)"}.`,
     );
@@ -434,7 +468,9 @@ if (integrado) {
   ejecutar(() => abrirIntegrado());
   setInterval(() => {
     if (!editor?.univerAPI.getActiveWorkbook() || soloConsulta) return;
-    const datos = JSON.stringify(snapshot()) !== baseGuardada;
+    const datos =
+      JSON.stringify(snapshot()) !== baseGuardada ||
+      JSON.stringify(pdfAplicados) !== basePdfAplicados;
     window.parent.postMessage(
       { canal, accion: "cambios", datos },
       location.origin,

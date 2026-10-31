@@ -1,3 +1,7 @@
+import {
+  firmasPdf,
+  pdfPendientes,
+} from "../../herramientas/prueba-editor-nomina/pdfEnLibro.js";
 import { hojasConOrdenAnterior } from "../../herramientas/prueba-editor-nomina/ordenColumnas.js";
 import EditorNomina from "../componentes/EditorNomina.jsx";
 import {
@@ -112,15 +116,12 @@ export default function Nomina({ soloConsulta = false }) {
       if (!guardado && !soloConsulta) {
         const { crearLibroNomina } =
           await import("../utilidades/excelNomina.js");
+        const base = crearLibroNomina(data, empresa, Number(anio), exportar);
+        // El resumen se conserva; los detalles se incorporan en el editor con el mismo formato que el Excel.
+        for (const hoja of [...base.worksheets].slice(1))
+          base.removeWorksheet(hoja.id);
         inicial = {
-          bytes: new Uint8Array(
-            await crearLibroNomina(
-              data,
-              empresa,
-              Number(anio),
-              exportar,
-            ).xlsx.writeBuffer(),
-          ),
+          bytes: new Uint8Array(await base.xlsx.writeBuffer()),
           nombre: `Nomina_${empresa}_${anio}_${exportar}.xlsx`,
         };
       }
@@ -128,7 +129,13 @@ export default function Nomina({ soloConsulta = false }) {
         throw Error(
           "María debe guardar primero el libro de esta empresa y año.",
         );
-      setEditor({ ambito, inicial });
+      setEditor({
+        ambito,
+        inicial,
+        periodosPdf: periodos.filter(
+          (p) => p.empresa_codigo === empresa && p.anio === Number(anio),
+        ),
+      });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -148,7 +155,18 @@ export default function Nomina({ soloConsulta = false }) {
       });
       const guardado = await repo.abrir();
       if (guardado) {
-        const { snapshot, nombre } = await desempaquetarLibro(guardado.carga);
+        const { snapshot, nombre, fuente } = await desempaquetarLibro(
+          guardado.carga,
+        );
+        const pdf = periodos.filter(
+          (p) => p.empresa_codigo === empresa && p.anio === Number(anio),
+        );
+        if (
+          pdfPendientes(pdf, fuente?.pdfAplicados, await firmasPdf(pdf)).length
+        )
+          throw Error(
+            "Hay PDF nuevos o corregidos que todavía no están en este libro. Abre el editor y pulsa Guardar para incorporarlos antes de descargar.",
+          );
         if (hojasConOrdenAnterior(snapshot).length)
           throw Error(
             "Abre el editor de nómina y guarda el libro una vez para aplicar el orden de columnas del archivo original. Después podrás descargarlo.",
@@ -530,6 +548,9 @@ export default function Nomina({ soloConsulta = false }) {
               onClick={() =>
                 setEditor({
                   ambito: { empresa: l.empresa, anio: l.anio, tipo: l.tipo },
+                  periodosPdf: periodos.filter(
+                    (p) => p.empresa_codigo === l.empresa && p.anio === l.anio,
+                  ),
                 })
               }
             >

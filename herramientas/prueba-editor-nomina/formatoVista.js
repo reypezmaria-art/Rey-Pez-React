@@ -25,6 +25,15 @@ export async function prepararAcumulado(snapshot) {
     snapshot.name || "Nomina.xlsx",
   );
   const estilo = conversion.snapshot.sheets[conversion.snapshot.sheetOrder[0]];
+  // La conversión de presentación no debe retirar las marcas de sincronización
+  // ni las notas propias de las celdas del libro editable.
+  for (const [r, fila] of Object.entries(original.cellData || {}))
+    for (const [c, celda] of Object.entries(fila))
+      if (celda.custom && estilo.cellData?.[r]?.[c])
+        estilo.cellData[r][c].custom = {
+          ...celda.custom,
+          ...estilo.cellData[r][c].custom,
+        };
   return {
     ...snapshot,
     sheets: { ...snapshot.sheets, [id]: { ...original, ...estilo, id } },

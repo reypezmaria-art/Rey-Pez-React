@@ -1,3 +1,7 @@
+import {
+  firmasPdf,
+  pdfPendientes,
+} from "../../herramientas/prueba-editor-nomina/pdfEnLibro.js";
 import { useEffect, useRef, useState } from "react";
 import { repositorioLibrosNomina } from "../repositorios/librosNomina.js";
 import {
@@ -8,6 +12,7 @@ import {
 export default function EditorNomina({
   ambito,
   inicial,
+  periodosPdf,
   soloConsulta,
   onClose,
 }) {
@@ -20,7 +25,8 @@ export default function EditorNomina({
     const repo = repositorioLibrosNomina(ambito);
     let revision = 0,
       activo = true,
-      fuente;
+      fuente,
+      firmas = {};
     const responder = (id, resultado, error) =>
       frame.current?.contentWindow?.postMessage(
         { canal, id, resultado, error },
@@ -63,12 +69,33 @@ export default function EditorNomina({
             throw Error(
               "Todavía no hay un libro guardado para esta empresa y año.",
             );
+          firmas = await firmasPdf(periodosPdf || []);
+          resultado = {
+            ...resultado,
+            tipo: ambito.tipo,
+            periodosPdf: datos?.revision
+              ? []
+              : pdfPendientes(periodosPdf || [], fuente?.pdfAplicados, firmas),
+            pdfAplicados: fuente?.pdfAplicados || {},
+            firmasPdf: firmas,
+          };
         } else if (accion === "guardar") {
           if (soloConsulta)
             throw Error("Tu acceso es de consulta y exportación.");
-          const carga = await empaquetarLibro({ ...datos, fuente });
+          const aplicados = datos.pdfAplicados || fuente?.pdfAplicados || {};
+          for (const [id, firma] of Object.entries(aplicados))
+            if (firma !== firmas[id] && firma !== fuente?.pdfAplicados?.[id])
+              throw Error(
+                "La identificación de los PDF del libro no coincide. Reabre el editor.",
+              );
+          const siguienteFuente = { ...fuente, pdfAplicados: aplicados };
+          const carga = await empaquetarLibro({
+            ...datos,
+            fuente: siguienteFuente,
+          });
           resultado = await repo.guardar(carga, revision);
           revision = resultado.revision;
+          fuente = siguienteFuente;
           dirty.current = false;
         } else if (accion === "versiones")
           resultado = (await repo.listar()).map((v) => ({
@@ -98,7 +125,7 @@ export default function EditorNomina({
       window.removeEventListener("message", recibir);
       window.removeEventListener("beforeunload", prevenir);
     };
-  }, [ambito, inicial, soloConsulta, canal]);
+  }, [ambito, inicial, periodosPdf, soloConsulta, canal]);
   return (
     <section
       className="nomina-editor-modal"

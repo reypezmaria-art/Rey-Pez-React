@@ -1,3 +1,4 @@
+import { pdfNominaEjemplo } from "../soporte/nominaEjemplo.js";
 import { test, expect } from "@playwright/test";
 import ExcelJS from "exceljs";
 import { readFile } from "node:fs/promises";
@@ -381,4 +382,210 @@ test("recupera el orden original de un libro anterior conservando ediciones y re
   expect(libro.getWorksheet("Acumulado 2027").getCell("D8").formula).toMatch(
     /!?E5$/,
   );
+});
+
+test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones ni duplicar periodos", async ({
+  page,
+}) => {
+  test.setTimeout(120000);
+  await iniciar(page);
+  const bytes = await excelSintetico(companyNames.ESTUARDO);
+  const original = new ExcelJS.Workbook();
+  await original.xlsx.load(bytes);
+  const resumen = original.getWorksheet("ACUMULADO 2027");
+  resumen.getCell("C4").value = "SUELDO";
+  resumen.getCell("D4").value = "TOTAL";
+  resumen.getCell("E4").value = "EXENTO";
+  resumen.getCell("E5").value = 7;
+  await page.getByLabel("Seleccionar Excel acumulado de nómina").setInputFiles({
+    name: "sintetico.xlsx",
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    buffer: Buffer.from(await original.xlsx.writeBuffer()),
+  });
+  await page
+    .getByRole("button", { name: "Guardar nómina identificada" })
+    .click();
+  await expect(page.getByRole("status")).toContainText(
+    "Nómina importada y guardada",
+  );
+  await page
+    .getByRole("button", { name: "Abrir editor de nómina", exact: true })
+    .click();
+  const frame = page.frameLocator('iframe[title="Hoja de cálculo de nómina"]');
+  await expect(frame.locator("#estado")).toContainText("Libro abierto", {
+    timeout: 30000,
+  });
+  await page
+    .frames()
+    .find((f) => f.url().includes("editor-nomina/index.html"))
+    .evaluate(() =>
+      window.pruebaEditor
+        .api()
+        .getActiveWorkbook()
+        .getSheetByName("enero")
+        .getRange("E5")
+        .setValue(1700),
+    );
+  await frame.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(frame.locator("#estado")).toContainText("Versión 2 guardada");
+  await page
+    .getByRole("button", { name: "Cerrar editor", exact: true })
+    .click();
+  for (const [desde, hasta] of [
+    ["01/Oct/2027", "15/Oct/2027"],
+    ["16/Oct/2027", "31/Oct/2027"],
+  ]) {
+    await page
+      .getByLabel("Seleccionar PDF de nómina", { exact: true })
+      .setInputFiles({
+        name: "nomina.pdf",
+        mimeType: "application/pdf",
+        buffer: Buffer.from(
+          pdfNominaEjemplo({
+            empresa: "ESTUARDO",
+            nombre: "PERSONA UNO",
+            desde,
+            hasta,
+          }),
+        ),
+      });
+    await expect(page.getByRole("status")).toContainText("Nómina guardada");
+  }
+  for (const tipo of ["mensual", "anual"]) {
+    await page
+      .getByRole("button", { name: `Generar ${tipo}`, exact: false })
+      .first()
+      .click();
+    await page
+      .getByRole("button", { name: `Descargar Excel ${tipo}`, exact: true })
+      .click();
+    await expect(page.getByRole("alert")).toContainText("Hay PDF nuevos");
+    if (tipo === "anual") {
+      const archivos = page.locator(".payroll-files");
+      if ((await archivos.getAttribute("open")) === null)
+        await archivos.locator("summary").first().click();
+      await archivos
+        .locator(":scope > p")
+        .filter({ hasText: "anual" })
+        .getByRole("button", { name: "Abrir libro", exact: true })
+        .click();
+    } else {
+      await page
+        .getByRole("button", { name: "Abrir editor de nómina", exact: true })
+        .click();
+    }
+    await expect(frame.locator("#estado")).toContainText("PDF incorporados", {
+      timeout: 30000,
+    });
+    await frame.getByRole("button", { name: "Guardar", exact: true }).click();
+    await expect(frame.locator("#estado")).toContainText("guardada");
+    await page
+      .getByRole("button", { name: "Cerrar editor", exact: true })
+      .click();
+    const descarga = page.waitForEvent("download");
+    await page
+      .getByRole("button", { name: `Descargar Excel ${tipo}`, exact: true })
+      .click();
+    const libro = new ExcelJS.Workbook();
+    await libro.xlsx.load(await readFile(await (await descarga).path()));
+    const h = libro.getWorksheet(
+      tipo === "mensual" ? "octubre" : "Persona uno",
+    );
+    expect(h).toBeTruthy();
+    const filas = [];
+    h.eachRow((r) => {
+      if (String(r.getCell(2).value).startsWith("OCT")) filas.push(r);
+    });
+    expect(filas).toHaveLength(2);
+    expect(filas.map((r) => r.getCell(5).value)).toEqual([5250, 5250]);
+    expect(filas.map((r) => r.getCell(24).value)).toEqual([5030.1, 5030.1]);
+    if (tipo === "mensual")
+      expect(libro.getWorksheet("enero").getCell("E5").value).toBe(1700);
+    const acum = libro.worksheets[0];
+    let octubre;
+    acum.eachRow((r) => {
+      if (String(r.getCell(2).value).toLowerCase() === "octubre") octubre = r;
+    });
+    expect(octubre.getCell(3).result).toBe(10500);
+    expect(acum.getCell("E5").value).toBe(7);
+    await page
+      .getByRole("button", { name: "Abrir editor de nómina", exact: true })
+      .click();
+    await expect(frame.locator("#estado")).toContainText("Libro abierto", {
+      timeout: 30000,
+    });
+    await expect(frame.locator("#estado")).not.toContainText(
+      "PDF incorporados",
+    );
+    await page
+      .getByRole("button", { name: "Cerrar editor", exact: true })
+      .click();
+  }
+  await page
+    .getByRole("button", { name: "Modificar un mes", exact: true })
+    .click();
+  await page
+    .getByRole("radio", { name: "Volver a subir archivo", exact: true })
+    .check();
+  await page
+    .getByLabel("Seleccionar PDF corregido", { exact: true })
+    .setInputFiles({
+      name: "corregido.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from(
+        pdfNominaEjemplo({
+          empresa: "ESTUARDO",
+          nombre: "PERSONA UNO",
+          desde: "01/Oct/2027",
+          hasta: "15/Oct/2027",
+          importe: 550000,
+        }),
+      ),
+    });
+  await expect(page.getByRole("status")).toContainText("Nómina corregida");
+  await page
+    .getByRole("button", { name: "Generar mensual", exact: false })
+    .first()
+    .click();
+  await page
+    .getByRole("button", { name: "Abrir editor de nómina", exact: true })
+    .click();
+  await expect(frame.locator("#estado")).toContainText("PDF incorporados", {
+    timeout: 30000,
+  });
+  await frame.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(frame.locator("#estado")).toContainText("guardada");
+  await page
+    .getByRole("button", { name: "Cerrar editor", exact: true })
+    .click();
+  const corregida = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Descargar Excel mensual", exact: true })
+    .click();
+  const libroCorregido = new ExcelJS.Workbook();
+  await libroCorregido.xlsx.load(
+    await readFile(await (await corregida).path()),
+  );
+  const importes = [];
+  libroCorregido.getWorksheet("octubre").eachRow((r) => {
+    if (String(r.getCell(2).value).startsWith("OCT"))
+      importes.push(r.getCell(5).value);
+  });
+  expect(importes).toEqual([5500, 5250]);
+  let resumenCorregido;
+  libroCorregido.worksheets[0].eachRow((r) => {
+    if (String(r.getCell(2).value).toLowerCase() === "octubre")
+      resumenCorregido = r;
+  });
+  expect(resumenCorregido.getCell(3).result).toBe(10750);
+  expect(libroCorregido.getWorksheet("enero").getCell("E5").value).toBe(1700);
+  await page
+    .getByRole("button", { name: "Generar anual", exact: false })
+    .first()
+    .click();
+  await page
+    .getByRole("button", { name: "Descargar Excel anual", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText("Hay PDF nuevos");
 });
