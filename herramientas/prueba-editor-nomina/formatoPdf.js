@@ -1,213 +1,226 @@
-import { MESES_NOMINA } from "../../codigo/dominio/nomina.js";
+const COLORES = {
+  tinta: "#173957",
+  claro: "#F0F5FB",
+  dorado: "#F4E6BD",
+  blanco: "#ffffff",
+  linea: "#DCE5EF",
+};
+const moneda = '"$"#,##0.00;[Red]-"$"#,##0.00;"—"';
 const valor = (d) => d?.p?.body?.dataStream?.replace(/\r\n$/, "") ?? d?.v ?? "";
-const estilo = (snapshot, d) =>
-  typeof d?.s === "string" ? snapshot.styles?.[d.s] || {} : d?.s || {};
+const normal = (v) => String(v).trim().toLocaleUpperCase("es");
+const resolver = (snapshot, s) =>
+  typeof s === "string" ? snapshot.styles?.[s] || {} : s || {};
+// El formato antiguo se presenta después de recuperar sus columnas: C/D aún
+// contienen importes y no deben recibir el formato de texto de IMSS/RFC.
 const detalle = (s) =>
   valor(s.cellData?.[2]?.[0]) === "NOMBRE" &&
-  valor(s.cellData?.[2]?.[1]) === "PERIODO";
-const contienePdf = (s) =>
-  Object.values(s.cellData || {}).some((row) => row[0]?.custom?.pdfNomina);
-const normal = (v) => String(v).trim().toLocaleUpperCase("es");
-
-// Solo cambia la presentación. Mantiene valores, fórmulas, notas y marcas PDF.
-export function aplicarFormatoPdf(snapshot, tipo) {
-  const sheets = { ...snapshot.sheets };
-  const candidatas = Object.values(sheets).filter(
-    (s) =>
-      detalle(s) &&
-      (!contienePdf(s) ||
-        Object.entries(s.cellData || {}).some(
-          ([r, d]) =>
-            +r >= 3 &&
-            !d[0]?.custom?.pdfNomina &&
-            /\d/.test(String(valor(d[1]))),
-        )),
-  );
-  for (const id of snapshot.sheetOrder) {
-    const s = sheets[id];
-    if (!detalle(s) || !contienePdf(s)) continue;
-    const mes = MESES_NOMINA.indexOf(s.name.toLowerCase());
-    const plantilla =
-      candidatas
-        .filter(
-          (t) =>
-            MESES_NOMINA.indexOf(t.name.toLowerCase()) >= 0 &&
-            MESES_NOMINA.indexOf(t.name.toLowerCase()) < mes,
-        )
-        .sort(
-          (a, b) =>
-            MESES_NOMINA.indexOf(a.name.toLowerCase()) -
-            MESES_NOMINA.indexOf(b.name.toLowerCase()),
-        )
-        .at(-1) ||
-      candidatas.at(-1) ||
-      s;
-    const fuente = plantilla.cellData || {};
-    const bandas = [
-      ...new Set(
-        Object.entries(fuente)
-          .filter(
-            ([r, d]) =>
-              +r >= 3 &&
-              /\d/.test(String(valor(d[1]))) &&
-              normal(valor(d[0])) !== "TOTAL",
-          )
-          .map(([, d]) => estilo(snapshot, d[0]).bg?.rgb || "#ffffff"),
-      ),
-    ];
-    const banda =
-      bandas.find((c) => !["#ffffff", "#fff"].includes(c.toLowerCase())) ||
-      "#F0F5FB";
-    const fondo = bandas.find((c) => c !== banda) || "#ffffff";
-    const cellData = Object.fromEntries(
-      Object.entries(s.cellData || {}).map(([r, d]) => [r, { ...d }]),
-    );
-    const rowData = { ...s.rowData };
-    const columnData = { ...s.columnData };
-    const fuenteCabecera = estilo(snapshot, fuente[2]?.[0]);
-    for (let c = 0; c < 24; c++)
-      columnData[c] = {
-        ...(s.columnData?.[c] || {}),
-        w:
-          plantilla.columnData?.[c]?.w ||
-          (c === 0 ? 306 : c === 1 ? 145 : c < 4 ? 166 : 131),
+  valor(s.cellData?.[2]?.[1]) === "PERIODO" &&
+  valor(s.cellData?.[2]?.[2]) !== "SUELDO DEL PERIODO";
+const base = {
+  ff: "Calibri",
+  fs: 11,
+  bl: 0,
+  it: 0,
+  cl: { rgb: COLORES.tinta },
+  bg: { rgb: COLORES.blanco },
+  vt: 2,
+};
+function textoConFormato(d, estilo) {
+  if (!d.p) return d;
+  const p = structuredClone(d.p);
+  if (p.body?.textRuns)
+    for (const run of p.body.textRuns) {
+      run.ts = {
+        ...run.ts,
+        ff: "Calibri",
+        fs: estilo.fs,
+        bl: estilo.bl,
+        it: 0,
+        cl: estilo.cl,
       };
-    const mergeData = (s.mergeData || []).filter((m) => m.startRow > 1);
+      delete run.ts.bg;
+    }
+  if (p.documentStyle?.textStyle)
+    p.documentStyle.textStyle = {
+      ...p.documentStyle.textStyle,
+      ff: "Calibri",
+      fs: estilo.fs,
+      bl: estilo.bl,
+      it: 0,
+      cl: estilo.cl,
+    };
+  return { ...d, p };
+}
+function celda(snapshot, d, cambios) {
+  const s = { ...resolver(snapshot, d.s), ...cambios };
+  return { ...textoConFormato(d, s), s };
+}
+
+// Tema fijo para todos los detalles, incluso libros antiguos sin marcas PDF.
+// No se reutilizan colores de filas existentes: pueden haber heredado el encabezado.
+export function aplicarFormatoPdf(snapshot) {
+  const sheets = { ...snapshot.sheets };
+  for (const id of snapshot.sheetOrder) {
+    const original = snapshot.sheets[id];
+    if (!detalle(original)) {
+      if (/^Acumulado\s+\d{4}$/i.test(original.name)) {
+        const cellData = Object.fromEntries(
+          Object.entries(original.cellData || {}).map(([r, fila]) => [
+            r,
+            Object.fromEntries(
+              Object.entries(fila).map(([c, d]) => {
+                const previo = resolver(snapshot, d.s);
+                return [
+                  c,
+                  celda(snapshot, d, {
+                    ff: "Calibri",
+                    fs: [16, 13].includes(previo.fs) ? previo.fs : 11,
+                  }),
+                ];
+              }),
+            ),
+          ]),
+        );
+        sheets[id] = { ...original, cellData };
+      }
+      continue;
+    }
+    const cellData = Object.fromEntries(
+      Object.entries(original.cellData || {}).map(([r, fila]) => [
+        r,
+        { ...fila },
+      ]),
+    );
+    const rowData = { ...original.rowData },
+      columnData = { ...original.columnData };
+    for (const [r, d] of Object.entries(rowData))
+      if (+r >= 3)
+        rowData[r] = { ...d, s: { ...resolver(snapshot, d.s), ...base } };
+    const columnas = Math.max(
+      23,
+      ...Object.keys(cellData[2] || {}).map(Number),
+    );
+    for (let c = 0; c <= columnas; c++) {
+      const anterior = columnData[c] || {};
+      columnData[c] = {
+        ...anterior,
+        w:
+          c === 0
+            ? Math.max(360, anterior.w || 0)
+            : c === 1
+              ? 160
+              : c < 4
+                ? 180
+                : Math.max(140, anterior.w || 0),
+        s: { ...resolver(snapshot, anterior.s), ...base },
+      };
+    }
+    const mergeData = (original.mergeData || []).filter((m) => m.startRow > 1);
     for (let r = 0; r < 3; r++) {
+      const titulo = r === 0,
+        subtitulo = r === 1;
+      const estilo = {
+        ...base,
+        fs: titulo ? 16 : subtitulo ? 13 : 11,
+        bl: 1,
+        cl: { rgb: subtitulo ? COLORES.tinta : COLORES.blanco },
+        bg: { rgb: subtitulo ? COLORES.dorado : COLORES.tinta },
+        tb: 3,
+      };
       rowData[r] = {
         ...rowData[r],
-        h: plantilla.rowData?.[r]?.h || [(34 * 4) / 3, 40, 64][r],
+        h: titulo ? 48 : subtitulo ? 40 : 64,
+        ia: 0,
+        s: estilo,
       };
       const fila = (cellData[r] ||= {});
-      const rango = (plantilla.mergeData || []).find(
-        (m) => m.startRow === r && m.endRow === r && m.startColumn === 0,
-      );
-      const limite = r < 2 ? (rango?.endColumn ?? 10) : 23;
       const tieneDatos = Object.entries(fila).some(
-        ([c, d]) => +c > 0 && +c <= limite && (d.f || valor(d) !== ""),
+        ([c, d]) => +c > 0 && +c <= columnas && (d.f || valor(d) !== ""),
       );
       for (const c of new Set([
-        ...Array.from({ length: 24 }, (_, i) => String(i)),
+        ...Array.from({ length: columnas + 1 }, (_, i) => String(i)),
         ...Object.keys(fila),
       ])) {
-        const d = fila[c] || { v: null };
-        const base =
-          fuente[r]?.[c] ||
-          (r < 2 && +c <= limite ? fuente[r]?.[0] : undefined);
-        const patron = base
-          ? estilo(snapshot, base)
-          : r === 2
-            ? fuenteCabecera
-            : {};
-        fila[c] = { ...d, s: structuredClone(patron) };
+        fila[c] = celda(snapshot, fila[c] || { v: null }, {
+          ...estilo,
+          ht: r === 2 && +c > 1 ? 2 : 1,
+        });
       }
       if (r < 2 && !tieneDatos)
         mergeData.push({
           startRow: r,
           endRow: r,
           startColumn: 0,
-          endColumn: limite,
+          endColumn: columnas,
         });
       else if (r < 2)
-        mergeData.push(...(s.mergeData || []).filter((m) => m.startRow === r));
+        mergeData.push(
+          ...(original.mergeData || []).filter((m) => m.startRow === r),
+        );
     }
-    const nombres = [
-      ...new Set(
-        Object.entries(cellData)
-          .filter(([r, d]) => +r >= 3 && d[0]?.custom?.pdfNomina)
-          .map(([, d]) => String(valor(d[0]))),
-      ),
-    ].sort((a, b) => a.localeCompare(b, "es"));
-    for (const [r, fila] of Object.entries(cellData)) {
-      if (!fila[0]?.custom?.pdfNomina) continue;
+    let indice = 0;
+    for (const r of Object.keys(cellData)
+      .map(Number)
+      .filter((r) => r >= 3)
+      .sort((a, b) => a - b)) {
+      const fila = cellData[r];
+      const total = /^TOTAL(?:\s|$)/.test(normal(valor(fila[0])));
+      const datos =
+        String(valor(fila[0])).trim() !== "" ||
+        String(valor(fila[1])).trim() !== "";
+      const color = total
+        ? COLORES.tinta
+        : datos && indice % 2 === 0
+          ? COLORES.claro
+          : COLORES.blanco;
+      const altura = Math.max(
+        38,
+        Math.ceil(String(valor(fila[0])).length / 46) * 18 + 12,
+      );
+      // Neutralizar también los estilos heredados; las celdas vacías no deben quedar azules.
       rowData[r] = {
         ...rowData[r],
-        h: plantilla.rowData?.[3]?.h || (28 * 4) / 3,
+        h: total ? 45 : altura,
+        ia: 0,
+        s: { ...resolver(snapshot, rowData[r]?.s), ...base },
       };
-      const mesFila = MESES_NOMINA.findIndex((m) =>
-        normal(valor(fila[1])).startsWith(normal(m.slice(0, 3))),
-      );
-      const alterna =
-        tipo === "anual"
-          ? (mesFila + 1) % 2 === 0
-          : nombres.indexOf(String(valor(fila[0]))) % 2 === 0;
       for (const c of new Set([
-        ...Array.from({ length: 24 }, (_, i) => String(i)),
+        ...Array.from({ length: columnas + 1 }, (_, i) => String(i)),
         ...Object.keys(fila),
       ])) {
-        const d = fila[c] || { v: null };
-        fila[c] = {
-          ...d,
-          s: {
-            ...estilo(snapshot, d),
-            bg: { rgb: alterna ? banda : fondo },
-          },
+        const d = fila[c] || { v: null },
+          previo = resolver(snapshot, d.s);
+        const cambios = {
+          ...base,
+          bl: total || +c === 0 ? 1 : 0,
+          cl: { rgb: total ? COLORES.blanco : COLORES.tinta },
+          bg: { rgb: color },
+          ht: +c < 4 ? 1 : 3,
+          tb: 3,
+          bd: total
+            ? { t: { s: 8, cl: { rgb: "#E3BE61" } } }
+            : { b: { s: 2, cl: { rgb: COLORES.linea } } },
         };
+        if (+c === 2 || +c === 3) cambios.n = { pattern: "@" };
+        else if (+c >= 4 && +c < 24) cambios.n = { pattern: moneda };
+        else if (previo.n) cambios.n = previo.n;
+        fila[c] = celda(snapshot, d, cambios);
       }
+      if (datos && !total) indice++;
     }
-    const total = Object.entries(cellData).find(
-      ([r, d]) => +r >= 3 && normal(valor(d[0])) === "TOTAL",
-    );
-    const totalFuente = Object.entries(fuente).find(
-      ([r, d]) => +r >= 3 && normal(valor(d[0])) === "TOTAL",
-    );
-    if (total)
-      for (const [c, d] of Object.entries(total[1])) {
-        const base = totalFuente?.[1]?.[c];
-        total[1][c] = {
-          ...d,
-          s: base
-            ? structuredClone(estilo(snapshot, base))
-            : {
-                ...estilo(snapshot, d),
-                bl: 1,
-                ...(+c >= 4 ? { bg: { rgb: "#E6EDF6" } } : {}),
-              },
-        };
-      }
-    sheets[id] = { ...s, cellData, rowData, columnData, mergeData };
-  }
-  for (const [id, s] of Object.entries(sheets)) {
-    const esDetalle = detalle(s),
-      esAcumulado = /^Acumulado\s+\d{4}$/i.test(s.name);
-    if (!esDetalle && !esAcumulado) continue;
-    const cellData = Object.fromEntries(
-      Object.entries(s.cellData || {}).map(([r, fila]) => [
-        r,
-        Object.fromEntries(
-          Object.entries(fila).map(([c, d]) => {
-            const base = estilo(snapshot, d);
-            const fs = esDetalle
-              ? +r === 0
-                ? 16
-                : +r === 1
-                  ? 13
-                  : 11
-              : [16, 13].includes(base.fs)
-                ? base.fs
-                : 11;
-            return [c, { ...d, s: { ...base, ff: "Calibri", fs } }];
-          }),
-        ),
-      ]),
-    );
-    const basePredeterminada =
-      typeof s.defaultStyle === "string"
-        ? snapshot.styles?.[s.defaultStyle] || {}
-        : s.defaultStyle || {};
     sheets[id] = {
-      ...s,
+      ...original,
       cellData,
-      defaultStyle: { ...basePredeterminada, ff: "Calibri", fs: 11 },
+      rowData,
+      columnData,
+      mergeData,
+      defaultStyle: { ...resolver(snapshot, original.defaultStyle), ...base },
+      defaultRowHeight: 38,
     };
   }
-  const base =
-    typeof snapshot.defaultStyle === "string"
-      ? snapshot.styles?.[snapshot.defaultStyle] || {}
-      : snapshot.defaultStyle || {};
   return {
     ...snapshot,
     sheets,
-    defaultStyle: { ...base, ff: "Calibri", fs: 11 },
+    defaultStyle: { ...resolver(snapshot, snapshot.defaultStyle), ...base },
   };
 }

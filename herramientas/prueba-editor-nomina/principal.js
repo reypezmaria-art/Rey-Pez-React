@@ -102,7 +102,7 @@ async function abrirIntegrado(revision) {
     snapshot(),
     datos.mesesPdf || [],
   );
-  if (pdfActualizado) {
+  if (pdfActualizado || ordenActualizado) {
     montar(aplicarFormatoPdf(snapshot(), datos.tipo));
     await esperarMotor(editor.univerAPI);
   }

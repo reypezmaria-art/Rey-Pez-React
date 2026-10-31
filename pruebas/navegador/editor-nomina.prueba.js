@@ -702,3 +702,96 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
   expect(meses[1].getCell(5).value).toBe(77.77);
   expect(meses[1].getCell(6).value).toBe(1);
 });
+
+test("libro creado solo con PDF muestra todos los nombres con bandas claras y contraste", async ({
+  page,
+}, testInfo) => {
+  test.setTimeout(90000);
+  await iniciar(page);
+  const nombre =
+    "PERSONA DE DEMOSTRACION CON NOMBRE MUY LARGO PARA PROBAR EL AJUSTE EN LA HOJA";
+  for (const [desde, hasta] of [
+    ["01/Ene/2026", "15/Ene/2026"],
+    ["16/Ene/2026", "31/Ene/2026"],
+  ]) {
+    await page
+      .getByLabel("Seleccionar PDF de nómina", { exact: true })
+      .setInputFiles({
+        name: "ejemplo.pdf",
+        mimeType: "application/pdf",
+        buffer: Buffer.from(
+          pdfNominaEjemplo({ nombre, desde, hasta, nss: "00000000001" }),
+        ),
+      });
+    await expect(page.getByRole("status")).toContainText("Nómina guardada");
+  }
+  await page
+    .getByRole("button", { name: "Generar mensual", exact: false })
+    .first()
+    .click();
+  await page.getByLabel("Empresa para exportar nómina").selectOption("ALLAN");
+  await page.getByLabel("Año de nómina").fill("2026");
+  await page
+    .getByRole("button", { name: "Abrir editor de nómina", exact: true })
+    .click();
+  const frame = page.frameLocator('iframe[title="Hoja de cálculo de nómina"]');
+  await expect(frame.locator("#estado")).toContainText("PDF incorporados", {
+    timeout: 30000,
+  });
+  const child = page
+    .frames()
+    .find((f) => f.url().includes("editor-nomina/index.html"));
+  const datos = await child.evaluate(() => {
+    const wb = window.pruebaEditor.api().getActiveWorkbook();
+    const h = wb.getSheetByName("enero");
+    wb.setActiveSheet(h);
+    h.getRange("A10").activate();
+    const s = wb.save(),
+      hoja = s.sheets[h.getSheetId()];
+    const resolver = (v) =>
+      typeof v === "string" ? s.styles[v] || {} : v || {};
+    const style = (r, c) => ({
+      ...resolver(s.defaultStyle),
+      ...resolver(hoja.defaultStyle),
+      ...resolver(hoja.columnData?.[c]?.s),
+      ...resolver(hoja.rowData?.[r]?.s),
+      ...resolver(hoja.cellData[r][c].s),
+    });
+    return {
+      nombre: hoja.cellData[3][0].v,
+      a: style(3, 0),
+      b: style(4, 0),
+      alto: hoja.rowData[3].h,
+      ancho: hoja.columnData[0].w,
+    };
+  });
+  expect(datos.nombre).toBe(nombre);
+  expect(datos.a.bg.rgb).toBe("#F0F5FB");
+  expect(datos.b.bg.rgb).toBe("#ffffff");
+  expect(datos.a.cl.rgb).toBe("#173957");
+  expect(datos.b.cl.rgb).toBe("#173957");
+  expect(datos.a.fs).toBe(11);
+  expect(datos.a.tb).toBe(3);
+  expect(datos.alto).toBeGreaterThanOrEqual(48);
+  expect(datos.ancho).toBeGreaterThanOrEqual(360);
+  await frame
+    .locator("#editor")
+    .screenshot({ path: testInfo.outputPath("vista-ficticia.png") });
+  await frame.getByRole("button", { name: "Guardar", exact: true }).click();
+  await expect(frame.locator("#estado")).toContainText("guardada");
+  await page
+    .getByRole("button", { name: "Cerrar editor", exact: true })
+    .click();
+  const descarga = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Descargar Excel mensual", exact: true })
+    .click();
+  const libro = new ExcelJS.Workbook();
+  await libro.xlsx.load(await readFile(await (await descarga).path()));
+  const h = libro.getWorksheet("enero");
+  expect(h.getCell("A4").value).toBe(nombre);
+  expect(h.getCell("A5").value).toBe(nombre);
+  expect(h.getCell("A4").font.color.argb).toBe("FF173957");
+  expect(h.getCell("A5").fill.fgColor.argb).toBe("FFffffff");
+  expect(h.getCell("C4").value).toBe("00000000001");
+});

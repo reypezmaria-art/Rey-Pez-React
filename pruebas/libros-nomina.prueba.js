@@ -318,3 +318,78 @@ test("resumen cuenta personas distintas y conserva el ISR a compensar del format
   assert.match(detalleResumen(snapshot, 10, "isrRetenido").formula, /P4/);
   assert.match(detalleResumen(snapshot, 10, "isrRetenido").formula, /Q5/);
 });
+
+test("tema fijo elimina filas azul oscuro y texto blanco heredados, también sin marcas PDF", () => {
+  const azul = {
+    ff: "Calibri",
+    fs: 16,
+    bl: 1,
+    cl: { rgb: "#ffffff" },
+    bg: { rgb: "#173957" },
+  };
+  const nombre =
+    "PERSONA DE DEMOSTRACION CON UN NOMBRE EXTENSO PARA COMPROBAR QUE SEA LEGIBLE";
+  const snapshot = {
+    styles: { cabecera: azul },
+    defaultStyle: "cabecera",
+    sheetOrder: ["h"],
+    sheets: {
+      h: {
+        id: "h",
+        name: "enero",
+        defaultStyle: "cabecera",
+        columnData: { 0: { w: 200, s: "cabecera" } },
+        rowData: {
+          3: { s: "cabecera", h: 16, ia: 1, ah: 16 },
+          20: { s: "cabecera" },
+        },
+        cellData: {
+          0: { 0: { v: "Empresa" } },
+          1: { 0: { v: "enero" } },
+          2: { 0: { v: "NOMBRE" }, 1: { v: "PERIODO" } },
+          3: {
+            0: {
+              v: nombre,
+              s: "cabecera",
+              p: {
+                body: {
+                  dataStream: nombre + "\r\n",
+                  textRuns: [{ st: 0, ed: nombre.length, ts: azul }],
+                },
+              },
+            },
+            1: { v: "ENE 01-15" },
+            2: { v: "00000000001" },
+            4: { v: 100 },
+            23: { f: "=E4-1", v: 99, custom: { notaOriginal: "Prueba" } },
+          },
+          4: { 0: { v: "OTRA PERSONA", s: "cabecera" }, 1: { v: "ENE 01-15" } },
+          5: { 0: { v: "Total" }, 4: { f: "=SUM(E4:E5)", v: 100 } },
+        },
+      },
+    },
+  };
+  const antes = structuredClone(snapshot),
+    salida = aplicarFormatoPdf(snapshot),
+    h = salida.sheets.h;
+  assert.deepEqual(snapshot, antes);
+  assert.equal(h.cellData[3][0].s.cl.rgb, "#173957");
+  assert.equal(h.cellData[3][0].p.body.textRuns[0].ts.cl.rgb, "#173957");
+  assert.equal(h.cellData[3][0].p.body.dataStream, nombre + "\r\n");
+  assert.equal(h.cellData[3][4].s.bg.rgb, "#F0F5FB");
+  assert.equal(h.cellData[4][0].s.bg.rgb, "#ffffff");
+  assert.equal(h.cellData[3][4].s.bl, 0);
+  assert.equal(h.cellData[3][0].s.fs, 11);
+  assert.equal(h.cellData[3][0].s.tb, 3);
+  assert.ok(h.rowData[3].h >= 48);
+  assert.equal(h.rowData[3].ia, 0);
+  assert.ok(h.columnData[0].w >= 360);
+  assert.equal(h.rowData[20].s.bg.rgb, "#ffffff");
+  assert.equal(h.columnData[0].s.cl.rgb, "#173957");
+  assert.equal(h.cellData[5][0].s.bg.rgb, "#173957");
+  assert.equal(h.cellData[5][0].s.cl.rgb, "#ffffff");
+  assert.equal(h.cellData[3][2].v, "00000000001");
+  assert.equal(h.cellData[3][23].f, "=E4-1");
+  assert.deepEqual(h.cellData[3][23].custom, { notaOriginal: "Prueba" });
+  assert.deepEqual(aplicarFormatoPdf(salida), salida);
+});
