@@ -65,7 +65,7 @@ function estadoIntegrado(datos, fallo = false) {
 }
 async function abrirIntegrado(revision) {
   const datos = await solicitar("abrir", { revision });
-  soloConsulta = !!datos.soloConsulta;
+  soloConsulta = !!datos.soloConsulta || datos.imprimirInicial === true;
   nube = !!datos.nube;
   estadoIntegrado("Preparando las hojas y el diseño de nómina…");
   prueba = await importar(datos.bytes, datos.nombre);
@@ -133,6 +133,7 @@ async function abrirIntegrado(revision) {
             ? "Libro abierto. Orden del archivo original aplicado. Guarda para conservarlo."
             : "Libro abierto. Guarda para conservar los cambios.",
   );
+  if (datos.imprimirInicial) await imprimirCarta(true);
 }
 let editor,
   pdfAplicados = {},
@@ -449,13 +450,14 @@ const cinta = crearCinta({
   recuperar,
   imprimir: imprimirCarta,
 });
-async function imprimirCarta() {
+async function imprimirCarta(todas = false) {
   await editor.univerAPI.getActiveWorkbook().endEditingAsync(true);
   await editor.univerAPI.getFormula().onCalculationResultApplied(15000);
   const { mostrarImpresion } = await cargarModulo(
     () => import("./vistaImpresion.js"),
   );
   await mostrarImpresion({
+    todas,
     libro: editor.univerAPI.getActiveWorkbook(),
     descargar: async (bytes, nombre) => {
       if (integrado) await solicitar("descargar", { bytes, nombre });

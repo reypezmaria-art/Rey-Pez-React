@@ -134,7 +134,7 @@ export default function Nomina({ soloConsulta = false }) {
       input.value = "";
     }
   }
-  async function abrirEditor() {
+  async function abrirEditor(imprimirInicial = false) {
     if (!empresa || !anio) {
       setError("Selecciona la empresa y el año.");
       return;
@@ -164,6 +164,7 @@ export default function Nomina({ soloConsulta = false }) {
           "María debe guardar primero el libro de esta empresa y año.",
         );
       setEditor({
+        imprimirInicial,
         ambito,
         inicial,
         periodosPdf: periodos.filter(
@@ -486,12 +487,25 @@ export default function Nomina({ soloConsulta = false }) {
                 ? "Los meses cargados se ordenan consecutivamente, con todos los trabajadores de cada mes."
                 : "Cada trabajador tiene su hoja con todas sus nóminas cargadas del año."}
             </p>
-            <button type="button" disabled={ocupado} onClick={abrirEditor}>
-              {soloConsulta ? "Ver libro guardado" : "Abrir editor de nómina"}
-            </button>
-            <button className="primary" disabled={ocupado}>
-              Descargar Excel {exportar}
-            </button>
+            <div className="payroll-export-actions">
+              <button
+                type="button"
+                disabled={ocupado}
+                onClick={() => abrirEditor()}
+              >
+                {soloConsulta ? "Ver libro guardado" : "Abrir editor de nómina"}
+              </button>
+              <button className="primary" disabled={ocupado}>
+                Descargar Excel {exportar}
+              </button>
+              <button
+                type="button"
+                disabled={ocupado}
+                onClick={() => abrirEditor(true)}
+              >
+                Imprimir
+              </button>
+            </div>
           </form>
         </section>
       )}

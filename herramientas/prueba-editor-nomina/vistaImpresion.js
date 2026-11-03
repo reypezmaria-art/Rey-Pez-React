@@ -7,7 +7,7 @@ import workerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 import { crearPdfImpresion } from "./impresionNomina.js";
 GlobalWorkerOptions.workerSrc = workerUrl;
 
-export async function mostrarImpresion({ libro, descargar }) {
+export async function mostrarImpresion({ libro, descargar, todas = false }) {
   await libro.endEditingAsync(true);
   const snapshot = libro.save(),
     activa = libro.getActiveSheet().getSheetId();
@@ -30,6 +30,7 @@ export async function mostrarImpresion({ libro, descargar }) {
     elegir.append(opcion);
   }
   etiqueta.append(elegir);
+  if (todas) elegir.value = "todas";
   const preparar = document.createElement("button");
   preparar.textContent = "Preparar impresión";
   const imprimir = document.createElement("button");

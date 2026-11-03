@@ -18,6 +18,7 @@ export default function EditorNomina({
   inicial,
   periodosPdf,
   soloConsulta,
+  imprimirInicial = false,
   onClose,
 }) {
   const frame = useRef(null);
@@ -85,6 +86,7 @@ export default function EditorNomina({
           resultado = {
             ...resultado,
             tipo: ambito.tipo,
+            imprimirInicial,
             periodosPdf: datos?.revision
               ? []
               : pdfPendientes(periodosPdf || [], fuente?.pdfAplicados, firmas),
@@ -158,7 +160,7 @@ export default function EditorNomina({
       window.removeEventListener("message", recibir);
       window.removeEventListener("beforeunload", prevenir);
     };
-  }, [ambito, inicial, periodosPdf, soloConsulta, canal]);
+  }, [ambito, inicial, periodosPdf, soloConsulta, imprimirInicial, canal]);
   return (
     <section
       className="nomina-editor-modal"

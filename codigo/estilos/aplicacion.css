@@ -1228,6 +1228,12 @@ header .header-access button:hover {
   width: 100vw;
   height: 100dvh;
 }
+.payroll-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
 .nomina-editor-modal > header {
   display: flex;
   flex-wrap: wrap;

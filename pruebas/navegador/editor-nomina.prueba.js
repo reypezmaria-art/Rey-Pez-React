@@ -717,6 +717,67 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
   expect(meses[1].getCell(6).value).toBe(1);
 });
 
+test("Imprimir junto a Descargar Excel abre directamente la impresión del libro y cierra sin cambios pendientes", async ({
+  page,
+}) => {
+  test.setTimeout(120000);
+  await iniciar(page);
+  await importar(page);
+  const descarga = page.getByRole("button", {
+    name: "Descargar Excel mensual",
+    exact: true,
+  });
+  expect(
+    await descarga.evaluate((n) => n.nextElementSibling?.textContent.trim()),
+  ).toBe("Imprimir");
+  await page.getByRole("button", { name: "Imprimir", exact: true }).click();
+  const frame = page.frameLocator('iframe[title="Hoja de cálculo de nómina"]');
+  await expect(frame.locator("#titulo-dialogo")).toHaveText(
+    "Imprimir carta horizontal",
+    { timeout: 60000 },
+  );
+  await expect(
+    frame.getByLabel("Hojas para imprimir", { exact: true }),
+  ).toHaveValue("todas");
+  const boton = frame.getByRole("button", {
+    name: "Descargar PDF carta horizontal",
+    exact: true,
+  });
+  await expect(boton).toBeEnabled({ timeout: 60000 });
+  const evento = page.waitForEvent("download");
+  await boton.click();
+  const tarea = getDocument({
+    data: new Uint8Array(await readFile(await (await evento).path())),
+    useSystemFonts: true,
+  });
+  try {
+    const pdf = await tarea.promise;
+    let texto = "";
+    for (let n = 1; n <= pdf.numPages; n++) {
+      const p = await pdf.getPage(n);
+      expect(p.getViewport({ scale: 1 }).width).toBe(792);
+      texto += (await p.getTextContent()).items.map((i) => i.str).join(" ");
+    }
+    expect(texto).toContain("Acumulado");
+    expect(texto).toContain("enero");
+    expect(texto).toContain("febrero");
+  } finally {
+    await tarea.destroy();
+  }
+  await frame.locator("#cerrar-dialogo").click();
+  let confirmaciones = 0;
+  page.on("dialog", async (d) => {
+    confirmaciones++;
+    await d.dismiss();
+  });
+  await page
+    .getByRole("button", { name: "Cerrar editor", exact: true })
+    .click();
+  await expect(
+    page.getByRole("dialog", { name: "Editor de nómina", exact: true }),
+  ).toHaveCount(0);
+  expect(confirmaciones).toBe(0);
+});
 test("descarga los cambios abiertos desde el editor e imprime una hoja en carta horizontal", async ({
   page,
 }) => {
