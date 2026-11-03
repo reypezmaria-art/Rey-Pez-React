@@ -11,7 +11,7 @@ La consulta permite elegir fechas (hasta un año), resumen por usuario o sesione
 - **Sesiones iniciadas:** ingresos registrados en las fechas elegidas. Una sesión que cruza medianoche aparece una sola vez en Sesiones, pero su duración se divide entre los días correspondientes en el resumen.
 - **Sin señal reciente:** no ha llegado un pulso en dos minutos; no significa necesariamente que la persona haya cerrado sesión.
 
-El pie de página informa al usuario que se registra el uso. No se guardan contraseñas, teclas, contenido de celdas ni coordenadas del puntero. El tiempo es aproximado, no equivale a horas trabajadas. No existe historial anterior a la publicación. Una desconexión o suspensión puede perder intervalos; no se reconstruyen tiempos desconocidos. La copia local sin Firebase no registra este informe compartido.
+No se guardan contraseñas, teclas, contenido de celdas ni coordenadas del puntero. El tiempo es aproximado, no equivale a horas trabajadas. No existe historial anterior a la publicación. Una desconexión o suspensión puede perder intervalos; no se reconstruyen tiempos desconocidos. La copia local sin Firebase no registra este informe compartido.
 
 ## Persistencia y acceso
 

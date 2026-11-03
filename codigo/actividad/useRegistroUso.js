@@ -50,9 +50,7 @@ export function useRegistroUso(cuenta, modulo) {
         await envioActual;
         listo = true;
         cerrado = datos.cierre;
-        setEstado(
-          "Tiempo de uso registrado. Visible y actividad reciente; no se registra lo que escribes.",
-        );
+        setEstado("");
       } catch {
         setEstado(
           "El registro de uso está sin conexión. Puedes seguir trabajando.",
