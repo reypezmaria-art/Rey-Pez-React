@@ -1230,6 +1230,7 @@ header .header-access button:hover {
 }
 .nomina-editor-modal > header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
@@ -1239,6 +1240,11 @@ header .header-access button:hover {
 }
 .nomina-editor-modal > header button {
   flex-shrink: 0;
+}
+.nomina-editor-modal > header a {
+  color: #ffe3a1;
+  text-decoration: underline;
+  font-weight: 600;
 }
 .nomina-editor-modal > iframe {
   width: 100%;

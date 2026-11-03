@@ -11,6 +11,8 @@ export function pdfNominaEjemplo({
   rfc,
   infonavitCf = 0,
   continuar = false,
+  sinIsrRetenido = false,
+  calculoInformativo = false,
 } = {}) {
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   doc.setFontSize(9);
@@ -37,7 +39,9 @@ export function pdfNominaEjemplo({
   [
     ["32 Subs al Empleo acreditado", -20000],
     ["41 I.S.R. antes de Subs al Empleo", 30000],
-    ["45 I.S.R. (mes)", 10000],
+    ...(!sinIsrRetenido && !calculoInformativo
+      ? [["45 I.S.R. (mes)", 10000]]
+      : []),
     ["52 I.M.S.S.", 12000],
     ["99 Ajuste al neto", -10],
     ...(infonavitCf
@@ -58,9 +62,11 @@ export function pdfNominaEjemplo({
   text("Total Percepciones", 25, y);
   text(money(importe), 270, y);
   text("Total Deducciones", 345, y);
-  text(money(21990 + infonavitCf), 555, y);
+  const totalDeducciones =
+    21990 + infonavitCf - (calculoInformativo ? 10000 : 0);
+  text(money(totalDeducciones), 555, y);
   text("Neto a pagar", 25, y + 14);
-  text(money(importe - 21990 - infonavitCf), 270, y + 14);
+  text(money(importe - totalDeducciones), 270, y + 14);
   text("Total de empleados : 1", 25, y + 40);
   return new Uint8Array(doc.output("arraybuffer"));
 }

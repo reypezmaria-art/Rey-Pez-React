@@ -109,6 +109,27 @@ test("Infonavit CF correspondiente conserva el desglose sin duplicar el descuent
     await tarea.destroy();
   }
 });
+test("sin ISR retenido solo considera informativos el cálculo de subsidio/ISR cuando los totales impresos lo confirman", async () => {
+  const informativo = JSON.parse(
+    (await leer(pdfNominaEjemplo({ calculoInformativo: true }))).registrosJson,
+  )[0];
+  assert.equal(informativo.totalDeducciones, 11990);
+  assert.equal(informativo.neto, 513010);
+  for (const codigo of ["32", "41"])
+    assert.equal(
+      informativo.deducciones.find((c) => c.codigo === codigo).informativo,
+      true,
+    );
+  const ordinario = JSON.parse(
+    (await leer(pdfNominaEjemplo({ sinIsrRetenido: true }))).registrosJson,
+  )[0];
+  assert.equal(ordinario.totalDeducciones, 21990);
+  for (const codigo of ["32", "41"])
+    assert.equal(
+      ordinario.deducciones.find((c) => c.codigo === codigo).informativo,
+      false,
+    );
+});
 test("un PDF inconsistente no se guarda ni se sustituye parcialmente", async () => {
   const bytes = pdfNominaEjemplo();
   const t = getDocument({ data: bytes });

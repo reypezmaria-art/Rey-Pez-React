@@ -3,6 +3,10 @@ import {
   pdfPendientes,
 } from "../../herramientas/prueba-editor-nomina/pdfEnLibro.js";
 import { useEffect, useRef, useState } from "react";
+import {
+  prepararDescarga,
+  iniciarDescarga,
+} from "../utilidades/descargarArchivo.js";
 import { repositorioLibrosNomina } from "../repositorios/librosNomina.js";
 import {
   empaquetarLibro,
@@ -21,6 +25,14 @@ export default function EditorNomina({
   const [error, setError] = useState("");
   const [estado, setEstado] = useState("Cargando editor de nómina…");
   const dirty = useRef(false);
+  const [descarga, setDescarga] = useState(null);
+  const urlDescarga = useRef(null);
+  useEffect(
+    () => () => {
+      if (urlDescarga.current) URL.revokeObjectURL(urlDescarga.current);
+    },
+    [],
+  );
   useEffect(() => {
     const repo = repositorioLibrosNomina(ambito);
     let revision = 0,
@@ -98,6 +110,26 @@ export default function EditorNomina({
           revision = resultado.revision;
           fuente = siguienteFuente;
           dirty.current = false;
+        } else if (accion === "descargar") {
+          if (
+            !/\.(xlsx|pdf)$/i.test(datos?.nombre || "") ||
+            datos.bytes?.byteLength > 50 * 1024 * 1024
+          )
+            throw Error("El archivo no es válido para descargar.");
+          const pdf = /\.pdf$/i.test(datos.nombre);
+          const archivo = {
+            ...prepararDescarga(
+              datos.bytes,
+              datos.nombre,
+              pdf ? "application/pdf" : undefined,
+            ),
+            pdf,
+          };
+          if (urlDescarga.current) URL.revokeObjectURL(urlDescarga.current);
+          urlDescarga.current = archivo.url;
+          setDescarga(archivo);
+          iniciarDescarga(archivo);
+          resultado = { listo: true };
         } else if (accion === "versiones")
           resultado = (await repo.listar()).map((v) => ({
             id: v.revision,
@@ -138,6 +170,11 @@ export default function EditorNomina({
         <strong>
           Nómina · {ambito.empresa} · {ambito.anio} · {ambito.tipo}
         </strong>
+        {descarga && (
+          <a href={descarga.url} download={descarga.nombre}>
+            Descargar {descarga.pdf ? "PDF" : "Excel"} preparado
+          </a>
+        )}
         <button
           onClick={() => {
             if (

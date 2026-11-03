@@ -41,6 +41,67 @@ const pdf = (args, name = "ejemplo.pdf") => ({
   mimeType: "application/pdf",
   buffer: Buffer.from(pdfNominaEjemplo(args)),
 });
+test("reintenta el módulo PDF después de un fallo de red sin volver a seleccionar el archivo", async ({
+  page,
+}) => {
+  let peticiones = 0;
+  await page.route("**/codigo/utilidades/pdfNomina.js*", (route) => {
+    peticiones++;
+    return peticiones === 1 ? route.abort("failed") : route.continue();
+  });
+  await page
+    .getByLabel("Seleccionar PDF de nómina", { exact: true })
+    .setInputFiles(pdf());
+  await expect(page.getByRole("status")).toContainText("Nómina guardada", {
+    timeout: 20000,
+  });
+  expect(peticiones).toBeGreaterThanOrEqual(2);
+});
+test("si el módulo PDF sigue sin cargar muestra Actualizar página y conserva las nóminas", async ({
+  page,
+}) => {
+  await page.route("**/codigo/utilidades/pdfNomina.js*", (route) =>
+    route.abort("failed"),
+  );
+  await page
+    .getByLabel("Seleccionar PDF de nómina", { exact: true })
+    .setInputFiles(pdf());
+  await expect(page.getByRole("alert")).toContainText(
+    "No se pudo cargar una parte de Nómina",
+    { timeout: 20000 },
+  );
+  await expect(
+    page.getByRole("button", { name: "Actualizar página", exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => JSON.parse(localStorage.getItem("reypez_react_v1")).payroll || [],
+    ),
+  ).toHaveLength(0);
+});
+test("cálculos informativos sin ISR retenido conservan los importes del recibo", async ({
+  page,
+}) => {
+  await page
+    .getByLabel("Seleccionar PDF de nómina", { exact: true })
+    .setInputFiles(pdf({ empresa: "EDGAR", calculoInformativo: true }));
+  await expect(page.getByRole("status")).toContainText("Nómina guardada", {
+    timeout: 20000,
+  });
+  const r = await page.evaluate(
+    () =>
+      JSON.parse(
+        JSON.parse(localStorage.getItem("reypez_react_v1")).payroll[0]
+          .registrosJson,
+      )[0],
+  );
+  expect(r.totalDeducciones).toBe(11990);
+  expect(r.neto).toBe(513010);
+  for (const codigo of ["32", "41"])
+    expect(r.deducciones.find((c) => c.codigo === codigo).informativo).toBe(
+      true,
+    );
+});
 test("importa Infonavit CF sin duplicar el descuento cuando el recibo continúa en otra página", async ({
   page,
 }) => {

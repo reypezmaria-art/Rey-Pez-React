@@ -1,4 +1,9 @@
 import { aplicarFormatoPdf } from "../../herramientas/prueba-editor-nomina/formatoPdf.js";
+import { cargarModulo } from "../utilidades/cargarModulo.js";
+import {
+  prepararDescarga,
+  iniciarDescarga,
+} from "../utilidades/descargarArchivo.js";
 import {
   firmasPdf,
   pdfPendientes,
@@ -13,7 +18,7 @@ import {
   empaquetarLibro,
   desempaquetarLibro,
 } from "../utilidades/paqueteLibroNomina.js";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import {
   Campo,
@@ -43,6 +48,26 @@ export default function Nomina({ soloConsulta = false }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [mensaje, setMensaje] = useState("");
+  const [errorCarga, setErrorCarga] = useState(false);
+  const [descarga, setDescarga] = useState(null);
+  const urlDescarga = useRef(null);
+  useEffect(
+    () => () => {
+      if (urlDescarga.current) URL.revokeObjectURL(urlDescarga.current);
+    },
+    [],
+  );
+  function ofrecerDescarga(bytes, nombre) {
+    const archivo = prepararDescarga(bytes, nombre);
+    if (urlDescarga.current) URL.revokeObjectURL(urlDescarga.current);
+    urlDescarga.current = archivo.url;
+    setDescarga(archivo);
+    iniciarDescarga(archivo);
+  }
+  function mostrarError(err) {
+    setError(err.message);
+    setErrorCarga(err.codigo === "actualizar-aplicacion");
+  }
   const [exportar, setExportar] = useState(""),
     [empresa, setEmpresa] = useState(""),
     [anio, setAnio] = useState(String(clock.getFullYear()));
@@ -77,12 +102,15 @@ export default function Nomina({ soloConsulta = false }) {
       archivo = input.files?.[0];
     if (!archivo) return;
     setError("");
+    setErrorCarga(false);
     setMensaje(
       "Analizando el contenido del PDF para identificar empresa, período y trabajadores…",
     );
     setBusy(true);
     try {
-      const { leerPdfNomina } = await import("../utilidades/pdfNomina.js");
+      const { leerPdfNomina } = await cargarModulo(
+        () => import("../utilidades/pdfNomina.js"),
+      );
       const aliases = Object.fromEntries(
         Object.entries(nombresEmpresas(data)).map(([k, v]) => [k, [v]]),
       );
@@ -100,7 +128,7 @@ export default function Nomina({ soloConsulta = false }) {
       );
     } catch (err) {
       setMensaje("");
-      setError(err.message);
+      mostrarError(err);
     } finally {
       setBusy(false);
       input.value = "";
@@ -113,13 +141,15 @@ export default function Nomina({ soloConsulta = false }) {
     }
     setBusy(true);
     setError("");
+    setErrorCarga(false);
     try {
       const ambito = { empresa, anio: Number(anio), tipo: exportar };
       const guardado = await repositorioLibrosNomina(ambito).abrir();
       let inicial;
       if (!guardado && !soloConsulta) {
-        const { crearLibroNomina } =
-          await import("../utilidades/excelNomina.js");
+        const { crearLibroNomina } = await cargarModulo(
+          () => import("../utilidades/excelNomina.js"),
+        );
         const base = crearLibroNomina(data, empresa, Number(anio), exportar);
         // El resumen se conserva; los detalles se incorporan en el editor con el mismo formato que el Excel.
         for (const hoja of [...base.worksheets].slice(1))
@@ -141,7 +171,7 @@ export default function Nomina({ soloConsulta = false }) {
         ),
       });
     } catch (err) {
-      setError(err.message);
+      mostrarError(err);
     } finally {
       setBusy(false);
     }
@@ -149,6 +179,7 @@ export default function Nomina({ soloConsulta = false }) {
   async function generar(e) {
     e.preventDefault();
     setError("");
+    setErrorCarga(false);
     setMensaje("");
     setBusy(true);
     try {
@@ -175,33 +206,33 @@ export default function Nomina({ soloConsulta = false }) {
           throw Error(
             "Abre el editor de nómina y guarda el libro una vez para aplicar el orden de columnas del archivo original. Después podrás descargarlo.",
           );
-        const { exportarCompleto } =
-          await import("../../herramientas/prueba-editor-nomina/exportacionCompleta.js");
-        const { prepararAcumulado } =
-          await import("../../herramientas/prueba-editor-nomina/formatoVista.js");
+        const { exportarCompleto } = await cargarModulo(
+          () =>
+            import("../../herramientas/prueba-editor-nomina/exportacionCompleta.js"),
+        );
+        const { prepararAcumulado } = await cargarModulo(
+          () =>
+            import("../../herramientas/prueba-editor-nomina/formatoVista.js"),
+        );
         const bytes = await exportarCompleto(
           aplicarFormatoPdf(await prepararAcumulado(snapshot), exportar),
         );
-        const url = URL.createObjectURL(
-          new Blob([bytes], {
-            type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          }),
-        );
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = nombre;
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        ofrecerDescarga(bytes, nombre);
       } else {
-        const { descargarExcelNomina } =
-          await import("../utilidades/excelNomina.js");
-        await descargarExcelNomina(data, empresa, Number(anio), exportar);
+        const { crearLibroNomina } = await cargarModulo(
+          () => import("../utilidades/excelNomina.js"),
+        );
+        const libro = crearLibroNomina(data, empresa, Number(anio), exportar);
+        ofrecerDescarga(
+          new Uint8Array(await libro.xlsx.writeBuffer()),
+          `Nomina_${empresa}_${anio}_${exportar}.xlsx`,
+        );
       }
       setMensaje(
         `Excel ${exportar} generado: ${nombresEmpresas(data)[empresa]} · ${anio}.`,
       );
     } catch (err) {
-      setError(err.message);
+      mostrarError(err);
     } finally {
       setBusy(false);
     }
@@ -212,15 +243,17 @@ export default function Nomina({ soloConsulta = false }) {
     if (!archivo) return;
     setBusy(true);
     setError("");
+    setErrorCarga(false);
     setMensaje("");
     try {
-      const { extraerAcumuladoNomina } =
-        await import("../utilidades/importarAcumuladoNomina.js");
+      const { extraerAcumuladoNomina } = await cargarModulo(
+        () => import("../utilidades/importarAcumuladoNomina.js"),
+      );
       const bytes = new Uint8Array(await archivo.arrayBuffer());
       const fuente = await extraerAcumuladoNomina(bytes, nombresEmpresas(data));
       setImportacion({ fuente, bytes });
     } catch (err) {
-      setError(err.message);
+      mostrarError(err);
     } finally {
       input.value = "";
       setBusy(false);
@@ -229,13 +262,16 @@ export default function Nomina({ soloConsulta = false }) {
   async function confirmarImportacion() {
     setBusy(true);
     setError("");
+    setErrorCarga(false);
     setMensaje("");
     const completados = [];
     try {
-      const { crearExcelAcumulado } =
-        await import("../utilidades/importarAcumuladoNomina.js");
-      const { importar } =
-        await import("../../herramientas/prueba-editor-nomina/conversion.js");
+      const { crearExcelAcumulado } = await cargarModulo(
+        () => import("../utilidades/importarAcumuladoNomina.js"),
+      );
+      const { importar } = await cargarModulo(
+        () => import("../../herramientas/prueba-editor-nomina/conversion.js"),
+      );
       const { fuente, bytes } = importacion;
       const previo = await repositorioLibrosNomina({
         empresa: fuente.empresa,
@@ -295,6 +331,7 @@ export default function Nomina({ soloConsulta = false }) {
   }
   async function guardarManual(cambios, motivo) {
     setError("");
+    setErrorCarga(false);
     setMensaje("");
     try {
       await persistirNomina((state) =>
@@ -312,7 +349,7 @@ export default function Nomina({ soloConsulta = false }) {
         "Corrección de nómina guardada. Los demás períodos se conservan.",
       );
     } catch (err) {
-      setError(err.message);
+      mostrarError(err);
     }
   }
   return (
@@ -323,7 +360,17 @@ export default function Nomina({ soloConsulta = false }) {
       />
       <Mensaje>{aviso}</Mensaje>
       <Mensaje error>{error}</Mensaje>
+      {error && errorCarga && (
+        <button type="button" onClick={() => window.location.reload()}>
+          Actualizar página
+        </button>
+      )}
       <Mensaje>{mensaje}</Mensaje>
+      {descarga && (
+        <a href={descarga.url} download={descarga.nombre}>
+          Descargar Excel preparado
+        </a>
+      )}
       {!soloConsulta && (
         <section
           className="panel"

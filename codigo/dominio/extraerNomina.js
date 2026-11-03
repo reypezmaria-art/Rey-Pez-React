@@ -130,6 +130,21 @@ function terminar(r) {
     creditoCf.importe === correspondienteCf.importe
   )
     correspondienteCf.informativo = true;
+  if (!porCodigo.has("45") && porCodigo.has("32") && porCodigo.has("41")) {
+    // Algunos reportes imprimen el cálculo de subsidio/ISR sin retenerlo.
+    // Solo es informativo si los otros descuentos concilian exactamente con
+    // el total impreso y con el neto; nunca se calculan ni ajustan impuestos.
+    const activos = r.deducciones.filter((c) => !c.informativo);
+    const suma = (lista) => lista.reduce((s, c) => s + c.importe, 0);
+    const otros = activos.filter((c) => !["32", "41"].includes(c.codigo));
+    if (
+      suma(activos) !== r.totalDeducciones &&
+      suma(otros) === r.totalDeducciones &&
+      r.totalPercepciones - r.totalDeducciones === r.neto
+    )
+      for (const codigo of ["32", "41"])
+        porCodigo.get(codigo).informativo = true;
+  }
   return validarRecibo(r);
 }
 export function extraerNomina(paginas, aliases = {}) {

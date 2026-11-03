@@ -1,6 +1,7 @@
 import { pdfNominaEjemplo } from "../soporte/nominaEjemplo.js";
 import { test, expect } from "@playwright/test";
 import ExcelJS from "exceljs";
+import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import { readFile } from "node:fs/promises";
 import { baseOperation } from "../../codigo/datos/operacionInicial.js";
 import { companyNames } from "../../codigo/datos/constantes.js";
@@ -716,6 +717,81 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
   expect(meses[1].getCell(6).value).toBe(1);
 });
 
+test("descarga los cambios abiertos desde el editor e imprime una hoja en carta horizontal", async ({
+  page,
+}) => {
+  test.setTimeout(120000);
+  await iniciar(page);
+  await importar(page);
+  await page
+    .getByRole("button", { name: "Abrir editor de nómina", exact: true })
+    .click();
+  const frame = page.frameLocator('iframe[title="Hoja de cálculo de nómina"]');
+  await expect(frame.locator("#estado")).toContainText("Libro abierto", {
+    timeout: 30000,
+  });
+  const child = page
+    .frames()
+    .find((f) => f.url().includes("editor-nomina/index.html"));
+  await child.evaluate(() => {
+    const wb = window.pruebaEditor.api().getActiveWorkbook(),
+      h = wb.getSheetByName("enero");
+    wb.setActiveSheet(h);
+    h.getRange("E5").setValue(1500);
+  });
+  const evento = page.waitForEvent("download");
+  await frame
+    .getByRole("button", { name: "Descargar Excel", exact: true })
+    .click();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(await readFile(await (await evento).path()));
+  expect(wb.getWorksheet("enero").getCell("E5").value).toBe(1500);
+  await expect(
+    page.getByRole("link", { name: "Descargar Excel preparado", exact: true }),
+  ).toBeVisible();
+  await frame.getByRole("button", { name: "Imprimir", exact: true }).click();
+  const guardarPdf = frame.getByRole("button", {
+    name: "Descargar PDF carta horizontal",
+    exact: true,
+  });
+  await expect(guardarPdf).toBeEnabled({ timeout: 60000 });
+  const vista = frame.frameLocator(
+    'iframe[title="Vista previa carta horizontal"]',
+  );
+  await expect(vista.locator(".pagina").first()).toBeVisible();
+  await vista.locator("body").evaluate(() => {
+    window.print = () => {
+      document.body.dataset.impreso = "si";
+    };
+  });
+  await frame
+    .getByRole("button", { name: "Imprimir / guardar PDF", exact: true })
+    .click();
+  await expect(vista.locator("body")).toHaveAttribute("data-impreso", "si");
+  const descarga = page.waitForEvent("download");
+  await guardarPdf.click();
+  const tarea = getDocument({
+    data: new Uint8Array(await readFile(await (await descarga).path())),
+    useSystemFonts: true,
+  });
+  try {
+    const pdf = await tarea.promise;
+    expect(pdf.numPages).toBeGreaterThan(1);
+    let texto = "";
+    for (let n = 1; n <= pdf.numPages; n++) {
+      const p = await pdf.getPage(n),
+        v = p.getViewport({ scale: 1 });
+      expect(v.width).toBe(792);
+      expect(v.height).toBe(612);
+      texto += (await p.getTextContent()).items.map((i) => i.str).join(" ");
+    }
+    expect(texto).toContain("Persona dos");
+    expect(texto).toContain("1,500.00");
+    expect(texto).toContain("NETO");
+  } finally {
+    await tarea.destroy();
+  }
+});
 test("libro creado solo con PDF muestra todos los nombres con bandas claras y contraste", async ({
   page,
 }, testInfo) => {

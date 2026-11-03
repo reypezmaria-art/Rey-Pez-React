@@ -16,6 +16,7 @@ import "./estilos.css";
 import { importar, exportarCopia } from "./conversion.js";
 import { exportarCompleto } from "./exportacionCompleta.js";
 import { crearCinta } from "./cinta.js";
+import { cargarModulo } from "../../codigo/utilidades/cargarModulo.js";
 
 const parametros = new URLSearchParams(location.search);
 const integrado =
@@ -248,6 +249,7 @@ async function guardar() {
   if (integrado) {
     if (soloConsulta) throw Error("Tu acceso es de consulta y exportación.");
     await editor.univerAPI.getActiveWorkbook().endEditingAsync(true);
+    await editor.univerAPI.getFormula().onCalculationResultApplied(15000);
     const actual = snapshot();
     if (!prueba) throw Error("No hay un libro abierto.");
     const guardado = await solicitar("guardar", {
@@ -336,8 +338,10 @@ function descargar(bytes, name) {
   const a = document.createElement("a");
   a.href = url;
   a.download = integrado ? name : `PRUEBA_${name}`;
+  document.body.append(a);
   a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 $("archivo").onchange = () =>
   ejecutar(async () => {
@@ -394,18 +398,20 @@ $("rehacer").onclick = () =>
         : "No hay cambios para rehacer.",
     );
   });
-$("descargar").onclick = () =>
+$("descargar").onclick = $("descargar-rapido").onclick = () =>
   ejecutar(async () => {
     cerrarArchivo();
     if (!prueba) throw Error("Abre una copia de tu Excel antes de descargar.");
-    descargar(
-      await (integrado
-        ? exportarCompleto(snapshot())
-        : exportarCopia(prueba, snapshot())),
-      prueba.nombre,
-    );
+    await editor.univerAPI.getActiveWorkbook().endEditingAsync(true);
+    await editor.univerAPI.getFormula().onCalculationResultApplied(15000);
+    const bytes = await (integrado
+      ? exportarCompleto(snapshot())
+      : exportarCopia(prueba, snapshot()));
+    if (integrado)
+      await solicitar("descargar", { bytes, nombre: prueba.nombre });
+    else descargar(bytes, prueba.nombre);
     aviso(
-      "Copia descargada. Excel recalculará las fórmulas internas al abrirla; los vínculos externos siguen necesitando su archivo.",
+      "Excel preparado. Si la descarga no comenzó, pulsa «Descargar Excel preparado» en la parte superior. Incluye los cambios actuales del editor.",
     );
   });
 document.addEventListener("pointerdown", (event) => {
@@ -441,7 +447,34 @@ const cinta = crearCinta({
   aviso,
   listarVersiones,
   recuperar,
+  imprimir: imprimirCarta,
 });
+async function imprimirCarta() {
+  await editor.univerAPI.getActiveWorkbook().endEditingAsync(true);
+  await editor.univerAPI.getFormula().onCalculationResultApplied(15000);
+  const { mostrarImpresion } = await cargarModulo(
+    () => import("./vistaImpresion.js"),
+  );
+  await mostrarImpresion({
+    libro: editor.univerAPI.getActiveWorkbook(),
+    descargar: async (bytes, nombre) => {
+      if (integrado) await solicitar("descargar", { bytes, nombre });
+      else {
+        const url = URL.createObjectURL(
+          new Blob([bytes], { type: "application/pdf" }),
+        );
+        const enlace = document.createElement("a");
+        enlace.href = url;
+        enlace.download = nombre;
+        document.body.append(enlace);
+        enlace.click();
+        enlace.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      }
+    },
+  });
+}
+$("imprimir-rapido").onclick = () => ejecutar(imprimirCarta);
 for (const [id, name] of [
   ["acumulado", "Acumulado 2026"],
   ["enero", "Enero"],

@@ -40,6 +40,7 @@ export function crearCinta({
   aviso,
   listarVersiones,
   recuperar,
+  imprimir,
 }) {
   const root = document.getElementById("cinta");
   const dialogo = document.getElementById("dialogo-cinta");
@@ -660,7 +661,7 @@ export function crearCinta({
   });
   const impresion = {
     papel: "letter",
-    orientacion: "portrait",
+    orientacion: "landscape",
     margen: "12",
     seleccion: "no",
   };
@@ -760,13 +761,14 @@ export function crearCinta({
     boton(page, "Área de impresión", "tabla", configurarPagina, {
       grande: true,
     });
-    boton(
-      grupo(p, "Imprimir"),
-      "Vista de impresión",
-      "imprimir",
-      vistaImpresion,
-      { grande: true },
-    );
+    const opcionesImpresion = grupo(p, "Imprimir");
+    boton(opcionesImpresion, "Vista de impresión", "imprimir", vistaImpresion, {
+      grande: true,
+    });
+    if (imprimir)
+      boton(opcionesImpresion, "Carta horizontal", "imprimir", imprimir, {
+        grande: true,
+      });
   });
   crearTab("Fórmulas", (p) => {
     const lib = grupo(p, "Biblioteca de funciones");

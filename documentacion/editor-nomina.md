@@ -6,6 +6,10 @@ La cinta se puede contraer con «Contraer barra» para disponer de más filas vi
 
 Los avisos superiores se pueden descartar con «Cerrar». Se retiran tanto el recordatorio como el mensaje y la compatibilidad, y la hoja recupera ese espacio. Un aviso nuevo de guardado o error vuelve a mostrarse y se puede cerrar de nuevo.
 
+El acceso rápido «Excel ↓» y Archivo → Descargar Excel exportan los cambios abiertos, incluso antes de guardarlos como versión. El archivo se descarga desde la página principal y queda disponible el enlace «Descargar Excel preparado» si el navegador bloquea la descarga automática. Guardar sigue siendo necesario para conservar la versión en la aplicación.
+
+«Imprimir» abre una vista de carta horizontal para la hoja actual o todo el libro. Reparte las columnas entre páginas repitiendo nombres, períodos y encabezados, conserva la paleta y permite imprimir, guardar PDF desde el navegador o descargar un PDF vectorial. No reduce toda una nómina ancha a letra ilegible. Las celdas con contenido y sin encabezado reciben un rótulo de columna; los datos no se omiten por falta de título.
+
 Los libros guardan el estado completo del editor y una copia del archivo original, comprimidos en versiones privadas de Firestore. El encabezado, metadatos y contenido se escriben juntos; una revisión antigua no sobrescribe una nueva. Guardar confirma únicamente después de persistir. El historial permite recuperar versiones. Cada formato tiene su propio libro: editar el mensual no modifica automáticamente el anual, ni viceversa.
 
 La descarga del libro guardado conserva valores, fórmulas internas, notas, hojas, combinaciones, formato básico, dimensiones, cuadrícula e inmovilización. Los filtros se mantienen en la vista guardada; el Excel descargado incluye todas las filas. La vista de impresión es simplificada. Macros, gráficos, tablas dinámicas y objetos avanzados originales no se editan ni exportan. Las referencias externas se descargan como su último valor con una nota; no se contactan archivos externos. El original permanece dentro del respaldo de cada versión.
