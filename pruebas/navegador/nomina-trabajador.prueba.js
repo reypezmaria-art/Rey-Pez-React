@@ -105,7 +105,7 @@ test("María autoriza Nómina y Claudia edita las tres empresas sin abrir el res
   await expect(
     page.getByRole("heading", { name: "Captura operativa autorizada" }),
   ).toBeVisible();
-  await expect(page.getByRole("navigation")).toHaveCount(0);
+  await expect(page.getByRole("navigation")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Personal", exact: true }),
   ).toHaveCount(0);
@@ -156,9 +156,7 @@ test("María autoriza Nómina y Claudia edita las tres empresas sin abrir el res
   expect(state.employees).toHaveLength(1);
   expect(state.access.permissions["ES-01"].nomina).toBe(true);
 
-  await page
-    .getByRole("button", { name: "Volver a bitácoras", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Bitácoras", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Captura operativa autorizada" }),
   ).toBeVisible();
@@ -172,6 +170,34 @@ test("María autoriza Nómina y Claudia edita las tres empresas sin abrir el res
   await expect(page.getByRole("navigation")).toHaveCount(0);
 });
 
+test("una cuenta con solo EPP entra a su carpeta, ve la frase y no recibe otros apartados", async ({
+  page,
+}) => {
+  await preparar(page, { company: "ESTUARDO", logs: ["epp"] });
+  await page.goto("/#captura");
+  await ingresar(page, "ES-01", "Trab06");
+  await expect(
+    page.getByRole("heading", { name: "Captura operativa autorizada" }),
+  ).toBeVisible();
+  await expect(page.locator(".folder-tabs button.primary")).toHaveText(
+    "Bitácora de EPP",
+  );
+  await expect(
+    page.getByRole("button", { name: "Bitácoras de salud", exact: true }),
+  ).toHaveCount(0);
+  const nav = page.getByRole("navigation");
+  await expect(nav.getByRole("button")).toHaveCount(1);
+  await expect(
+    nav.getByRole("button", { name: "Bitácoras", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Frase del día")).toBeVisible();
+  await page.evaluate(() => {
+    location.hash = "#nomina";
+  });
+  await expect(
+    page.getByRole("heading", { name: "¡ACCESO DENEGADO!" }),
+  ).toBeVisible();
+});
 test("sin el permiso, la trabajadora no abre Nómina y conserva solo sus bitácoras", async ({
   page,
 }) => {
@@ -184,7 +210,7 @@ test("sin el permiso, la trabajadora no abre Nómina y conserva solo sus bitáco
   await expect(
     page.getByRole("button", { name: "Nómina", exact: true }),
   ).toHaveCount(0);
-  await expect(page.getByRole("navigation")).toHaveCount(0);
+  await expect(page.getByRole("navigation")).toBeVisible();
   await expect(page.getByText("Empresa autorizada: ESTUARDO")).toBeVisible();
   await page.evaluate(() => {
     location.hash = "#nomina";

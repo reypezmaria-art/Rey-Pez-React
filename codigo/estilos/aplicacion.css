@@ -67,6 +67,22 @@ header {
   grid-template-columns: 260px minmax(0, 1fr);
   min-height: calc(100vh - 100px);
 }
+.layout.sidebar-hidden {
+  grid-template-columns: minmax(0, 1fr);
+}
+.layout > .app-sidebar[hidden] {
+  display: none;
+}
+header .sidebar-toggle {
+  flex-shrink: 0;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 4px 8px;
+  background: white;
+  color: var(--navy);
+  border: 1px solid #d9e2f2;
+  font-size: 1.25rem;
+}
 nav {
   background: #fff;
   border-right: 1px solid var(--line);

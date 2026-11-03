@@ -367,7 +367,7 @@ test("temperaturas, mantenimiento, QR, permisos y terminal aislada", async ({
   await expect(
     page.getByRole("heading", { name: "Captura operativa autorizada" }),
   ).toBeVisible();
-  await expect(page.getByRole("navigation")).toHaveCount(0);
+  await expect(page.getByRole("navigation")).toBeVisible();
   await expect(page.locator(".folder-card")).toHaveCount(1);
   await page
     .getByRole("button", { name: /^Temperaturas · cuartos fríos/ })
@@ -483,7 +483,7 @@ test("el encabezado usa un solo logo en acceso, administración y captura", asyn
   await page.goto("/#captura");
   await expect(page.locator("header img")).toHaveCount(1);
   await expect(page.locator("header")).toContainText("María");
-  await expect(page.getByRole("navigation")).toHaveCount(0);
+  await expect(page.getByRole("navigation")).toBeVisible();
   const captura = await page.locator("header").boundingBox();
   expect(captura.height).toBeLessThan(96);
   await page.goto("/");

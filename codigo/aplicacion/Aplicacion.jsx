@@ -22,7 +22,7 @@ import RegistroTrabajador from "../componentes/RegistroTrabajador.jsx";
 import Acceso from "../componentes/Acceso.jsx";
 import AvisoAcceso from "../componentes/AvisoAcceso.jsx";
 import { destinoRestringido } from "../dominio/controlAcceso.js";
-import { puedeVerNomina } from "../dominio/seguridad.js";
+import { puedeVerNomina, canCapture } from "../dominio/seguridad.js";
 import { deviceId } from "../utilidades/dispositivo.js";
 import { fraseDelDia } from "../datos/frasesDiarias.js";
 const pages = {
@@ -55,6 +55,24 @@ export default function Aplicacion() {
   const { data, session, logout, clock, avisoAcceso, volverInicio } =
     useAplicacion();
   const frase = fraseDelDia(clock);
+  const [menuAbierto, setMenuAbierto] = useState(() => {
+    try {
+      return localStorage.getItem("reypez_barra_lateral") !== "oculta";
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "reypez_barra_lateral",
+        menuAbierto ? "visible" : "oculta",
+      );
+    } catch {
+      /* La preferencia visual no impide trabajar si el almacenamiento está lleno. */
+    }
+  }, [menuAbierto]);
+  const alternarMenu = () => setMenuAbierto((abierto) => !abierto);
   const [detallePagina, setDetallePagina] = useState(null);
   function navigate(destino, detalle = null) {
     setPage(destino);
@@ -115,49 +133,84 @@ export default function Aplicacion() {
     const consulta = route.startsWith("#seccion?")
       ? new URLSearchParams(route.split("?")[1]).get("tipo")
       : "";
+    const permiso = data.access.permissions[session.id];
+    const tipos = (permiso?.logs || []).filter((tipo) =>
+      canCapture(data, session, permiso.company, tipo),
+    );
+    const verBitacoras = session.role === "admin" || tipos.length > 0;
+    const opciones = [
+      [
+        "employees",
+        "♙",
+        "Personal",
+        "#seccion?tipo=employees",
+        puedeConsultarSeccion(data, session, "employees"),
+      ],
+      ["payroll", "▤", "Nómina", "#nomina", verNomina],
+      ["capture", "☷", "Bitácoras", "#captura", verBitacoras],
+      [
+        "maintenance",
+        "⚒",
+        "Mantenimiento y compras",
+        "#seccion?tipo=maintenance",
+        puedeConsultarSeccion(data, session, "maintenance"),
+      ],
+      [
+        "reports",
+        "▤",
+        "Reportes y CSV",
+        "#seccion?tipo=reports",
+        puedeConsultarSeccion(data, session, "reports"),
+      ],
+      [
+        "admin",
+        "▦",
+        "Administración",
+        "#administracion",
+        session.role === "admin",
+      ],
+    ].filter(([, , , , permitido]) => permitido);
     return (
       <>
-        <Encabezado detalle={session.name} onLogout={logout} />
-        <main className="capture-main">
-          <div className="toolbar">
-            {[
-              ["employees", "Personal"],
-              ["maintenance", "Mantenimiento y compras"],
-              ["reports", "Reportes y CSV"],
-            ]
-              .filter(([tipo]) => puedeConsultarSeccion(data, session, tipo))
-              .map(([tipo, titulo]) => (
-                <button
-                  key={tipo}
-                  onClick={() => {
-                    location.hash = `#seccion?tipo=${tipo}`;
-                  }}
-                >
-                  {titulo}
-                </button>
-              ))}
-          </div>
-          {verNomina && (
-            <div className="toolbar">
-              <button
-                type="button"
-                className={enNomina ? "" : "primary"}
-                onClick={() => {
-                  location.hash = enNomina ? "#captura" : "#nomina";
-                }}
-              >
-                {enNomina ? "Volver a bitácoras" : "Nómina"}
-              </button>
-            </div>
-          )}
-          {consulta ? (
-            <ConsultaSeccion key={consulta} tipo={consulta} />
-          ) : enNomina ? (
-            <Nomina soloConsulta={!puedeVerNomina(data, session)} />
-          ) : (
-            <CarpetasBitacoras key={route} operational />
-          )}
-        </main>
+        <a className="skip-link" href="#main">
+          Saltar al contenido
+        </a>
+        <Encabezado
+          detalle="Sistema de Control Administrativo"
+          identidad={session.name}
+          onLogout={logout}
+          menuAbierto={menuAbierto}
+          onToggleMenu={alternarMenu}
+        />
+        <div className={`layout${menuAbierto ? "" : " sidebar-hidden"}`}>
+          <NavegacionLateral
+            opciones={opciones}
+            actual={consulta || (enNomina ? "payroll" : "capture")}
+            abierta={menuAbierto}
+            etiqueta="APARTADOS AUTORIZADOS"
+            onNavigate={(key) => {
+              location.hash = opciones.find(([id]) => id === key)[3];
+            }}
+          />
+          <main id="main">
+            {consulta ? (
+              <ConsultaSeccion key={consulta} tipo={consulta} />
+            ) : enNomina ? (
+              <Nomina soloConsulta={!puedeVerNomina(data, session)} />
+            ) : (
+              <CarpetasBitacoras
+                key={route}
+                operational
+                folder={
+                  tipos.length && tipos.every((tipo) => tipo === "epp")
+                    ? "epp"
+                    : "health"
+                }
+              />
+            )}
+          </main>
+        </div>
+        <PiePagina frase={frase} />
       </>
     );
   }
@@ -171,26 +224,23 @@ export default function Aplicacion() {
       <Encabezado
         detalle="Sistema de Control Administrativo"
         identidad={`${session.name} · Administración`}
+        menuAbierto={menuAbierto}
+        onToggleMenu={alternarMenu}
         onLogout={() => {
           setKiosk(false);
           logout();
         }}
       />
-      <div className="layout">
-        <nav aria-label="Navegación principal">
-          <div className="navlabel">ADMINISTRACIÓN</div>
-          {navigation.map(([key, icon, label]) => (
-            <button
-              key={key}
-              className={page === key ? "active" : ""}
-              aria-current={page === key ? "page" : undefined}
-              onClick={() => (key === "kiosk" ? setKiosk(true) : navigate(key))}
-            >
-              <span aria-hidden="true">{icon} &nbsp;</span>
-              {label}
-            </button>
-          ))}
-        </nav>
+      <div className={`layout${menuAbierto ? "" : " sidebar-hidden"}`}>
+        <NavegacionLateral
+          opciones={navigation}
+          actual={page}
+          abierta={menuAbierto}
+          etiqueta="ADMINISTRACIÓN"
+          onNavigate={(key) =>
+            key === "kiosk" ? setKiosk(true) : navigate(key)
+          }
+        />
         <main id="main">
           {["logs", "epp", "labor"].includes(page) ? (
             <CarpetasBitacoras
@@ -208,18 +258,7 @@ export default function Aplicacion() {
         </main>
       </div>
       {kiosk && <RegistroTrabajador onClose={() => setKiosk(false)} />}
-      <footer>
-        <strong>Rey Pez</strong>
-        <blockquote className="daily-quote" aria-label="Frase del día">
-          <p>«{frase.texto}»</p>
-          <cite>
-            —{" "}
-            <a href={frase.fuente} target="_blank" rel="noreferrer">
-              {frase.autor}
-            </a>
-          </cite>
-        </blockquote>
-      </footer>
+      <PiePagina frase={frase} />
     </>
   );
 }
@@ -234,4 +273,50 @@ function RutaDenegada({ modulo }) {
     }
   }, [modulo, denegarAcceso]);
   return <main role="status">Comprobando permisos…</main>;
+}
+function NavegacionLateral({
+  opciones,
+  actual,
+  abierta,
+  etiqueta,
+  onNavigate,
+}) {
+  return (
+    <nav
+      id="navegacion-principal"
+      className="app-sidebar"
+      aria-label="Navegación principal"
+      hidden={!abierta}
+    >
+      <div className="navlabel">{etiqueta}</div>
+      {opciones.map(([key, icono, titulo]) => (
+        <button
+          key={key}
+          className={actual === key ? "active" : ""}
+          aria-current={actual === key ? "page" : undefined}
+          onClick={() => onNavigate(key)}
+        >
+          <span aria-hidden="true">{icono} &nbsp;</span>
+          {titulo}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function PiePagina({ frase }) {
+  return (
+    <footer>
+      <strong>Rey Pez</strong>
+      <blockquote className="daily-quote" aria-label="Frase del día">
+        <p>«{frase.texto}»</p>
+        <cite>
+          —{" "}
+          <a href={frase.fuente} target="_blank" rel="noreferrer">
+            {frase.autor}
+          </a>
+        </cite>
+      </blockquote>
+    </footer>
+  );
 }

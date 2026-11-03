@@ -6,10 +6,29 @@ export default function Encabezado({
   detalle,
   identidad,
   onLogout,
+  menuAbierto,
+  onToggleMenu,
 }) {
   return (
     <header>
       <div className="brand-lockup">
+        {onToggleMenu && (
+          <button
+            type="button"
+            className="sidebar-toggle"
+            onClick={onToggleMenu}
+            aria-label={
+              menuAbierto ? "Ocultar barra lateral" : "Mostrar barra lateral"
+            }
+            title={
+              menuAbierto ? "Ocultar barra lateral" : "Mostrar barra lateral"
+            }
+            aria-expanded={menuAbierto}
+            aria-controls="navegacion-principal"
+          >
+            ☰
+          </button>
+        )}
         <LogoMarca />
         <div className="brand">
           <span className="brand-title">{titulo}</span>

@@ -1,5 +1,8 @@
 # Panel, seguridad y empresas · 20/10/2026
 
+- Las cuentas con acceso limitado comparten el encabezado y la frase del día con administración. Su barra lateral muestra únicamente los apartados autorizados: Personal, Nómina, Bitácoras, Mantenimiento o Reportes y CSV, según los permisos vigentes. Dentro de Bitácoras se conservan las carpetas y formularios asignados.
+- El botón ☰ del encabezado oculta o muestra la barra y permite aprovechar todo el ancho del contenido. La preferencia se conserva en ese navegador. Las rutas, empresas y operaciones siguen usando las comprobaciones de acceso existentes.
+
 - Las tarjetas del panel abren la información que cuentan. Alertas por revisar reúne alertas de asistencia, de seguridad, ausencias y revisiones programadas pendientes. La revisión se realiza en su módulo correspondiente.
 - Total de empleados abre el personal y el desglose por empresa, con filtros y estado activo/baja. Se retiró el bloque duplicado de la parte inferior del panel.
 - Las gráficas usan una semana de lunes a domingo y un mes calendario. Ambas permiten elegir período y abrir el detalle por empresa. Cuentan alertas de asistencia, revisiones de ausencias y alertas de seguridad, incluidas las ya revisadas. No cuentan una ausencia pendiente como falta ni aplican sanciones.

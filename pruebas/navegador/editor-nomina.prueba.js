@@ -181,6 +181,76 @@ test("importa Excel, edita y reabre desde Nómina; descarga lo guardado y detect
     }),
   ).toBe(1900);
 });
+test("cuenta con solo Nómina ve su barra y frase del día, puede ocultarla y no abre administración", async ({
+  page,
+}) => {
+  await iniciar(page, true);
+  await page
+    .getByRole("button", { name: "Cerrar sesión", exact: true })
+    .click();
+  await page.getByLabel("ID", { exact: true }).fill("DEMO");
+  await page.getByLabel("Contraseña", { exact: true }).fill("Clave6");
+  await page.getByRole("button", { name: "Ingresar", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Nómina", exact: true }),
+  ).toBeVisible();
+  const nav = page.getByRole("navigation", { name: "Navegación principal" });
+  await expect(nav.getByRole("button")).toHaveCount(1);
+  await expect(
+    nav.getByRole("button", { name: "Nómina", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Frase del día")).toBeVisible();
+  const anterior = await page.locator("#main").boundingBox();
+  await page
+    .getByRole("button", { name: "Ocultar barra lateral", exact: true })
+    .click();
+  await expect(page.locator("#navegacion-principal")).toBeHidden();
+  const despues = await page.locator("#main").boundingBox();
+  if (page.viewportSize().width > 900)
+    expect(despues.width).toBeGreaterThan(anterior.width + 200);
+  else expect(despues.y).toBeLessThan(anterior.y);
+  await page
+    .getByRole("button", { name: "Mostrar barra lateral", exact: true })
+    .click();
+  await expect(nav).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.evaluate(() => {
+    location.hash = "#administracion";
+  });
+  await expect(
+    page.getByRole("heading", { name: "¡ACCESO DENEGADO!" }),
+  ).toBeVisible();
+});
+test("administración puede ocultar la barra y recuperar su preferencia al volver a entrar", async ({
+  page,
+}) => {
+  await iniciar(page);
+  await expect(page.getByLabel("Frase del día")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Ocultar barra lateral", exact: true })
+    .click();
+  await expect(page.locator("#navegacion-principal")).toBeHidden();
+  await page.reload();
+  await page.getByLabel("ID", { exact: true }).fill("MARIA");
+  await page.getByLabel("Contraseña", { exact: true }).fill("Clave6");
+  await page.getByRole("button", { name: "Ingresar", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Mostrar barra lateral", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator("#navegacion-principal")).toBeHidden();
+  await page
+    .getByRole("button", { name: "Mostrar barra lateral", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("navigation")
+      .getByRole("button", { name: "Seguridad", exact: true }),
+  ).toBeVisible();
+});
 test("cuenta delegada consulta las tres empresas, exporta y no ve acciones administrativas", async ({
   page,
 }) => {

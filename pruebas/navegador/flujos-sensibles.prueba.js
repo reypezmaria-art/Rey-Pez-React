@@ -279,7 +279,7 @@ test("la trabajadora de demostración de Estuardo solo ve su empresa y bitácora
   await expect(page.getByText(NOMBRE_ESTUARDO)).toBeVisible();
   await expect(page.getByText("Empresa autorizada: ESTUARDO")).toBeVisible();
   await expect(page.getByLabel("Empresa de carpeta")).toHaveCount(0);
-  await expect(page.getByRole("navigation")).toHaveCount(0);
+  await expect(page.getByRole("navigation")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Bitácora de EPP", exact: true }),
   ).toHaveCount(0);
