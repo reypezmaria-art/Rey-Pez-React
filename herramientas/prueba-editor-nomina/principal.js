@@ -22,6 +22,22 @@ const parametros = new URLSearchParams(location.search);
 const integrado =
   parametros.get("integrado") === "1" && window.parent !== window;
 const canal = parametros.get("canal");
+let ultimaActividad = -Infinity;
+for (const evento of ["pointerdown", "keydown", "wheel", "touchstart"]) {
+  window.addEventListener(
+    evento,
+    () => {
+      if (integrado && performance.now() - ultimaActividad > 1000) {
+        ultimaActividad = performance.now();
+        window.parent.postMessage(
+          { canal, accion: "actividad" },
+          location.origin,
+        );
+      }
+    },
+    { passive: true },
+  );
+}
 let soloConsulta = false,
   baseGuardada = "",
   nube = false;

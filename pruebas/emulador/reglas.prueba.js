@@ -82,6 +82,19 @@ test("las reglas separan a María, la empresa y la secuencia", async () => {
       setDoc(doc(maria.firestore(), "acceso", "admin"), { uid: "maria" }),
     );
     await assertFails(getDocs(collection(anonimo.firestore(), "empleados")));
+    // El informe de uso se consulta por el Worker; no hay acceso directo del cliente.
+    for (const contexto of [anonimo, intruso, maria]) {
+      for (const coleccion of ["usoSesiones", "usoDiario"]) {
+        await assertFails(
+          getDoc(doc(contexto.firestore(), coleccion, "privado")),
+        );
+        await assertFails(
+          setDoc(doc(contexto.firestore(), coleccion, "privado"), {
+            visibleMs: 60000,
+          }),
+        );
+      }
+    }
 
     await entorno.withSecurityRulesDisabled(async (contexto) => {
       const db = contexto.firestore();

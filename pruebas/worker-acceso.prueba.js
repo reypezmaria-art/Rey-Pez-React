@@ -164,6 +164,48 @@ function entorno() {
       users.set(localId, { ...body, localId });
       return Response.json({ localId });
     }
+    if (url.pathname.endsWith("documents:runQuery")) {
+      const q = body.structuredQuery;
+      assert.equal(q.limit, 201);
+      assert.deepEqual(q.orderBy, [
+        { field: { fieldPath: "fecha" }, direction: "DESCENDING" },
+        { field: { fieldPath: "__name__" }, direction: "DESCENDING" },
+      ]);
+      const coleccion = q.from[0].collectionId;
+      assert.ok(["usoDiario", "usoSesiones"].includes(coleccion));
+      const [desde, hasta] = q.where.compositeFilter.filters.map(
+        (f) => f.fieldFilter.value.stringValue,
+      );
+      const filas = [...documentos]
+        .filter(
+          ([path, d]) =>
+            path.startsWith(`${coleccion}/`) &&
+            d.value.fecha >= desde &&
+            d.value.fecha <= hasta,
+        )
+        .sort(
+          ([pa, a], [pb, b]) =>
+            b.value.fecha.localeCompare(a.value.fecha) || pb.localeCompare(pa),
+        );
+      const cursor = q.startAt?.values;
+      const resultado = filas.filter(
+        ([path, d]) =>
+          !cursor ||
+          d.value.fecha < cursor[0].stringValue ||
+          (d.value.fecha === cursor[0].stringValue &&
+            path < cursor[1].referenceValue.split("/documents/")[1]),
+      );
+      return Response.json(
+        resultado.slice(0, q.limit).map(([path, d]) => ({
+          document: {
+            name: `projects/${proyecto}/databases/(default)/documents/${path}`,
+            fields: Object.fromEntries(
+              Object.entries(d.value).map(([k, v]) => [k, codificar(v)]),
+            ),
+          },
+        })),
+      );
+    }
     if (url.pathname.endsWith("documents:commit")) {
       if (
         conflicto &&
@@ -417,4 +459,48 @@ test("el adaptador conserva listas, valores nulos y números al escribir Firesto
     array: ["a", { b: 2 }],
   };
   assert.deepEqual(decodificar(codificar(value)), value);
+});
+
+test("el informe de uso pagina por REST y el Worker conserva el permiso de María", async () => {
+  const e = entorno();
+  for (let i = 0; i < 205; i++) {
+    const id = `${i.toString(16).padStart(64, "0")}_2026-11-03`;
+    e.documentos.set(`usoDiario/${id}`, {
+      value: { fecha: "2026-11-03", uid: "demo", visibleMs: i },
+      version: "v1",
+    });
+  }
+  const datos = { vista: "diaria", desde: "2026-11-01", hasta: "2026-11-03" };
+  const llamar = async (d, token) =>
+    (
+      await consultarServidorAcceso(
+        "https://acceso.example/",
+        "consultarUso",
+        d,
+        token,
+        e.fetchCliente,
+      )
+    ).data;
+  const trabajador = await jwt("worker");
+  await assert.rejects(() => llamar(datos, trabajador), /María/i);
+  const token = await jwt("maria");
+  const primera = await llamar(datos, token);
+  assert.equal(primera.registros.length, 200);
+  assert.ok(primera.cursor);
+  const segunda = await llamar({ ...datos, cursor: primera.cursor }, token);
+  assert.equal(segunda.registros.length, 5);
+  assert.equal(segunda.cursor, null);
+  assert.equal(
+    new Set([...primera.registros, ...segunda.registros].map((r) => r.id)).size,
+    205,
+  );
+  assert.equal(
+    (
+      await llamar(
+        { ...datos, desde: "2026-10-01", hasta: "2026-10-31" },
+        token,
+      )
+    ).registros.length,
+    0,
+  );
 });

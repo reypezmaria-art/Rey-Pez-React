@@ -2,6 +2,8 @@ const rutas = new Set([
   "autenticarCuenta",
   "gestionarAcceso",
   "registrarAccesoDenegado",
+  "registrarUso",
+  "consultarUso",
 ]);
 
 export async function consultarServidorAcceso(
@@ -26,6 +28,7 @@ export async function consultarServidorAcceso(
   try {
     respuesta = await fetchImpl(new URL(nombre, url).href, {
       method: "POST",
+      keepalive: nombre === "registrarUso",
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

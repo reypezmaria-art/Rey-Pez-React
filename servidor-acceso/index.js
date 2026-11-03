@@ -1,5 +1,6 @@
 import control from "../firebase/funciones/controlAcceso.js";
 import { crearGoogle, fallo } from "./google.js";
+import { registrarUso, validarConsultaUso } from "./uso.js";
 
 const { crearControlAcceso } = control;
 const accionesClave = ["set", "reset", "change"];
@@ -260,7 +261,7 @@ export function crearServidor(crearServicios = crearGoogle) {
         return Response.json(
           {
             servicio: "rey-pez-acceso",
-            version: 1,
+            version: 2,
             listo: Boolean(
               env.FIREBASE_SERVICE_ACCOUNT &&
               env.FIREBASE_WEB_API_KEY &&
@@ -275,6 +276,8 @@ export function crearServidor(crearServicios = crearGoogle) {
           "autenticarCuenta",
           "gestionarAcceso",
           "registrarAccesoDenegado",
+          "registrarUso",
+          "consultarUso",
         ].includes(nombre)
       )
         return Response.json(
@@ -318,7 +321,13 @@ export function crearServidor(crearServicios = crearGoogle) {
           })(id, datos.contrasena, correo(id, env));
         } else if (nombre === "gestionarAcceso")
           result = await gestionar(datos, request, services, env);
-        else result = await denegar(datos, request, services);
+        else if (nombre === "registrarUso")
+          result = await registrarUso(datos, request, services);
+        else if (nombre === "consultarUso") {
+          await exigirAdmin(request, services);
+          validarConsultaUso(datos);
+          result = await services.db.listarUso(datos);
+        } else result = await denegar(datos, request, services);
         return Response.json({ data: result }, { headers });
       } catch (e) {
         const mensajes = {

@@ -1,3 +1,5 @@
+import Administracion from "../paginas/Administracion.jsx";
+import { useRegistroUso } from "../actividad/useRegistroUso.js";
 import ConsultaSeccion from "../componentes/ConsultaSeccion.jsx";
 import AutorizarNominaInicial from "../componentes/AutorizarNominaInicial.jsx";
 import {
@@ -27,6 +29,7 @@ import { deviceId } from "../utilidades/dispositivo.js";
 import { fraseDelDia } from "../datos/frasesDiarias.js";
 const pages = {
   dashboard: PanelPrincipal,
+  administration: Administracion,
   dashboardDetail: DetallePanel,
   employees: Personal,
   payroll: Nomina,
@@ -39,6 +42,7 @@ const pages = {
 };
 const navigation = [
   ["dashboard", "▦", "Inicio"],
+  ["administration", "◴", "Administración"],
   ["employees", "♙", "Personal"],
   ["payroll", "▤", "Nómina"],
   ["kiosk", "◉", "Asistencia 1 · Trabajador"],
@@ -91,13 +95,40 @@ export default function Aplicacion() {
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
+  const restringido = destinoRestringido(data, session, route);
+  const consultaUso = route.startsWith("#seccion?")
+    ? new URLSearchParams(route.split("?")[1]).get("tipo")
+    : null;
+  const moduloUso =
+    session?.role === "worker" || mode === "captura"
+      ? route.startsWith("#nomina")
+        ? "payroll"
+        : consultaUso || "capture"
+      : kiosk
+        ? "kiosk"
+        : page === "dashboardDetail"
+          ? "dashboard"
+          : page;
+  const registroUso = useRegistroUso(
+    session && !avisoAcceso && !restringido && mode !== "asistencia"
+      ? `${session.role}:${session.id}`
+      : null,
+    moduloUso,
+  );
+  async function cerrarSesion() {
+    await Promise.race([
+      registroUso.terminar(),
+      new Promise((resolve) => setTimeout(resolve, 1500)),
+    ]);
+    setKiosk(false);
+    logout();
+  }
   if (avisoAcceso)
     return (
       <main className="access-screen">
         <AvisoAcceso {...avisoAcceso} onInicio={volverInicio} />
       </main>
     );
-  const restringido = destinoRestringido(data, session, route);
   if (restringido)
     return <RutaDenegada key={`${session.id}-${route}`} modulo={restringido} />;
   if (mode === "asistencia") {
@@ -178,7 +209,7 @@ export default function Aplicacion() {
         <Encabezado
           detalle="Sistema de Control Administrativo"
           identidad={session.name}
-          onLogout={logout}
+          onLogout={cerrarSesion}
           menuAbierto={menuAbierto}
           onToggleMenu={alternarMenu}
         />
@@ -210,7 +241,7 @@ export default function Aplicacion() {
             )}
           </main>
         </div>
-        <PiePagina frase={frase} />
+        <PiePagina frase={frase} uso={registroUso.estado} />
       </>
     );
   }
@@ -226,10 +257,7 @@ export default function Aplicacion() {
         identidad={`${session.name} · Administración`}
         menuAbierto={menuAbierto}
         onToggleMenu={alternarMenu}
-        onLogout={() => {
-          setKiosk(false);
-          logout();
-        }}
+        onLogout={cerrarSesion}
       />
       <div className={`layout${menuAbierto ? "" : " sidebar-hidden"}`}>
         <NavegacionLateral
@@ -258,7 +286,7 @@ export default function Aplicacion() {
         </main>
       </div>
       {kiosk && <RegistroTrabajador onClose={() => setKiosk(false)} />}
-      <PiePagina frase={frase} />
+      <PiePagina frase={frase} uso={registroUso.estado} />
     </>
   );
 }
@@ -304,10 +332,11 @@ function NavegacionLateral({
   );
 }
 
-function PiePagina({ frase }) {
+function PiePagina({ frase, uso }) {
   return (
     <footer>
       <strong>Rey Pez</strong>
+      {uso && <p className="small">{uso}</p>}
       <blockquote className="daily-quote" aria-label="Frase del día">
         <p>«{frase.texto}»</p>
         <cite>

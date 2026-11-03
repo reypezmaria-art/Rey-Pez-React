@@ -154,6 +154,7 @@ test("flujo de personal, asistencia, incidencia y persistencia", async ({
     .getByRole("button", { name: "Salir de pantalla de trabajador" })
     .click();
   await nav(page, "Asistencia 2 · Administración").click();
+  await page.getByRole("button", { name: /^Registros de asistencia/ }).click();
   await expect(page.locator("tbody").last()).toContainText(
     "PERSONA PRUEBA REACT",
   );
@@ -162,7 +163,9 @@ test("flujo de personal, asistencia, incidencia y persistencia", async ({
       name: "Registrar / justificar una incidencia",
     }),
   ).toHaveCount(0);
-  await expect(page.locator(".company-incidents")).toHaveCount(3);
+  await page.getByRole("button", { name: "← Volver a Asistencia 2" }).click();
+  await page.getByRole("button", { name: /^Revisar ausencias/ }).click();
+  await expect(page.locator(".company-incidents")).toHaveCount(1);
   await page.reload();
   await access(page);
   await expect(page.locator(".kvalue").nth(1)).toHaveText("31");
@@ -589,7 +592,8 @@ test("EPP fijo, cloro aislado y PDF por fechas", async ({ page }) => {
     test.info().outputPath(`reporte-cloro-${test.info().project.name}.pdf`),
   );
   await nav(page, "Asistencia 2 · Administración").click();
-  await expect(page.locator(".company-incidents")).toHaveCount(3);
+  await page.getByRole("button", { name: /^Revisar ausencias/ }).click();
+  await expect(page.locator(".company-incidents")).toHaveCount(1);
   await expect(
     page.getByRole("button", { name: "Guardar revisión administrativa" }),
   ).toHaveCount(0);
@@ -608,9 +612,13 @@ test("EPP fijo, cloro aislado y PDF por fechas", async ({ page }) => {
     .getByRole("button", { name: "Guardar revisión de ausencia", exact: true })
     .first()
     .click();
+  await page.getByRole("button", { name: "← Volver a Asistencia 2" }).click();
+  await page.getByRole("button", { name: /^Historial de incidencias/ }).click();
   await expect(page.locator("tbody").first()).toContainText(
     "Permiso de ausencia de prueba",
   );
+  await page.getByRole("button", { name: "← Volver a Asistencia 2" }).click();
+  await page.getByRole("button", { name: /^Reporte en PDF/ }).click();
   const waitAttendance = page.waitForEvent("download");
   await page.getByRole("button", { name: "Generar PDF", exact: true }).click();
   await (
@@ -620,4 +628,33 @@ test("EPP fijo, cloro aislado y PDF por fechas", async ({ page }) => {
       .info()
       .outputPath(`reporte-asistencia-${test.info().project.name}.pdf`),
   );
+});
+
+test("Administración es exclusiva y Asistencia 2 abre solo el apartado elegido", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await access(page);
+  await nav(page, "Administración").click();
+  await expect(
+    page.getByRole("heading", { name: "Administración", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(/La copia local no registra sesiones compartidas/),
+  ).toBeVisible();
+  await nav(page, "Asistencia 2 · Administración").click();
+  await expect(page.locator(".folder-card")).toHaveCount(6);
+  await expect(
+    page.getByRole("heading", { name: "Historial de incidencias · ALLAN" }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: /^Historial de incidencias/ }).click();
+  await expect(page.getByLabel("Buscar incidencia")).toBeVisible();
+  await expect(page.locator(".folder-card")).toHaveCount(0);
+  await page.getByRole("button", { name: "← Volver a Asistencia 2" }).click();
+  await page.getByLabel("Empresa de asistencia").selectOption("EDGAR");
+  await page.getByRole("button", { name: /^Alertas pendientes/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Alertas para administración" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Buscar incidencia")).toHaveCount(0);
 });

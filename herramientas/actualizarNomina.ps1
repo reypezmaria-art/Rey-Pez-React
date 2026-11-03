@@ -55,9 +55,11 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Revisa la configuracion. No se publico el sitio.' }
     npm.cmd run verificar
     if ($LASTEXITCODE -ne 0) { throw 'Fallo la verificacion. No se publico el sitio.' }
+    npx.cmd -y wrangler@4 deploy --config servidor-acceso/wrangler.jsonc
+    if ($LASTEXITCODE -ne 0) { throw 'No se actualizo el servidor de acceso. No se publico el sitio. Comparte el error anterior.' }
     npx.cmd -y firebase-tools@latest deploy --project rey-pez-admin-react --only 'firestore:rules,hosting'
     if ($LASTEXITCODE -ne 0) { throw 'No se completo la publicacion. Comparte el mensaje de error.' }
-    Write-Host 'Nomina publicada. Abre https://rey-pez-admin-react.web.app/ y actualiza con Ctrl+F5.'
+    Write-Host 'Actualizacion publicada. Abre https://rey-pez-admin-react.web.app/ y actualiza con Ctrl+F5.'
 } finally {
     Set-Location $ubicacionAnterior
 }

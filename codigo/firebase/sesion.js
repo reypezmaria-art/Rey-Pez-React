@@ -255,3 +255,13 @@ export async function gestionarPanelAdmin(datos) {
 export function observarAuth(callback) {
   return onAuthStateChanged(obtenerServicios().auth, callback);
 }
+
+export async function usoServidor(nombre, datos) {
+  if (!["registrarUso", "consultarUso"].includes(nombre))
+    throw Error("Consulta no válida.");
+  if (!import.meta.env?.VITE_ACCESO_API_URL)
+    throw Error(
+      "Falta configurar el servidor de acceso para consultar el uso.",
+    );
+  return (await llamarAcceso(nombre, datos)).data;
+}

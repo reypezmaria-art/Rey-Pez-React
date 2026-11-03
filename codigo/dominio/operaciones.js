@@ -293,7 +293,13 @@ export function saveManualIncident(state, form) {
     ],
   };
 }
-export const reviewAlerts = (state) => ({
+export const reviewAlerts = (state, company = null) => ({
   ...state,
-  alerts: state.alerts.map((a) => ({ ...a, estado: "Revisada" })),
+  alerts: state.alerts.map((a) => {
+    const empresa =
+      a.empresa_codigo ||
+      state.employees.find((e) => e.id_empleado === a.id_empleado)
+        ?.empresa_codigo;
+    return !company || empresa === company ? { ...a, estado: "Revisada" } : a;
+  }),
 });

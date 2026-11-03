@@ -257,6 +257,75 @@ export function crearGoogle(env, { fetchImpl = fetch, ahora = Date.now } = {}) {
   }
   const db = {
     doc: referencia,
+    async listarUso({ vista, desde, hasta, cursor }) {
+      const coleccion = vista === "diaria" ? "usoDiario" : "usoSesiones";
+      const resultado = await api(`${origenDatos}:runQuery`, {
+        body: {
+          structuredQuery: {
+            from: [{ collectionId: coleccion }],
+            where: {
+              compositeFilter: {
+                op: "AND",
+                filters: [
+                  {
+                    fieldFilter: {
+                      field: { fieldPath: "fecha" },
+                      op: "GREATER_THAN_OR_EQUAL",
+                      value: { stringValue: desde },
+                    },
+                  },
+                  {
+                    fieldFilter: {
+                      field: { fieldPath: "fecha" },
+                      op: "LESS_THAN_OR_EQUAL",
+                      value: { stringValue: hasta },
+                    },
+                  },
+                ],
+              },
+            },
+            orderBy: [
+              { field: { fieldPath: "fecha" }, direction: "DESCENDING" },
+              { field: { fieldPath: "__name__" }, direction: "DESCENDING" },
+            ],
+            limit: 201,
+            ...(cursor
+              ? {
+                  startAt: {
+                    values: [
+                      { stringValue: cursor.fecha },
+                      {
+                        referenceValue: `${documentos}/${coleccion}/${cursor.id}`,
+                      },
+                    ],
+                    before: false,
+                  },
+                }
+              : {}),
+          },
+        },
+      });
+      const documentosUso = resultado
+        .filter((r) => r.document)
+        .map((r) => ({
+          id: r.document.name.split("/").at(-1),
+          ...Object.fromEntries(
+            Object.entries(r.document.fields || {}).map(([k, v]) => [
+              k,
+              decodificar(v),
+            ]),
+          ),
+        }));
+      const registros = documentosUso.slice(0, 200);
+      const ultimo = registros.at(-1);
+      return {
+        registros,
+        cursor:
+          documentosUso.length > 200
+            ? { fecha: ultimo.fecha, id: ultimo.id }
+            : null,
+      };
+    },
     async runTransaction(update) {
       for (let intento = 0; intento < 5; intento++) {
         const lecturas = new Map(),

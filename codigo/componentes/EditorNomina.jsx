@@ -53,6 +53,10 @@ export default function EditorNomina({
       )
         return;
       const { id, accion, datos } = event.data;
+      if (accion === "actividad") {
+        window.dispatchEvent(new Event("reypez:actividad"));
+        return;
+      }
       if (accion === "estado") {
         setEstado(String(datos || "").slice(0, 200));
         return;

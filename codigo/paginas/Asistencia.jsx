@@ -3,6 +3,7 @@ import { pendingAbsences } from "../dominio/asistencia.js";
 import { useState } from "react";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import {
+  Campo,
   EncabezadoPagina,
   Tabla,
   Mensaje,
@@ -18,23 +19,36 @@ export default function Asistencia({ navigate, openKiosk }) {
   const companyNames = nombresEmpresas(data);
   const [error, setError] = useState("");
   const [company, setCompany] = useState("ALLAN");
+  const [apartado, setApartado] = useState(null);
+  const [buscar, setBuscar] = useState("");
+  const [limite, setLimite] = useState(30);
   const absences = pendingAbsences(data, clock);
   const belongs = (r) =>
     (r.empresa_codigo ||
       data.employees.find(
         (e) => e.id_empleado === (r.id_empleado || r.employeeId),
       )?.empresa_codigo) === company;
-  const records = data.attendance.filter(belongs);
+  const records = data.attendance
+    .filter(belongs)
+    .sort((a, b) => Date.parse(b.fecha_hora) - Date.parse(a.fecha_hora));
+  const historial = (data.absenceReviews || []).filter(belongs);
+  const coincide = (r) =>
+    !buscar.trim() ||
+    JSON.stringify(r)
+      .toLocaleLowerCase("es-MX")
+      .includes(buscar.trim().toLocaleLowerCase("es-MX"));
+  const registrosFiltrados = records.filter(coincide);
+  const historialFiltrado = historial.filter(coincide);
   const pdfRecords = [
     ...records,
     ...(data.absenceReviews || []).filter(belongs),
   ];
-  const alerts = data.alerts
-    .filter((a) => a.estado === "Pendiente")
-    .slice(0, 50);
+  const alerts = data.alerts.filter(
+    (a) => a.estado === "Pendiente" && belongs(a),
+  );
   async function review() {
     try {
-      await commit(reviewAlerts);
+      await commit((state) => reviewAlerts(state, company));
       setError("");
     } catch (err) {
       setError(err.message);
@@ -44,51 +58,21 @@ export default function Asistencia({ navigate, openKiosk }) {
     <section>
       <EncabezadoPagina
         title="Asistencia 2 — Administración"
-        subtitle="Supervisión de registros, actividad del equipo e incidencias; las decisiones quedan bajo revisión administrativa."
+        subtitle="Revisión y reportes de asistencia por empresa."
       >
         <button onClick={() => navigate("employees")}>Ver personal</button>
       </EncabezadoPagina>
-      <div className="panel">
-        <h2>Ausencias pendientes de revisión</h2>
-        <p className="small">
-          Lunes a sábado, después de la entrada y su tolerancia. Sin sanciones
-          ni descuentos automáticos.
-        </p>
-        {Object.keys(companyNames).map((code) => (
-          <details
-            key={code}
-            open={code === company}
-            className="company-incidents"
-          >
-            <summary>
-              {code} ·{" "}
-              {concordar(
-                absences.filter((e) => e.empresa_codigo === code).length,
-                "pendiente",
-                "pendientes",
-              )}
-            </summary>
-            {absences
-              .filter((e) => e.empresa_codigo === code)
-              .map((employee) => (
-                <RevisionAusencia
-                  key={employee.id_empleado}
-                  employee={employee}
-                />
-              ))}
-            {!absences.some((e) => e.empresa_codigo === code) && (
-              <p>Sin ausencias pendientes.</p>
-            )}
-          </details>
-        ))}
-      </div>
       <div className="toolbar">
         <label>
           Empresa de asistencia{" "}
           <select
             aria-label="Empresa de asistencia"
             value={company}
-            onChange={(e) => setCompany(e.target.value)}
+            onChange={(e) => {
+              setCompany(e.target.value);
+              setBuscar("");
+              setLimite(30);
+            }}
           >
             {Object.keys(companyNames).map((code) => (
               <option key={code}>{code}</option>
@@ -96,46 +80,184 @@ export default function Asistencia({ navigate, openKiosk }) {
           </select>
         </label>
       </div>
-      <ExportarPdf
-        data={data}
-        records={pdfRecords}
-        kind="attendance"
-        title="Asistencia e incidencias"
-        company={company}
-      />
-      <div className="panel">
-        <h2>Historial de incidencias · {company}</h2>
-        <Tabla
-          headings={["Fecha", "Empleado", "Clasificación", "Motivo", "Revisó"]}
-          count={(data.absenceReviews || []).filter(belongs).length}
-        >
-          {(data.absenceReviews || []).filter(belongs).map((r) => (
-            <tr key={r.id}>
-              <td>{r.date}</td>
-              <td>{r.name}</td>
-              <td>{r.classification}</td>
-              <td>{r.notes}</td>
-              <td>{r.by}</td>
-            </tr>
+      {!apartado ? (
+        <div className="folder-grid" aria-label="Apartados de asistencia">
+          {[
+            [
+              "ausencias",
+              "♙",
+              "Revisar ausencias",
+              `${absences.filter((e) => e.empresa_codigo === company).length} pendientes`,
+              "Clasificar faltas, permisos, incapacidades y otras ausencias.",
+            ],
+            [
+              "registros",
+              "◷",
+              "Registros de asistencia",
+              `${records.length} registros`,
+              "Consultar entradas, comida, regresos y salidas.",
+            ],
+            [
+              "historial",
+              "▤",
+              "Historial de incidencias",
+              `${historial.length} revisiones`,
+              "Consultar motivos y responsables de las revisiones.",
+            ],
+            [
+              "alertas",
+              "⚑",
+              "Alertas pendientes",
+              `${alerts.length} pendientes`,
+              "Revisar marcaciones que requieren atención.",
+            ],
+            [
+              "pdf",
+              "▣",
+              "Reporte en PDF",
+              "Elegir fechas",
+              "Generar el reporte de asistencia e incidencias.",
+            ],
+            [
+              "terminal",
+              "◉",
+              "Pantalla de trabajador",
+              "Abrir registro",
+              "Acceder a la pantalla de marcación.",
+            ],
+          ].map(([id, icono, titulo, cantidad, descripcion]) => (
+            <button
+              className="folder-card"
+              key={id}
+              onClick={() => {
+                setApartado(id);
+                setBuscar("");
+                setLimite(30);
+              }}
+            >
+              <span aria-hidden="true">{icono}</span>
+              <strong>{titulo}</strong>
+              <small>
+                {cantidad} · {descripcion}
+              </small>
+            </button>
           ))}
-        </Tabla>
-      </div>
-      <div className="columns">
+        </div>
+      ) : (
+        <div className="actions">
+          <button
+            onClick={() => {
+              setApartado(null);
+              setBuscar("");
+            }}
+          >
+            ← Volver a Asistencia 2
+          </button>
+          <span>{companyNames[company]}</span>
+        </div>
+      )}
+      {apartado === "ausencias" && (
+        <div className="panel">
+          <h2>Ausencias pendientes de revisión</h2>
+          <p className="small">
+            Lunes a sábado, después de la entrada y su tolerancia. Sin sanciones
+            ni descuentos automáticos.
+          </p>
+          {[company].map((code) => (
+            <details
+              key={code}
+              open={code === company}
+              className="company-incidents"
+            >
+              <summary>
+                {code} ·{" "}
+                {concordar(
+                  absences.filter((e) => e.empresa_codigo === code).length,
+                  "pendiente",
+                  "pendientes",
+                )}
+              </summary>
+              {absences
+                .filter((e) => e.empresa_codigo === code)
+                .map((employee) => (
+                  <RevisionAusencia
+                    key={employee.id_empleado}
+                    employee={employee}
+                  />
+                ))}
+              {!absences.some((e) => e.empresa_codigo === code) && (
+                <p>Sin ausencias pendientes.</p>
+              )}
+            </details>
+          ))}
+        </div>
+      )}
+      {apartado === "pdf" && (
+        <ExportarPdf
+          data={data}
+          records={pdfRecords}
+          kind="attendance"
+          title="Asistencia e incidencias"
+          company={company}
+        />
+      )}
+      {apartado === "historial" && (
+        <div className="panel">
+          <h2>Historial de incidencias · {company}</h2>
+          <Campo
+            label="Buscar incidencia"
+            value={buscar}
+            onChange={(e) => setBuscar(e.target.value)}
+          />
+          <Tabla
+            headings={[
+              "Fecha",
+              "Empleado",
+              "Clasificación",
+              "Motivo",
+              "Revisó",
+            ]}
+            count={historialFiltrado.length}
+          >
+            {historialFiltrado.map((r) => (
+              <tr key={r.id}>
+                <td>{r.date}</td>
+                <td>{r.name}</td>
+                <td>{r.classification}</td>
+                <td>{r.notes}</td>
+                <td>{r.by}</td>
+              </tr>
+            ))}
+          </Tabla>
+        </div>
+      )}
+      {apartado === "terminal" && (
         <div className="panel">
           <LogoMarca variant="attendance" />
-          <h2 className="center">Vista de prueba del registro</h2>
+          <h2 className="center">Pantalla de registro</h2>
           <p className="sub center">
             Para registrar como trabajador, abre Asistencia 1 · Trabajador.
           </p>
           <button className="attbtn primary" onClick={openKiosk}>
             Abrir pantalla de trabajador
           </button>
-          <p className="small">
-            Esta vista administrativa no sustituye una autenticación real.
-          </p>
         </div>
+      )}
+      {apartado === "registros" && (
         <div className="panel">
-          <h2>Registros recientes</h2>
+          <h2>Registros de asistencia</h2>
+          <Campo
+            label="Buscar registro"
+            value={buscar}
+            onChange={(e) => {
+              setBuscar(e.target.value);
+              setLimite(30);
+            }}
+          />
+          <p className="small">
+            Mostrando {Math.min(limite, registrosFiltrados.length)} de{" "}
+            {registrosFiltrados.length} registros.
+          </p>
           <Tabla
             headings={[
               "Fecha y hora",
@@ -143,10 +265,10 @@ export default function Asistencia({ navigate, openKiosk }) {
               "Movimiento",
               "Incidencia",
             ]}
-            count={records.length}
+            count={registrosFiltrados.length}
             empty="Sin registros todavía"
           >
-            {records.slice(0, 30).map((a, i) => (
+            {registrosFiltrados.slice(0, limite).map((a, i) => (
               <tr key={a.id_registro || i}>
                 <td>{formatDateTime(a.fecha_hora)}</td>
                 <td>
@@ -159,7 +281,14 @@ export default function Asistencia({ navigate, openKiosk }) {
               </tr>
             ))}
           </Tabla>
+          {registrosFiltrados.length > limite && (
+            <button onClick={() => setLimite((n) => n + 30)}>
+              Mostrar más registros
+            </button>
+          )}
         </div>
+      )}
+      {apartado === "alertas" && (
         <div className="panel">
           <h2>Alertas para administración</h2>
           <p className="small">
@@ -186,12 +315,14 @@ export default function Asistencia({ navigate, openKiosk }) {
           </div>
           <Mensaje error>{error}</Mensaje>
         </div>
-      </div>
-      <p className="small">
-        Tolerancia de 10 minutos. La comida se mide desde la salida real. Las
-        revisiones no generan descuentos ni autorizan tiempo extra
-        automáticamente.
-      </p>
+      )}
+      {apartado && (
+        <p className="small">
+          Tolerancia de 10 minutos. La comida se mide desde la salida real. Las
+          revisiones no generan descuentos ni autorizan tiempo extra
+          automáticamente.
+        </p>
+      )}
     </section>
   );
 }
