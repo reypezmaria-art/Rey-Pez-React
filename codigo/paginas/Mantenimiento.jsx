@@ -1,3 +1,6 @@
+import SeccionesPagina, {
+  PanelSeccion,
+} from "../componentes/SeccionesPagina.jsx";
 import { useState } from "react";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import {
@@ -11,6 +14,7 @@ import { readEvidence } from "../utilidades/evidencias.js";
 import { localDate } from "../utilidades/fechas.js";
 export default function Mantenimiento() {
   const { data, commit, session, pending } = useAplicacion();
+  const [seccion, setSeccion] = useState(null);
   const [form, setForm] = useState({
       room: "",
       type: "Mantenimiento",
@@ -61,92 +65,116 @@ export default function Mantenimiento() {
         title="Mantenimiento y compras"
         subtitle="Reparaciones, piezas y equipo de cuartos fríos."
       />
-      <form className="panel" onSubmit={submit}>
-        <div className="formgrid">
-          <Campo label="Cuarto frío" as="select" required {...field("room")}>
-            <option value="">Selecciona…</option>
-            {data.rooms
-              .filter((r) => r.active)
-              .map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.company} · {r.name}
-                </option>
-              ))}
-          </Campo>
-          <Campo label="Actividad" as="select" {...field("type")}>
-            {["Mantenimiento", "Reparación", "Compra de pieza o equipo"].map(
-              (t) => (
-                <option key={t}>{t}</option>
-              ),
-            )}
-          </Campo>
-          <Campo label="Fecha" type="date" required {...field("when")} />
-          <Campo label="Descripción" required {...field("description")} />
-          <Campo
-            label="Proveedor / técnico (opcional)"
-            {...field("provider")}
-          />
-          <Campo
-            label="Costo MXN (opcional)"
-            type="number"
-            min="0"
-            step="0.01"
-            {...field("cost")}
-          />
-          <Campo label="Observaciones" as="textarea" {...field("notes")} />
-          <Campo
-            label="Comprobante / foto (opcional, máximo 1 MB)"
-            type="file"
-            accept="image/jpeg,image/png,image/webp,application/pdf"
-            onChange={attach}
-          />
-          {form.evidence && <p>{form.evidence.name}</p>}
-        </div>
-        <button className="primary" disabled={pending}>
-          Guardar actividad
-        </button>
-        <Mensaje>{message}</Mensaje>
-        <Mensaje error>{error}</Mensaje>
-      </form>
-      <Tabla
-        headings={[
-          "Fecha",
-          "Cuarto",
-          "Actividad",
-          "Descripción",
-          "Proveedor",
-          "Costo / comprobante",
+      <SeccionesPagina
+        titulo="Mantenimiento y compras"
+        seleccion={seccion}
+        onSeleccion={setSeccion}
+        opciones={[
+          {
+            id: "registro",
+            titulo: "Registrar actividad",
+            icono: "⚒",
+            descripcion:
+              "Capturar mantenimiento, reparaciones y compras con comprobantes.",
+          },
+          {
+            id: "historial",
+            titulo: "Historial de mantenimiento",
+            icono: "▤",
+            descripcion: `${data.maintenance.length} actividades registradas.`,
+          },
         ]}
-        count={data.maintenance.length}
-      >
-        {data.maintenance.map((m) => (
-          <tr key={m.id}>
-            <td>{m.when}</td>
-            <td>{m.room}</td>
-            <td>{m.type}</td>
-            <td>
-              {m.description}
-              <p>{m.notes}</p>
-            </td>
-            <td>{m.provider}</td>
-            <td>
-              {m.cost === null
-                ? "—"
-                : new Intl.NumberFormat("es-MX", {
-                    style: "currency",
-                    currency: "MXN",
-                  }).format(m.cost)}
-              {m.evidence && (
-                <p>
-                  <a href={m.evidence.data} download={m.evidence.name}>
-                    Comprobante
-                  </a>
-                </p>
+      />
+      <PanelSeccion activa={seccion === "registro"}>
+        <form className="panel" onSubmit={submit}>
+          <div className="formgrid">
+            <Campo label="Cuarto frío" as="select" required {...field("room")}>
+              <option value="">Selecciona…</option>
+              {data.rooms
+                .filter((r) => r.active)
+                .map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.company} · {r.name}
+                  </option>
+                ))}
+            </Campo>
+            <Campo label="Actividad" as="select" {...field("type")}>
+              {["Mantenimiento", "Reparación", "Compra de pieza o equipo"].map(
+                (t) => (
+                  <option key={t}>{t}</option>
+                ),
               )}
-            </td>
-          </tr>
-        ))}
-      </Tabla>
+            </Campo>
+            <Campo label="Fecha" type="date" required {...field("when")} />
+            <Campo label="Descripción" required {...field("description")} />
+            <Campo
+              label="Proveedor / técnico (opcional)"
+              {...field("provider")}
+            />
+            <Campo
+              label="Costo MXN (opcional)"
+              type="number"
+              min="0"
+              step="0.01"
+              {...field("cost")}
+            />
+            <Campo label="Observaciones" as="textarea" {...field("notes")} />
+            <Campo
+              label="Comprobante / foto (opcional, máximo 1 MB)"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              onChange={attach}
+            />
+            {form.evidence && <p>{form.evidence.name}</p>}
+          </div>
+          <button className="primary" disabled={pending}>
+            Guardar actividad
+          </button>
+          <Mensaje>{message}</Mensaje>
+          <Mensaje error>{error}</Mensaje>
+        </form>
+      </PanelSeccion>
+      <PanelSeccion activa={seccion === "historial"}>
+        <Tabla
+          headings={[
+            "Fecha",
+            "Cuarto",
+            "Actividad",
+            "Descripción",
+            "Proveedor",
+            "Costo / comprobante",
+          ]}
+          count={data.maintenance.length}
+        >
+          {data.maintenance.map((m) => (
+            <tr key={m.id}>
+              <td>{m.when}</td>
+              <td>{m.room}</td>
+              <td>{m.type}</td>
+              <td>
+                {m.description}
+                <p>{m.notes}</p>
+              </td>
+              <td>{m.provider}</td>
+              <td>
+                {m.cost === null
+                  ? "—"
+                  : new Intl.NumberFormat("es-MX", {
+                      style: "currency",
+                      currency: "MXN",
+                    }).format(m.cost)}
+                {m.evidence && (
+                  <p>
+                    <a href={m.evidence.data} download={m.evidence.name}>
+                      Comprobante
+                    </a>
+                  </p>
+                )}
+              </td>
+            </tr>
+          ))}
+        </Tabla>
+      </PanelSeccion>
     </section>
   );
 }

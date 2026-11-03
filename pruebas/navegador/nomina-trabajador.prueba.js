@@ -1,3 +1,4 @@
+import { abrirSeccion } from "../soporte/secciones.js";
 import { test, expect } from "@playwright/test";
 import { baseOperation } from "../../codigo/datos/operacionInicial.js";
 import { makeCredential } from "../../codigo/dominio/seguridad.js";
@@ -59,9 +60,11 @@ test("María autoriza Nómina y Claudia edita las tres empresas sin abrir el res
     .getByRole("navigation")
     .getByRole("button", { name: "Seguridad", exact: true })
     .click();
+  await abrirSeccion(page, "Seguridad y permisos", "Autorizaciones");
   await page
     .getByLabel("Empresa autorizada", { exact: true })
     .selectOption("ESTUARDO");
+  await abrirSeccion(page, "Seguridad y permisos", "Autorizaciones");
   await page
     .getByLabel("Usuario activo", { exact: true })
     .selectOption("ES-01");
@@ -77,10 +80,13 @@ test("María autoriza Nómina y Claudia edita las tres empresas sin abrir el res
   await expect(page.getByRole("status")).toContainText(
     "nómina de Allan, Edgar y Estuardo",
   );
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page
     .getByLabel("Empresa del trabajador", { exact: true })
     .selectOption("ESTUARDO");
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Empleado", { exact: true }).selectOption("ES-01");
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Acción", { exact: true }).selectOption("set");
   await page.getByLabel("Nueva contraseña", { exact: true }).fill("Trab06");
   await page.getByLabel("Confirmar contraseña", { exact: true }).fill("Trab06");
@@ -119,14 +125,13 @@ test("María autoriza Nómina y Claudia edita las tres empresas sin abrir el res
   await expect(
     page.getByRole("heading", { name: "Nómina", exact: true }),
   ).toBeVisible();
+  await abrirSeccion(page, "Nómina", "Cargar nómina");
   const subir = page.getByLabel("Seleccionar PDF de nómina", { exact: true });
   await subir.setInputFiles(pdf());
   await expect(page.getByRole("status")).toContainText("Nómina guardada");
   await subir.setInputFiles(pdf({ empresa: "EDGAR" }, "edgar.pdf"));
   await expect(page.getByRole("status")).toContainText("Edgar");
-  await page
-    .getByRole("button", { name: "Modificar un mes", exact: true })
-    .click();
+  await abrirSeccion(page, "Nómina", "Modificar un mes");
   await page
     .getByLabel("Nómina a modificar", { exact: true })
     .selectOption("ALLAN_2026-01-01_2026-01-15");

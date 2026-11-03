@@ -1,6 +1,6 @@
 # Administración y uso de la aplicación
 
-María abre **Administración** desde la barra lateral. Los trabajadores conservan únicamente sus apartados autorizados. El informe no concede permisos nuevos ni altera asistencia, nómina o sanciones.
+María abre **Administración** desde la barra lateral. Solo se registra el uso de trabajadores autorizados, como Claudia y las cuentas que se autoricen después. María está excluida: el cliente no inicia su registro, el servidor ignora pulsos administrativos de versiones anteriores y sus registros anteriores no aparecen en los informes. Los trabajadores conservan únicamente sus apartados autorizados. El informe no concede permisos nuevos ni altera asistencia, nómina o sanciones.
 
 La consulta permite elegir fechas (hasta un año), resumen por usuario o sesiones iniciadas en el período, empresa de la cuenta y usuario. **Consultar / actualizar** trae datos actuales. Si hay más de 200 registros, **Cargar más registros** completa la consulta; los totales y los filtros son parciales hasta terminar. Se muestra cuándo se consultó. La empresa indicada es la de la cuenta: una autorización de Nómina de tres empresas no cambia la empresa del trabajador.
 
@@ -24,3 +24,9 @@ Se usa el mismo Worker gratuito y Firebase Spark; no se activa Blaze, Functions,
 ## Asistencia 2
 
 La empresa se elige una sola vez y aparecen seis tarjetas: Revisar ausencias, Registros de asistencia, Historial de incidencias, Alertas pendientes, Reporte en PDF y Pantalla de trabajador. Al entrar se muestra únicamente ese apartado; **Volver a Asistencia 2** regresa a las tarjetas. Registros e historial permiten buscar; los registros se muestran de 30 en 30. Revisar alertas solo afecta a la empresa seleccionada. Se conservan los formularios de revisión, los motivos, los responsables y los registros originales.
+
+## Navegación por secciones
+
+Personal, Nómina, Mantenimiento y compras, Reportes y CSV, Administración y Seguridad y permisos muestran tarjetas de entrada. Al elegir una, se ve únicamente su contenido; el botón **Volver** recupera las tarjetas. Los formularios y filtros se conservan al cambiar de sección; las contraseñas del trabajador y la apertura de Admin se limpian al salir de su apartado. Personal abierto desde el total de empleados conserva el acceso directo al directorio.
+
+Configuración, Bitácoras y Asistencia 2 mantienen su organización por carpetas. Asistencia 1 conserva la pantalla directa del trabajador, con un solo botón Registrar. Los usuarios dependientes reciben únicamente las secciones de sus módulos autorizados; el diseño no concede permisos adicionales.

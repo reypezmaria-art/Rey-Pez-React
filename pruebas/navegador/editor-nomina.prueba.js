@@ -1,3 +1,4 @@
+import { abrirSeccion } from "../soporte/secciones.js";
 import { pdfNominaEjemplo } from "../soporte/nominaEjemplo.js";
 import { test, expect } from "@playwright/test";
 import ExcelJS from "exceljs";
@@ -50,6 +51,7 @@ async function iniciar(page, delegado = false) {
     .click();
 }
 async function importar(page) {
+  await abrirSeccion(page, "Nómina", "Cargar nómina");
   await page.getByLabel("Seleccionar Excel acumulado de nómina").setInputFiles({
     name: "sintetico.xlsx",
     mimeType:
@@ -72,6 +74,7 @@ test("importa Excel, edita y reabre desde Nómina; descarga lo guardado y detect
   test.setTimeout(90000);
   await iniciar(page);
   await importar(page);
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Abrir editor de nómina", exact: true })
     .click();
@@ -126,6 +129,7 @@ test("importa Excel, edita y reabre desde Nómina; descarga lo guardado y detect
     .getByRole("button", { name: "Cerrar editor", exact: true })
     .click();
   const descarga = page.waitForEvent("download");
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Descargar Excel mensual", exact: true })
     .click();
@@ -133,6 +137,7 @@ test("importa Excel, edita y reabre desde Nómina; descarga lo guardado y detect
   await libro.xlsx.load(await readFile(await (await descarga).path()));
   expect(libro.getWorksheet("enero").getCell("E5").value).toBe(1500);
   expect(libro.worksheets[0].name).toBe("Acumulado 2027");
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Abrir editor de nómina", exact: true })
     .click();
@@ -272,16 +277,20 @@ test("cuenta delegada consulta las tres empresas, exporta y no ve acciones admin
   await expect(
     page.getByRole("button", { name: "Modificar un mes", exact: true }),
   ).toHaveCount(0);
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page.getByRole("button", { name: /Generar mensual/ }).click();
   const opciones = await page
     .getByLabel("Empresa para exportar nómina")
     .locator("option")
     .allTextContents();
   expect(opciones).toHaveLength(4);
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByLabel("Empresa para exportar nómina")
     .selectOption("ESTUARDO");
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page.getByLabel("Año de nómina").fill("2027");
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Ver libro guardado", exact: true })
     .click();
@@ -303,9 +312,11 @@ test("Secciones agrupa las cuatro opciones y abre consultas de la empresa sin ac
     .getByRole("navigation")
     .getByRole("button", { name: "Seguridad", exact: true })
     .click();
+  await abrirSeccion(page, "Seguridad y permisos", "Autorizaciones");
   await page
     .getByLabel("Empresa autorizada", { exact: true })
     .selectOption("ESTUARDO");
+  await abrirSeccion(page, "Seguridad y permisos", "Autorizaciones");
   await page.getByLabel("Usuario activo", { exact: true }).selectOption("DEMO");
   await page.getByText(/^Secciones ·/).click();
   const secciones = page.getByRole("group", { name: "Secciones autorizadas" });
@@ -366,6 +377,7 @@ test("recupera el orden original de un libro anterior conservando ediciones y re
   test.setTimeout(90000);
   await iniciar(page);
   await importar(page);
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Abrir editor de nómina", exact: true })
     .click();
@@ -408,12 +420,14 @@ test("recupera el orden original de un libro anterior conservando ediciones y re
   await page
     .getByRole("button", { name: "Cerrar editor", exact: true })
     .click();
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Descargar Excel mensual", exact: true })
     .click();
   await expect(page.getByRole("alert")).toContainText(
     "Abre el editor de nómina",
   );
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Abrir editor de nómina", exact: true })
     .click();
@@ -455,6 +469,7 @@ test("recupera el orden original de un libro anterior conservando ediciones y re
     .getByRole("button", { name: "Cerrar editor", exact: true })
     .click();
   const descarga = page.waitForEvent("download");
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Descargar Excel mensual", exact: true })
     .click();
@@ -492,6 +507,7 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
   resumen.getRow(13).values = [null, "ENERO", 0, 0, 0, 0];
   resumen.getRow(14).values = [null, "OCTUBRE", 0, 0, 77.77, 0];
   resumen.getRow(15).values = [null, "TOTAL", 0, 0, 77.77, 0];
+  await abrirSeccion(page, "Nómina", "Cargar nómina");
   await page.getByLabel("Seleccionar Excel acumulado de nómina").setInputFiles({
     name: "sintetico.xlsx",
     mimeType:
@@ -504,6 +520,7 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
   await expect(page.getByRole("status")).toContainText(
     "Nómina importada y guardada",
   );
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Abrir editor de nómina", exact: true })
     .click();
@@ -531,6 +548,7 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
     ["01/Oct/2027", "15/Oct/2027"],
     ["16/Oct/2027", "31/Oct/2027"],
   ]) {
+    await abrirSeccion(page, "Nómina", "Cargar nómina");
     await page
       .getByLabel("Seleccionar PDF de nómina", { exact: true })
       .setInputFiles({
@@ -548,15 +566,18 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
     await expect(page.getByRole("status")).toContainText("Nómina guardada");
   }
   for (const tipo of ["mensual", "anual"]) {
+    await abrirSeccion(page, "Nómina", "Libros y exportación");
     await page
       .getByRole("button", { name: `Generar ${tipo}`, exact: false })
       .first()
       .click();
+    await abrirSeccion(page, "Nómina", "Libros y exportación");
     await page
       .getByRole("button", { name: `Descargar Excel ${tipo}`, exact: true })
       .click();
     await expect(page.getByRole("alert")).toContainText("Hay PDF nuevos");
     if (tipo === "anual") {
+      await abrirSeccion(page, "Nómina", "Archivos cargados");
       const archivos = page.locator(".payroll-files");
       if ((await archivos.getAttribute("open")) === null)
         await archivos.locator("summary").first().click();
@@ -566,6 +587,7 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
         .getByRole("button", { name: "Abrir libro", exact: true })
         .click();
     } else {
+      await abrirSeccion(page, "Nómina", "Libros y exportación");
       await page
         .getByRole("button", { name: "Abrir editor de nómina", exact: true })
         .click();
@@ -579,6 +601,7 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
       .getByRole("button", { name: "Cerrar editor", exact: true })
       .click();
     const descarga = page.waitForEvent("download");
+    await abrirSeccion(page, "Nómina", "Libros y exportación");
     await page
       .getByRole("button", { name: `Descargar Excel ${tipo}`, exact: true })
       .click();
@@ -605,6 +628,7 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
     });
     expect(octubre.getCell(3).result).toBe(10500);
     expect(acum.getCell("E5").value).toBe(7);
+    await abrirSeccion(page, "Nómina", "Libros y exportación");
     await page
       .getByRole("button", { name: "Abrir editor de nómina", exact: true })
       .click();
@@ -618,12 +642,11 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
       .getByRole("button", { name: "Cerrar editor", exact: true })
       .click();
   }
-  await page
-    .getByRole("button", { name: "Modificar un mes", exact: true })
-    .click();
+  await abrirSeccion(page, "Nómina", "Modificar un mes");
   await page
     .getByRole("radio", { name: "Volver a subir archivo", exact: true })
     .check();
+  await abrirSeccion(page, "Nómina", "Modificar un mes");
   await page
     .getByLabel("Seleccionar PDF corregido", { exact: true })
     .setInputFiles({
@@ -640,10 +663,12 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
       ),
     });
   await expect(page.getByRole("status")).toContainText("Nómina corregida");
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Generar mensual", exact: false })
     .first()
     .click();
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Abrir editor de nómina", exact: true })
     .click();
@@ -656,6 +681,7 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
     .getByRole("button", { name: "Cerrar editor", exact: true })
     .click();
   const corregida = page.waitForEvent("download");
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Descargar Excel mensual", exact: true })
     .click();
@@ -679,18 +705,22 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
   });
   expect(resumenCorregido.getCell(3).result).toBe(10750);
   expect(libroCorregido.getWorksheet("enero").getCell("E5").value).toBe(1700);
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Generar anual", exact: false })
     .first()
     .click();
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Descargar Excel anual", exact: true })
     .click();
   await expect(page.getByRole("alert")).toContainText("Hay PDF nuevos");
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Generar mensual", exact: false })
     .first()
     .click();
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Abrir editor de nómina", exact: true })
     .click();
@@ -716,6 +746,7 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
   await page
     .getByRole("button", { name: "Cerrar editor", exact: true })
     .click();
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Abrir editor de nómina", exact: true })
     .click();
@@ -732,6 +763,7 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
     ["01/Oct/2027", "15/Oct/2027", 550000],
     ["16/Oct/2027", "31/Oct/2027", 525000],
   ]) {
+    await abrirSeccion(page, "Nómina", "Cargar nómina");
     await page
       .getByLabel("Seleccionar PDF de nómina", { exact: true })
       .setInputFiles({
@@ -750,6 +782,7 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
       });
     await expect(page.getByRole("status")).toContainText("Nómina guardada");
   }
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Abrir editor de nómina", exact: true })
     .click();
@@ -762,6 +795,7 @@ test("incorpora PDF posteriores al Excel en mensual y anual sin perder ediciones
     .getByRole("button", { name: "Cerrar editor", exact: true })
     .click();
   const conNss = page.waitForEvent("download");
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Descargar Excel mensual", exact: true })
     .click();
@@ -800,6 +834,7 @@ test("Imprimir junto a Descargar Excel abre directamente la impresión del libro
   expect(
     await descarga.evaluate((n) => n.nextElementSibling?.textContent.trim()),
   ).toBe("Imprimir");
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page.getByRole("button", { name: "Imprimir", exact: true }).click();
   const frame = page.frameLocator('iframe[title="Hoja de cálculo de nómina"]');
   await expect(frame.locator("#titulo-dialogo")).toHaveText(
@@ -854,6 +889,7 @@ test("descarga los cambios abiertos desde el editor e imprime una hoja en carta 
   test.setTimeout(120000);
   await iniciar(page);
   await importar(page);
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Abrir editor de nómina", exact: true })
     .click();
@@ -934,6 +970,7 @@ test("libro creado solo con PDF muestra todos los nombres con bandas claras y co
     ["01/Ene/2026", "15/Ene/2026"],
     ["16/Ene/2026", "31/Ene/2026"],
   ]) {
+    await abrirSeccion(page, "Nómina", "Cargar nómina");
     await page
       .getByLabel("Seleccionar PDF de nómina", { exact: true })
       .setInputFiles({
@@ -945,12 +982,16 @@ test("libro creado solo con PDF muestra todos los nombres con bandas claras y co
       });
     await expect(page.getByRole("status")).toContainText("Nómina guardada");
   }
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Generar mensual", exact: false })
     .first()
     .click();
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page.getByLabel("Empresa para exportar nómina").selectOption("ALLAN");
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page.getByLabel("Año de nómina").fill("2026");
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Abrir editor de nómina", exact: true })
     .click();
@@ -1003,6 +1044,7 @@ test("libro creado solo con PDF muestra todos los nombres con bandas claras y co
     .getByRole("button", { name: "Cerrar editor", exact: true })
     .click();
   const descarga = page.waitForEvent("download");
+  await abrirSeccion(page, "Nómina", "Libros y exportación");
   await page
     .getByRole("button", { name: "Descargar Excel mensual", exact: true })
     .click();

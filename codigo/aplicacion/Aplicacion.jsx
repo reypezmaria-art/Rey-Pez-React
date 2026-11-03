@@ -110,7 +110,10 @@ export default function Aplicacion() {
           ? "dashboard"
           : page;
   const registroUso = useRegistroUso(
-    session && !avisoAcceso && !restringido && mode !== "asistencia"
+    session?.role === "worker" &&
+      !avisoAcceso &&
+      !restringido &&
+      mode !== "asistencia"
       ? `${session.role}:${session.id}`
       : null,
     moduloUso,

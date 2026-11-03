@@ -1,3 +1,4 @@
+import { abrirSeccion } from "../soporte/secciones.js";
 import { expect, test } from "@playwright/test";
 import { baseOperation } from "../../codigo/datos/operacionInicial.js";
 import { makeCredential } from "../../codigo/dominio/seguridad.js";
@@ -178,7 +179,7 @@ test("María edita los datos de una empresa y conserva el historial fiscal al da
 }) => {
   await ingresar(page);
   await nav(page, "Seguridad").click();
-  await page.getByText("Datos de empresas", { exact: true }).click();
+  await abrirSeccion(page, "Seguridad y permisos", "Datos de empresas");
   await page.getByLabel("Empresa a editar").selectOption("ALLAN");
   await page
     .getByLabel("Razón social", { exact: true })
@@ -210,7 +211,7 @@ test("María edita los datos de una empresa y conserva el historial fiscal al da
   await page.getByLabel("Contraseña", { exact: true }).fill("Clave6");
   await page.getByRole("button", { name: "Ingresar", exact: true }).click();
   await nav(page, "Seguridad").click();
-  await page.getByText("Datos de empresas", { exact: true }).click();
+  await abrirSeccion(page, "Seguridad y permisos", "Datos de empresas");
   await page.getByLabel("Empresa a editar").selectOption("ALLAN");
   await expect(page.getByLabel("Estado de la empresa")).toHaveValue("Baja");
   await expect(page.getByLabel("RFC de la empresa")).toHaveValue(

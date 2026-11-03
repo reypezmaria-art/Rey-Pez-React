@@ -324,9 +324,12 @@ export function crearServidor(crearServicios = crearGoogle) {
         else if (nombre === "registrarUso")
           result = await registrarUso(datos, request, services);
         else if (nombre === "consultarUso") {
-          await exigirAdmin(request, services);
+          const identidad = await exigirAdmin(request, services);
           validarConsultaUso(datos);
-          result = await services.db.listarUso(datos);
+          result = await services.db.listarUso({
+            ...datos,
+            uidAdmin: identidad.uid,
+          });
         } else result = await denegar(datos, request, services);
         return Response.json({ data: result }, { headers });
       } catch (e) {

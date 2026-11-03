@@ -1,3 +1,4 @@
+import { abrirSeccion } from "../soporte/secciones.js";
 import { test, expect } from "@playwright/test";
 async function sinLeyendaDeAcceso(page) {
   await expect(page.locator(".access-screen .small")).toHaveCount(0);
@@ -39,6 +40,7 @@ async function access(page) {
 }
 async function credential(page, id) {
   await nav(page, "Seguridad").click();
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page
     .getByLabel("Empresa del trabajador", { exact: true })
     .selectOption(
@@ -48,7 +50,9 @@ async function credential(page, id) {
           ? "EDGAR"
           : "ALLAN",
     );
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Empleado", { exact: true }).selectOption(id);
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Acción", { exact: true }).selectOption("set");
   await page.getByLabel("Nueva contraseña", { exact: true }).fill("Trab06");
   await page.getByLabel("Confirmar contraseña", { exact: true }).fill("Trab06");
@@ -71,17 +75,21 @@ test("Seguridad inicia cerrada y Admin exige contraseña antes de cambiarla", as
   await expect(
     page.getByRole("button", { name: "Guardar acceso" }),
   ).toHaveCount(0);
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page
     .getByLabel("Empresa del trabajador", { exact: true })
     .selectOption("ALLAN");
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Empleado", { exact: true }).selectOption("AL-01");
   await expect(
     page.getByLabel("Nueva contraseña", { exact: true }),
   ).toHaveCount(0);
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Acción", { exact: true }).selectOption("set");
   await expect(
     page.getByLabel("Nueva contraseña", { exact: true }),
   ).toBeVisible();
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Acción", { exact: true }).selectOption("block");
   await expect(
     page.getByLabel("Nueva contraseña", { exact: true }),
@@ -92,6 +100,7 @@ test("Seguridad inicia cerrada y Admin exige contraseña antes de cambiarla", as
   await expect(
     page.getByLabel("Nueva contraseña de Admin", { exact: true }),
   ).toHaveCount(0);
+  await abrirSeccion(page, "Seguridad y permisos", "Admin");
   await page
     .getByLabel("Contraseña de Admin", { exact: true })
     .fill("incorrecta");
@@ -100,6 +109,7 @@ test("Seguridad inicia cerrada y Admin exige contraseña antes de cambiarla", as
   await expect(
     page.getByLabel("Nueva contraseña de Admin", { exact: true }),
   ).toHaveCount(0);
+  await abrirSeccion(page, "Seguridad y permisos", "Admin");
   await page.getByLabel("Contraseña de Admin", { exact: true }).fill("Clave6");
   await page.getByRole("button", { name: "Abrir Admin" }).click();
   await expect(
@@ -126,12 +136,14 @@ test("flujo de personal, asistencia, incidencia y persistencia", async ({
   ).toBeVisible();
   await expect(page.locator(".kvalue").nth(1)).toHaveText("30");
   await nav(page, "Personal").click();
+  await abrirSeccion(page, "Personal", "Total de empleados");
   await page.getByRole("button", { name: "+ Agregar empleado" }).click();
   await page.getByLabel("Nombre completo *").fill("PERSONA PRUEBA REACT");
   await page.getByLabel("Puesto / función *").fill("EMPLEADO GENERAL");
   await page
     .getByRole("button", { name: "Guardar empleado", exact: true })
     .click();
+  await abrirSeccion(page, "Personal", "Total de empleados");
   await page.getByLabel("Buscar personal").fill("PERSONA PRUEBA REACT");
   await expect(page.locator("tbody tr")).toHaveCount(1);
   await expect(page.locator("tbody").last()).toContainText("RP-0001");
@@ -171,6 +183,7 @@ test("flujo de personal, asistencia, incidencia y persistencia", async ({
   await expect(page.locator(".kvalue").nth(1)).toHaveText("31");
   await nav(page, "Asistencia 2 · Administración").click();
   await nav(page, "Personal").click();
+  await abrirSeccion(page, "Personal", "Total de empleados");
   await page.getByLabel("Buscar personal").fill("PERSONA PRUEBA REACT");
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Dar de baja", exact: true }).click();
@@ -237,6 +250,7 @@ test("configuración, CSV, respaldo y seguridad local", async ({ page }) => {
     "Horario actualizado",
   );
   await nav(page, "Personal").click();
+  await abrirSeccion(page, "Personal", "Importar y organizar personal");
   await page.getByLabel("Importar CSV", { exact: true }).setInputFiles({
     name: "personal.csv",
     mimeType: "text/csv",
@@ -246,22 +260,28 @@ test("configuración, CSV, respaldo y seguridad local", async ({ page }) => {
   });
   await expect(page.getByRole("status")).toContainText("1 fila procesada");
   await page.getByRole("button", { name: "Asignar ID faltantes" }).click();
+  await abrirSeccion(page, "Personal", "Total de empleados");
   await page.getByLabel("Buscar personal").fill("PERSONA CSV");
   await expect(page.locator("tbody").last()).toContainText("RP-0001");
   await nav(page, "Reportes y CSV").click();
   const csvPromise = page.waitForEvent("download");
+  await abrirSeccion(page, "Reportes y CSV", "Exportar CSV");
   await page.getByRole("button", { name: "Exportar personal CSV" }).click();
   expect((await csvPromise).suggestedFilename()).toBe("empleados_rey_pez.csv");
   const backupPromise = page.waitForEvent("download");
+  await abrirSeccion(page, "Reportes y CSV", "Respaldos y restauración");
   await page.getByRole("button", { name: "Descargar respaldo JSON" }).click();
   expect((await backupPromise).suggestedFilename()).toBe(
     "respaldo_rey_pez.json",
   );
   await nav(page, "Seguridad").click();
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page
     .getByLabel("Empresa del trabajador", { exact: true })
     .selectOption("ALLAN");
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Empleado", { exact: true }).selectOption("AL-01");
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Acción", { exact: true }).selectOption("set");
   await page.getByLabel("Nueva contraseña", { exact: true }).fill("prueba123");
   await page
@@ -328,14 +348,21 @@ test("temperaturas, mantenimiento, QR, permisos y terminal aislada", async ({
   await page.getByRole("button", { name: "Guardar revisión" }).click();
   await expect(page.locator("tbody").last()).toContainText("Requiere atención");
   await nav(page, "Mantenimiento y compras").click();
+  await abrirSeccion(page, "Mantenimiento y compras", "Registrar actividad");
   await page.getByLabel("Cuarto frío", { exact: true }).selectOption("ALLAN-1");
   await page
     .getByLabel("Descripción", { exact: true })
     .fill("Revisión de compresor de prueba");
   await page.getByLabel("Costo MXN (opcional)").fill("250");
   await page.getByRole("button", { name: "Guardar actividad" }).click();
+  await abrirSeccion(
+    page,
+    "Mantenimiento y compras",
+    "Historial de mantenimiento",
+  );
   await expect(page.locator("tbody").last()).toContainText("250.00");
   await credential(page, "ES-06");
+  await abrirSeccion(page, "Seguridad y permisos", "Autorizaciones");
   await page
     .getByLabel("Usuario activo", { exact: true })
     .selectOption("ES-06");
@@ -392,6 +419,7 @@ test("respaldo completo, restauración e invalidación de sesión", async ({
   const json = await page.evaluate(() =>
     localStorage.getItem("reypez_react_v1"),
   );
+  await abrirSeccion(page, "Reportes y CSV", "Respaldos y restauración");
   await page.getByLabel("Restaurar respaldo JSON").setInputFiles({
     name: "invalido.json",
     mimeType: "application/json",
@@ -399,6 +427,7 @@ test("respaldo completo, restauración e invalidación de sesión", async ({
   });
   await expect(page.getByRole("alert")).toContainText("formato válido");
   page.once("dialog", (d) => d.accept());
+  await abrirSeccion(page, "Reportes y CSV", "Respaldos y restauración");
   await page.getByLabel("Restaurar respaldo JSON").setInputFiles({
     name: "respaldo.json",
     mimeType: "application/json",
@@ -639,6 +668,7 @@ test("Administración es exclusiva y Asistencia 2 abre solo el apartado elegido"
   await expect(
     page.getByRole("heading", { name: "Administración", exact: true }),
   ).toBeVisible();
+  await abrirSeccion(page, "Administración", "Resumen por usuario");
   await expect(
     page.getByText(/La copia local no registra sesiones compartidas/),
   ).toBeVisible();
@@ -657,4 +687,54 @@ test("Administración es exclusiva y Asistencia 2 abre solo el apartado elegido"
     page.getByRole("heading", { name: "Alertas para administración" }),
   ).toBeVisible();
   await expect(page.getByLabel("Buscar incidencia")).toHaveCount(0);
+});
+
+test("los módulos abren sus secciones por tarjetas y Asistencia 1 conserva el registro directo", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await access(page);
+  for (const [modulo, titulo, seccion, control] of [
+    ["Personal", "Personal", "Total de empleados", "Buscar personal"],
+    [
+      "Seguridad",
+      "Seguridad y permisos",
+      "Acceso del trabajador",
+      "Empresa del trabajador",
+    ],
+    [
+      "Mantenimiento y compras",
+      "Mantenimiento y compras",
+      "Registrar actividad",
+      "Cuarto frío",
+    ],
+    [
+      "Reportes y CSV",
+      "Reportes y CSV",
+      "Reportes de operación",
+      "Empresa del reporte",
+    ],
+    ["Nómina", "Nómina", "Cargar nómina", "Seleccionar PDF de nómina"],
+  ]) {
+    await nav(page, modulo).click();
+    await expect(page.getByLabel(control, { exact: true })).toBeHidden();
+    await abrirSeccion(page, titulo, seccion);
+    await expect(page.getByLabel(control, { exact: true })).toBeVisible();
+    await page
+      .getByRole("button", { name: `← Volver a ${titulo}`, exact: true })
+      .click();
+    await expect(page.getByLabel(control, { exact: true })).toBeHidden();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+  }
+  await nav(page, "Asistencia 1 · Trabajador").click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("button", { name: "Registrar", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("dialog").locator(".folder-card")).toHaveCount(0);
 });

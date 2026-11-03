@@ -273,3 +273,50 @@ test("la actividad de otra pestaña se conserva aunque el intervalo visible ya e
     [60000, 60000],
   );
 });
+
+test("María está excluida de todos los pulsos y las cuentas dependientes siguen registrándose", async () => {
+  const e = entorno(),
+    antes = structuredClone([...e.documentos]);
+  for (const datos of [
+    pulso(),
+    pulso({
+      modulo: "administration",
+      secuencia: 1,
+      visibleMs: 60000,
+      activoMs: 60000,
+    }),
+    pulso({ cierre: true }),
+  ]) {
+    assert.deepEqual(await registrarUso(datos, solicitud("maria"), e), {
+      ok: true,
+      excluida: true,
+    });
+  }
+  assert.deepEqual([...e.documentos], antes);
+  await registrarUso(pulso(), solicitud("worker"), e);
+  assert.equal(dia(e).length, 1);
+  assert.equal(dia(e)[0][1].cuenta, "ES-01");
+  e.documentos.set("usuarios/worker2", {
+    rol: "trabajador",
+    activo: true,
+    idEmpleado: "AL-02",
+  });
+  e.documentos.set("empleados/AL-02", {
+    nombre_completo: "OTRA PERSONA DEMO",
+    empresa_codigo: "ALLAN",
+    estatus: "Activo",
+  });
+  e.documentos.get("operacion/config").permissions["AL-02"] = {
+    company: "ALLAN",
+    secciones: ["reports"],
+  };
+  e.auth.verifyIdToken = async (token) => ({ uid: token });
+  await registrarUso(pulso({ modulo: "reports" }), solicitud("worker2"), e);
+  assert.equal(dia(e).length, 2);
+  assert.deepEqual(
+    dia(e)
+      .map(([, d]) => d.cuenta)
+      .sort(),
+    ["AL-02", "ES-01"],
+  );
+});

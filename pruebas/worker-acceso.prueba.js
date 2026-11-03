@@ -470,6 +470,15 @@ test("el informe de uso pagina por REST y el Worker conserva el permiso de Marí
       version: "v1",
     });
   }
+  for (const [prefijo, uid, cuenta] of [
+    ["f", "maria", "MARIA"],
+    ["e", "uid-administrativo-anterior", "MARIA"],
+  ]) {
+    e.documentos.set(`usoDiario/${prefijo.repeat(64)}_2026-11-03`, {
+      value: { fecha: "2026-11-03", uid, cuenta, visibleMs: 999999 },
+      version: "v1",
+    });
+  }
   const datos = { vista: "diaria", desde: "2026-11-01", hasta: "2026-11-03" };
   const llamar = async (d, token) =>
     (
@@ -485,11 +494,16 @@ test("el informe de uso pagina por REST y el Worker conserva el permiso de Marí
   await assert.rejects(() => llamar(datos, trabajador), /María/i);
   const token = await jwt("maria");
   const primera = await llamar(datos, token);
-  assert.equal(primera.registros.length, 200);
+  assert.equal(primera.registros.length, 198);
   assert.ok(primera.cursor);
   const segunda = await llamar({ ...datos, cursor: primera.cursor }, token);
-  assert.equal(segunda.registros.length, 5);
+  assert.equal(segunda.registros.length, 7);
   assert.equal(segunda.cursor, null);
+  assert.ok(
+    [...primera.registros, ...segunda.registros].every(
+      (r) => r.uid === "demo" && r.cuenta !== "MARIA",
+    ),
+  );
   assert.equal(
     new Set([...primera.registros, ...segunda.registros].map((r) => r.id)).size,
     205,

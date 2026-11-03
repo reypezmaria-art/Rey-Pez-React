@@ -1,3 +1,6 @@
+import SeccionesPagina, {
+  PanelSeccion,
+} from "../componentes/SeccionesPagina.jsx";
 import { useState } from "react";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import {
@@ -29,6 +32,7 @@ function textoFecha(valor) {
 }
 export default function Reportes() {
   const { data, commit, logout, avisar } = useAplicacion();
+  const [seccion, setSeccion] = useState(null);
   const [error, setError] = useState(""),
     [company, setCompany] = useState(""),
     [from, setFrom] = useState(localDate()),
@@ -134,139 +138,180 @@ export default function Reportes() {
         title="Reportes y respaldos"
         subtitle="Filtros por empresa y fechas; exportación CSV y restauración completa."
       />
+      <SeccionesPagina
+        titulo="Reportes y CSV"
+        seleccion={seccion}
+        onSeleccion={setSeccion}
+        opciones={[
+          {
+            id: "operacion",
+            titulo: "Reportes de operación",
+            icono: "▤",
+            descripcion:
+              "Consultar por empresa y fechas; exportar resultados filtrados.",
+          },
+          {
+            id: "csv",
+            titulo: "Exportar CSV",
+            icono: "▣",
+            descripcion: "Descargar archivos de personal y asistencia.",
+          },
+          {
+            id: "respaldos",
+            titulo: "Respaldos y restauración",
+            icono: "↶",
+            descripcion: "Descargar respaldos y recuperar copias anteriores.",
+          },
+        ]}
+      />
       <Mensaje error>{error}</Mensaje>
       <Mensaje error>
         {rangoInvertido
           ? "Selecciona un rango válido: Desde debe ser anterior o igual a Hasta."
           : ""}
       </Mensaje>
-      <div className="panel">
-        <h2>Reporte de operación</h2>
-        <div className="formgrid">
-          <Campo
-            label="Reporte"
-            as="select"
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-          >
-            {Object.entries({
-              attendance: "Asistencia",
-              absenceReviews: "Ausencias revisadas",
-              logs: "Bitácoras y temperaturas",
-              maintenance: "Mantenimiento",
-              audit: "Historial de acciones",
-            }).map(([key, name]) => (
-              <option key={key} value={key}>
-                {name}
-              </option>
-            ))}
-          </Campo>
-          <Campo
-            label="Empresa del reporte"
-            as="select"
-            value={company}
-            onChange={(e) => setCompany(e.target.value)}
-          >
-            <option value="">Todas</option>
-            <OpcionesEmpresa />
-          </Campo>
-          <Campo
-            label="Desde"
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-          />
-          <Campo
-            label="Hasta"
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-          />
-        </div>
-        <button onClick={() => exportCSV(type, rows)}>
-          Exportar reporte filtrado CSV
-        </button>
-        <p>{concordar(rows.length, "registro", "registros")}</p>
-        <Tabla
-          headings={[
-            "Fecha",
-            "Empleado / responsable",
-            "Movimiento / resultado",
-            "Observaciones",
-          ]}
-          count={rows.length}
-        >
-          {rows.slice(0, 100).map((r, i) => (
-            <tr key={r.id || r.id_registro || i}>
-              <td>{textoFecha(r.fecha_hora || r.when || r.date)}</td>
-              <td>{r.nombre_completo || r.name || r.responsible || r.by}</td>
-              <td>
-                {r.movimiento ||
-                  r.result ||
-                  r.classification ||
-                  r.action ||
-                  r.type}
-              </td>
-              <td>{r.incidencia || r.notes || r.description}</td>
-            </tr>
-          ))}
-        </Tabla>
-      </div>
-      <div className="panel">
-        <h2>Exportar y respaldar</h2>
-        <div className="actions">
-          <button className="primary" onClick={() => exportCSV("employees")}>
-            Exportar personal CSV
-          </button>
-          <button onClick={() => exportCSV("attendance")}>
-            Exportar asistencia CSV
-          </button>
-          <button onClick={backup}>Descargar respaldo JSON</button>
-          <label className="btn file-label">
-            Restaurar respaldo JSON
-            <input
-              aria-label="Restaurar respaldo JSON"
-              type="file"
-              accept=".json,application/json"
-              onChange={restoreFile}
-            />
-          </label>
-        </div>
-        <p className="small">
-          El respaldo incluye personal, horarios, permisos, contraseñas
-          derivadas, bitácoras, evidencias y configuración. Consérvalo en un
-          lugar privado. Las contraseñas no se incluyen en CSV.
-        </p>
-        <Mensaje error>{backupsError}</Mensaje>
-        <h3>
-          {usaFirebase
-            ? "Respaldos automáticos"
-            : "Respaldos automáticos locales"}
-        </h3>
-        <p>
-          {usaFirebase
-            ? "Se conserva el estado anterior al primer cambio de cada día, hasta siete días, en Cloud Storage. Descarga también un respaldo externo."
-            : "Se conserva el estado anterior al primer cambio de cada día, hasta siete días con actividad. Son copias en este navegador; descarga también un respaldo externo."}
-        </p>
-        {backups.map((b) => (
-          <p key={b.date}>
-            {b.date}{" "}
-            <button
-              onClick={async () => {
-                try {
-                  const state =
-                    b.state || (await repository.leerRespaldo?.(b.date));
-                  await restore(state);
-                } catch (err) {
-                  setError(err.message);
-                }
-              }}
+      <PanelSeccion activa={seccion === "operacion"}>
+        <div className="panel">
+          <h2>Reporte de operación</h2>
+          <div className="formgrid">
+            <Campo
+              label="Reporte"
+              as="select"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
             >
-              Restaurar copia del día
-            </button>
-          </p>
-        ))}
-      </div>
+              {Object.entries({
+                attendance: "Asistencia",
+                absenceReviews: "Ausencias revisadas",
+                logs: "Bitácoras y temperaturas",
+                maintenance: "Mantenimiento",
+                audit: "Historial de acciones",
+              }).map(([key, name]) => (
+                <option key={key} value={key}>
+                  {name}
+                </option>
+              ))}
+            </Campo>
+            <Campo
+              label="Empresa del reporte"
+              as="select"
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+            >
+              <option value="">Todas</option>
+              <OpcionesEmpresa />
+            </Campo>
+            <Campo
+              label="Desde"
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+            />
+            <Campo
+              label="Hasta"
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+            />
+          </div>
+          <button onClick={() => exportCSV(type, rows)}>
+            Exportar reporte filtrado CSV
+          </button>
+          <p>{concordar(rows.length, "registro", "registros")}</p>
+          <Tabla
+            headings={[
+              "Fecha",
+              "Empleado / responsable",
+              "Movimiento / resultado",
+              "Observaciones",
+            ]}
+            count={rows.length}
+          >
+            {rows.slice(0, 100).map((r, i) => (
+              <tr key={r.id || r.id_registro || i}>
+                <td>{textoFecha(r.fecha_hora || r.when || r.date)}</td>
+                <td>{r.nombre_completo || r.name || r.responsible || r.by}</td>
+                <td>
+                  {r.movimiento ||
+                    r.result ||
+                    r.classification ||
+                    r.action ||
+                    r.type}
+                </td>
+                <td>{r.incidencia || r.notes || r.description}</td>
+              </tr>
+            ))}
+          </Tabla>
+        </div>
+      </PanelSeccion>
+      <PanelSeccion activa={seccion === "csv" || seccion === "respaldos"}>
+        <div className="panel">
+          <h2>
+            {seccion === "csv" ? "Exportar CSV" : "Respaldos y restauración"}
+          </h2>
+          <div className="actions">
+            <PanelSeccion activa={seccion === "csv"}>
+              <button
+                className="primary"
+                onClick={() => exportCSV("employees")}
+              >
+                Exportar personal CSV
+              </button>
+              <button onClick={() => exportCSV("attendance")}>
+                Exportar asistencia CSV
+              </button>
+            </PanelSeccion>
+            <PanelSeccion activa={seccion === "respaldos"}>
+              <button onClick={backup}>Descargar respaldo JSON</button>
+              <label className="btn file-label">
+                Restaurar respaldo JSON
+                <input
+                  aria-label="Restaurar respaldo JSON"
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={restoreFile}
+                />
+              </label>
+            </PanelSeccion>
+          </div>
+          <PanelSeccion activa={seccion === "respaldos"}>
+            <p className="small">
+              El respaldo incluye personal, horarios, permisos, contraseñas
+              derivadas, bitácoras, evidencias y configuración. Consérvalo en un
+              lugar privado. Las contraseñas no se incluyen en CSV.
+            </p>
+            <Mensaje error>{backupsError}</Mensaje>
+            <h3>
+              {usaFirebase
+                ? "Respaldos automáticos"
+                : "Respaldos automáticos locales"}
+            </h3>
+            <p>
+              {usaFirebase
+                ? "Se conserva el estado anterior al primer cambio de cada día, hasta siete días, en Cloud Storage. Descarga también un respaldo externo."
+                : "Se conserva el estado anterior al primer cambio de cada día, hasta siete días con actividad. Son copias en este navegador; descarga también un respaldo externo."}
+            </p>
+            {backups.map((b) => (
+              <p key={b.date}>
+                {b.date}{" "}
+                <button
+                  onClick={async () => {
+                    try {
+                      const state =
+                        b.state || (await repository.leerRespaldo?.(b.date));
+                      await restore(state);
+                    } catch (err) {
+                      setError(err.message);
+                    }
+                  }}
+                >
+                  Restaurar copia del día
+                </button>
+              </p>
+            ))}
+          </PanelSeccion>
+        </div>
+      </PanelSeccion>
     </section>
   );
 }

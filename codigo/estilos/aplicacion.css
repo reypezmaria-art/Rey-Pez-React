@@ -1291,3 +1291,7 @@ header .header-access button:hover {
   color: #173957;
   background: #e8f1fb;
 }
+
+.section-content[hidden] {
+  display: none;
+}

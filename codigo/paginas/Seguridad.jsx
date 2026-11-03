@@ -1,3 +1,6 @@
+import SeccionesPagina, {
+  PanelSeccion,
+} from "../componentes/SeccionesPagina.jsx";
 import { useState } from "react";
 import { useAplicacion } from "../aplicacion/ContextoAplicacion.js";
 import {
@@ -22,6 +25,9 @@ import { nombresEmpresas } from "../dominio/empresas.js";
 export default function Seguridad({ detalleInicial }) {
   const { data, commit, pending } = useAplicacion();
   const companyNames = nombresEmpresas(data);
+  const [seccion, setSeccion] = useState(
+    detalleInicial?.empresas ? "empresas" : null,
+  );
   const [accessCompany, setAccessCompany] = useState("");
   const companyEmployees = data.employees.filter(
     (e) => e.empresa_codigo === accessCompany,
@@ -251,19 +257,72 @@ export default function Seguridad({ detalleInicial }) {
   return (
     <section>
       <EncabezadoPagina title="Seguridad y permisos" />
+      <SeccionesPagina
+        titulo="Seguridad y permisos"
+        seleccion={seccion}
+        onSeleccion={(valor) => {
+          setSeccion(valor);
+          closeAdmin();
+          setPassword("");
+          setConfirmation("");
+          setMessage("");
+          setError("");
+        }}
+        opciones={[
+          {
+            id: "alertas",
+            titulo: "Alertas de seguridad",
+            icono: "⚑",
+            descripcion: `${pendingAlerts.length} pendientes de revisión.`,
+          },
+          {
+            id: "acceso",
+            titulo: "Acceso del trabajador",
+            icono: "♙",
+            descripcion: "Contraseñas, bloqueos y desbloqueos por empresa.",
+          },
+          {
+            id: "permisos",
+            titulo: "Autorizaciones",
+            icono: "☷",
+            descripcion: "Asignar secciones y bitácoras a cada usuario.",
+          },
+          {
+            id: "empresas",
+            titulo: "Datos de empresas",
+            icono: "▦",
+            descripcion:
+              "Datos fiscales, fecha de actividad y estado de cada empresa.",
+          },
+          {
+            id: "admin",
+            titulo: "Admin",
+            icono: "🔐",
+            descripcion: "Administrar la contraseña de María.",
+          },
+          {
+            id: "historial",
+            titulo: "Registro de incidencias",
+            icono: "▤",
+            descripcion: `${reviewedAlerts.length} incidencias revisadas.`,
+          },
+        ]}
+      />
       <Mensaje>{message}</Mensaje>
       <Mensaje error>{error}</Mensaje>
-      <section className="panel" aria-label="Alertas de seguridad">
-        <h2>Alertas de seguridad</h2>
-        <TablaIncidencias
-          alertas={pendingAlerts}
-          empleados={data.employees}
-          pending={pending}
-          revisar={revisarAlerta}
-          vacio="Sin alertas pendientes."
-        />
-      </section>
-      <div className="columns security-columns">
+      <PanelSeccion activa={seccion === "alertas"}>
+        <section className="panel" aria-label="Alertas de seguridad">
+          <h2>Alertas de seguridad</h2>
+          <TablaIncidencias
+            alertas={pendingAlerts}
+            empleados={data.employees}
+            pending={pending}
+            revisar={revisarAlerta}
+            vacio="Sin alertas pendientes."
+          />
+        </section>
+      </PanelSeccion>
+      <PanelSeccion activa={seccion === "acceso"}>
         <form className="panel" onSubmit={submit}>
           <h2>Acceso del trabajador</h2>
           <Campo
@@ -347,6 +406,8 @@ export default function Seguridad({ detalleInicial }) {
             </p>
           )}
         </form>
+      </PanelSeccion>
+      <PanelSeccion activa={seccion === "permisos"}>
         <form className="panel" onSubmit={permissions}>
           <h2>Autorizaciones</h2>
           <Campo
@@ -485,62 +546,68 @@ export default function Seguridad({ detalleInicial }) {
             Guardar permisos
           </button>
         </form>
-      </div>
-      <EmpresasSeguridad abierta={detalleInicial?.empresas} />
-      <section className="panel" aria-label="Admin">
-        <h2>Admin</h2>
-        <Mensaje error>{adminError}</Mensaje>
-        {!adminOpen ? (
-          <form onSubmit={unlockAdmin}>
-            <Campo
-              label="Contraseña de Admin"
-              type="password"
-              autoComplete="off"
-              value={adminKey}
-              onChange={(e) => setAdminKey(e.target.value)}
-              required
-            />
-            <button disabled={adminBusy}>Abrir Admin</button>
-          </form>
-        ) : (
-          <form onSubmit={adminPassword}>
-            <Campo
-              label="Nueva contraseña de Admin"
-              type="password"
-              autoComplete="new-password"
-              value={adminNew}
-              onChange={(e) => setAdminNew(e.target.value)}
-              required
-              minLength={6}
-            />
-            <Campo
-              label="Confirmar contraseña de Admin"
-              type="password"
-              autoComplete="new-password"
-              value={adminConfirm}
-              onChange={(e) => setAdminConfirm(e.target.value)}
-              required
-            />
-            <button disabled={pending || adminBusy}>
-              Actualizar contraseña de administración
-            </button>
-            <button type="button" disabled={adminBusy} onClick={closeAdmin}>
-              Cerrar Admin
-            </button>
-          </form>
-        )}
-      </section>
-      <details
-        className="panel security-history"
-        aria-label="Registro de incidencias"
-      >
-        <summary>Registro de incidencias</summary>
-        <TablaIncidencias
-          alertas={reviewedAlerts}
-          empleados={data.employees}
-          vacio="Sin incidencias revisadas."
-        />
-      </details>
+      </PanelSeccion>
+      <PanelSeccion activa={seccion === "empresas"}>
+        <EmpresasSeguridad abierta={seccion === "empresas"} />
+      </PanelSeccion>
+      <PanelSeccion activa={seccion === "admin"}>
+        <section className="panel" aria-label="Admin">
+          <h2>Admin</h2>
+          <Mensaje error>{adminError}</Mensaje>
+          {!adminOpen ? (
+            <form onSubmit={unlockAdmin}>
+              <Campo
+                label="Contraseña de Admin"
+                type="password"
+                autoComplete="off"
+                value={adminKey}
+                onChange={(e) => setAdminKey(e.target.value)}
+                required
+              />
+              <button disabled={adminBusy}>Abrir Admin</button>
+            </form>
+          ) : (
+            <form onSubmit={adminPassword}>
+              <Campo
+                label="Nueva contraseña de Admin"
+                type="password"
+                autoComplete="new-password"
+                value={adminNew}
+                onChange={(e) => setAdminNew(e.target.value)}
+                required
+                minLength={6}
+              />
+              <Campo
+                label="Confirmar contraseña de Admin"
+                type="password"
+                autoComplete="new-password"
+                value={adminConfirm}
+                onChange={(e) => setAdminConfirm(e.target.value)}
+                required
+              />
+              <button disabled={pending || adminBusy}>
+                Actualizar contraseña de administración
+              </button>
+              <button type="button" disabled={adminBusy} onClick={closeAdmin}>
+                Cerrar Admin
+              </button>
+            </form>
+          )}
+        </section>
+      </PanelSeccion>
+      <PanelSeccion activa={seccion === "historial"}>
+        <details
+          className="panel security-history"
+          aria-label="Registro de incidencias"
+        >
+          <summary>Registro de incidencias</summary>
+          <TablaIncidencias
+            alertas={reviewedAlerts}
+            empleados={data.employees}
+            vacio="Sin incidencias revisadas."
+          />
+        </details>
+      </PanelSeccion>
     </section>
   );
 }

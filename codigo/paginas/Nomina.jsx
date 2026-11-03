@@ -1,3 +1,6 @@
+import SeccionesPagina, {
+  PanelSeccion,
+} from "../componentes/SeccionesPagina.jsx";
 import { aplicarFormatoPdf } from "../../herramientas/prueba-editor-nomina/formatoPdf.js";
 import { cargarModulo } from "../utilidades/cargarModulo.js";
 import {
@@ -41,6 +44,7 @@ export default function Nomina({ soloConsulta = false }) {
   const { data, persistirNomina, pending, clock, aviso, session } =
     useAplicacion();
   const responsable = session?.role === "worker" ? session.id : "MARIA";
+  const [seccion, setSeccion] = useState(null);
   const [editor, setEditor] = useState(null);
   const [libros, setLibros] = useState([]);
   const [versionLibros, setVersionLibros] = useState(0);
@@ -317,6 +321,7 @@ export default function Nomina({ soloConsulta = false }) {
       setEmpresa(fuente.empresa);
       setAnio(String(fuente.anio));
       setExportar("mensual");
+      setSeccion("exportar");
       setImportacion(null);
       setVersionLibros((v) => v + 1);
       setMensaje(
@@ -359,6 +364,51 @@ export default function Nomina({ soloConsulta = false }) {
         title="Nómina"
         subtitle="Carga, consulta y exportación por empresa"
       />
+      <SeccionesPagina
+        titulo="Nómina"
+        seleccion={seccion}
+        disabled={ocupado}
+        onSeleccion={(valor) => {
+          setSeccion(valor);
+          setEditar(valor === "modificar");
+        }}
+        opciones={[
+          ...(!soloConsulta
+            ? [
+                {
+                  id: "cargar",
+                  titulo: "Cargar nómina",
+                  icono: "↑",
+                  descripcion:
+                    "Subir Excel o PDF para identificar empresa, períodos y trabajadores.",
+                },
+              ]
+            : []),
+          {
+            id: "exportar",
+            titulo: "Libros y exportación",
+            icono: "▤",
+            descripcion: "Abrir el editor, generar mensual o anual e imprimir.",
+          },
+          ...(!soloConsulta
+            ? [
+                {
+                  id: "modificar",
+                  titulo: "Modificar un mes",
+                  icono: "✎",
+                  descripcion:
+                    "Corregir un período o volver a subir su archivo.",
+                },
+              ]
+            : []),
+          {
+            id: "archivos",
+            titulo: "Archivos cargados",
+            icono: "▣",
+            descripcion: `${periodos.length + libros.length} archivos y libros guardados.`,
+          },
+        ]}
+      />
       <Mensaje>{aviso}</Mensaje>
       <Mensaje error>{error}</Mensaje>
       {error && errorCarga && (
@@ -372,273 +422,279 @@ export default function Nomina({ soloConsulta = false }) {
           Descargar Excel preparado
         </a>
       )}
-      {!soloConsulta && (
-        <section
-          className="panel"
-          aria-label="Cargar nómina"
-          aria-busy={ocupado}
-        >
-          <h2>Subir archivo de nómina</h2>
-          <p>
-            La empresa, el período y los trabajadores se identifican
-            automáticamente.
-          </p>
-          <Campo
-            label="Seleccionar Excel acumulado de nómina"
-            type="file"
-            accept=".xlsx"
-            disabled={ocupado}
-            onChange={subirExcel}
-          />
-          <Campo
-            label="Seleccionar PDF de nómina"
-            type="file"
-            accept=".pdf,application/pdf"
-            disabled={ocupado}
-            onChange={(e) => subir(e)}
-          />
-        </section>
-      )}
-      {importacion && (
-        <section className="panel" aria-label="Revisar importación de Excel">
-          <h2>
-            Archivo identificado:{" "}
-            {nombresEmpresas(data)[importacion.fuente.empresa]} ·{" "}
-            {importacion.fuente.anio}
-          </h2>
-          <p>
-            {importacion.fuente.registros.length} registros con importes ·{" "}
-            {new Set(importacion.fuente.registros.map((r) => r.mes)).size}{" "}
-            meses.
-          </p>
-          <ul>
-            {importacion.fuente.advertencias.map((a, i) => (
-              <li key={i}>{a}</li>
-            ))}
-          </ul>
-          <button
-            disabled={ocupado}
-            className="primary"
-            onClick={confirmarImportacion}
+      <PanelSeccion activa={seccion === "cargar"}>
+        {!soloConsulta && (
+          <section
+            className="panel"
+            aria-label="Cargar nómina"
+            aria-busy={ocupado}
           >
-            Guardar nómina identificada
-          </button>
-          <button disabled={ocupado} onClick={() => setImportacion(null)}>
-            Cancelar
-          </button>
-        </section>
-      )}
-      <div className="payroll-actions">
-        <button
-          className="panel payroll-export"
-          disabled={ocupado}
-          onClick={() => setExportar("mensual")}
-        >
-          <strong>Generar mensual</strong>
-          <span>Todos los meses cargados · una hoja por mes</span>
-        </button>
-        <button
-          className="panel payroll-export"
-          disabled={ocupado}
-          onClick={() => setExportar("anual")}
-        >
-          <strong>Generar anual</strong>
-          <span>Una hoja por trabajador · todos sus períodos</span>
-        </button>
-      </div>
-      {exportar && (
-        <section
-          className="panel"
-          aria-label="Opciones de exportación de nómina"
-        >
-          <div className="payroll-heading">
-            <h2>Generar {exportar}</h2>
-            <button
-              onClick={() => setExportar("")}
-              aria-label="Cerrar exportación de nómina"
-            >
-              Cerrar
-            </button>
-          </div>
-          <form onSubmit={generar}>
-            <div className="formgrid">
-              <Campo
-                label="Empresa para exportar nómina"
-                as="select"
-                required
-                value={empresa}
-                onChange={(e) => setEmpresa(e.target.value)}
-              >
-                <option value="">Selecciona una empresa…</option>
-                <OpcionesEmpresa />
-              </Campo>
-              <Campo
-                label="Año de nómina"
-                type="number"
-                min="2000"
-                max="2100"
-                required
-                value={anio}
-                onChange={(e) => setAnio(e.target.value)}
-              />
-            </div>
+            <h2>Subir archivo de nómina</h2>
             <p>
-              {exportar === "mensual"
-                ? "Los meses cargados se ordenan consecutivamente, con todos los trabajadores de cada mes."
-                : "Cada trabajador tiene su hoja con todas sus nóminas cargadas del año."}
+              La empresa, el período y los trabajadores se identifican
+              automáticamente.
             </p>
-            <div className="payroll-export-actions">
-              <button
-                type="button"
-                disabled={ocupado}
-                onClick={() => abrirEditor()}
-              >
-                {soloConsulta ? "Ver libro guardado" : "Abrir editor de nómina"}
-              </button>
-              <button className="primary" disabled={ocupado}>
-                Descargar Excel {exportar}
-              </button>
-              <button
-                type="button"
-                disabled={ocupado}
-                onClick={() => abrirEditor(true)}
-              >
-                Imprimir
-              </button>
-            </div>
-          </form>
-        </section>
-      )}
-      {!soloConsulta && (
-        <div className="payroll-manage">
-          <button onClick={() => setEditar(!editar)} aria-expanded={editar}>
-            Modificar un mes
+            <Campo
+              label="Seleccionar Excel acumulado de nómina"
+              type="file"
+              accept=".xlsx"
+              disabled={ocupado}
+              onChange={subirExcel}
+            />
+            <Campo
+              label="Seleccionar PDF de nómina"
+              type="file"
+              accept=".pdf,application/pdf"
+              disabled={ocupado}
+              onChange={(e) => subir(e)}
+            />
+          </section>
+        )}
+        {importacion && (
+          <section className="panel" aria-label="Revisar importación de Excel">
+            <h2>
+              Archivo identificado:{" "}
+              {nombresEmpresas(data)[importacion.fuente.empresa]} ·{" "}
+              {importacion.fuente.anio}
+            </h2>
+            <p>
+              {importacion.fuente.registros.length} registros con importes ·{" "}
+              {new Set(importacion.fuente.registros.map((r) => r.mes)).size}{" "}
+              meses.
+            </p>
+            <ul>
+              {importacion.fuente.advertencias.map((a, i) => (
+                <li key={i}>{a}</li>
+              ))}
+            </ul>
+            <button
+              disabled={ocupado}
+              className="primary"
+              onClick={confirmarImportacion}
+            >
+              Guardar nómina identificada
+            </button>
+            <button disabled={ocupado} onClick={() => setImportacion(null)}>
+              Cancelar
+            </button>
+          </section>
+        )}
+      </PanelSeccion>
+      <PanelSeccion activa={seccion === "exportar"}>
+        <div className="payroll-actions">
+          <button
+            className="panel payroll-export"
+            disabled={ocupado}
+            onClick={() => setExportar("mensual")}
+          >
+            <strong>Generar mensual</strong>
+            <span>Todos los meses cargados · una hoja por mes</span>
+          </button>
+          <button
+            className="panel payroll-export"
+            disabled={ocupado}
+            onClick={() => setExportar("anual")}
+          >
+            <strong>Generar anual</strong>
+            <span>Una hoja por trabajador · todos sus períodos</span>
           </button>
         </div>
-      )}
-      {editar && !soloConsulta && (
-        <section className="panel" aria-label="Modificar un mes">
-          <h2>Modificar un mes</h2>
-          <fieldset className="payroll-method">
-            <legend>¿Cómo quieres modificarlo?</legend>
-            <label>
-              <input
-                type="radio"
-                name="modo-nomina"
-                value="manual"
-                checked={modo === "manual"}
-                onChange={() => setModo("manual")}
-              />{" "}
-              Editar datos manualmente
-            </label>
-            <label>
-              <input
-                type="radio"
-                name="modo-nomina"
-                value="archivo"
-                checked={modo === "archivo"}
-                onChange={() => setModo("archivo")}
-              />{" "}
-              Volver a subir archivo
-            </label>
-          </fieldset>
-          {modo === "archivo" ? (
-            <div>
-              <p>
-                Sube el PDF corregido. Se detectarán automáticamente la empresa
-                y el período cargado para actualizarlos.
-              </p>
-              <Campo
-                label="Seleccionar PDF corregido"
-                type="file"
-                accept=".pdf,application/pdf"
-                disabled={ocupado}
-                onChange={(e) => subir(e, true)}
-              />
+        {exportar && (
+          <section
+            className="panel"
+            aria-label="Opciones de exportación de nómina"
+          >
+            <div className="payroll-heading">
+              <h2>Generar {exportar}</h2>
+              <button
+                onClick={() => setExportar("")}
+                aria-label="Cerrar exportación de nómina"
+              >
+                Cerrar
+              </button>
             </div>
-          ) : (
-            <>
+            <form onSubmit={generar}>
               <div className="formgrid">
                 <Campo
-                  label="Nómina a modificar"
+                  label="Empresa para exportar nómina"
                   as="select"
-                  value={periodoId}
-                  onChange={(e) => {
-                    setPeriodoId(e.target.value);
-                    setTrabajador("");
-                  }}
+                  required
+                  value={empresa}
+                  onChange={(e) => setEmpresa(e.target.value)}
                 >
-                  <option value="">Selecciona una nómina cargada…</option>
-                  {periodos.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {etiqueta(p)}
-                    </option>
-                  ))}
+                  <option value="">Selecciona una empresa…</option>
+                  <OpcionesEmpresa />
                 </Campo>
                 <Campo
-                  label="Trabajador de la nómina"
-                  as="select"
-                  value={trabajador}
-                  disabled={!periodo}
-                  onChange={(e) => setTrabajador(e.target.value)}
-                >
-                  <option value="">Selecciona un trabajador…</option>
-                  {recibos.map((r) => (
-                    <option key={r.clave} value={r.clave}>
-                      {r.nombre}
-                    </option>
-                  ))}
-                </Campo>
-              </div>
-              {recibo && (
-                <EditarRecibo
-                  key={`${periodo.id}-${periodo.revision}-${recibo.clave}`}
-                  recibo={recibo}
-                  guardar={guardarManual}
-                  disabled={ocupado}
+                  label="Año de nómina"
+                  type="number"
+                  min="2000"
+                  max="2100"
+                  required
+                  value={anio}
+                  onChange={(e) => setAnio(e.target.value)}
                 />
-              )}
-            </>
-          )}
-        </section>
-      )}
-      <details className="panel payroll-files">
-        <summary>Archivos cargados ({periodos.length + libros.length})</summary>
-        {libros.map((l) => (
-          <p key={`${l.empresa}-${l.anio}-${l.tipo}`}>
-            <strong>
-              {nombresEmpresas(data)[l.empresa]} · {l.anio} · {l.tipo}
-            </strong>{" "}
-            · Versión {l.revision}{" "}
-            <button
-              onClick={() =>
-                setEditor({
-                  ambito: { empresa: l.empresa, anio: l.anio, tipo: l.tipo },
-                  periodosPdf: periodos.filter(
-                    (p) => p.empresa_codigo === l.empresa && p.anio === l.anio,
-                  ),
-                })
-              }
-            >
-              {soloConsulta ? "Ver libro" : "Abrir libro"}
-            </button>
-          </p>
-        ))}
-        {!periodos.length && !libros.length ? (
-          <p>Aún no hay nóminas cargadas.</p>
-        ) : (
-          periodos.map((p) => (
-            <details key={p.id} className="payroll-file">
-              <summary>{etiqueta(p)}</summary>
+              </div>
               <p>
-                {p.archivo} · Revisión {p.revision} · {recibosNomina(p).length}{" "}
-                trabajadores
+                {exportar === "mensual"
+                  ? "Los meses cargados se ordenan consecutivamente, con todos los trabajadores de cada mes."
+                  : "Cada trabajador tiene su hoja con todas sus nóminas cargadas del año."}
               </p>
-              <DesgloseNomina periodo={p} />
-            </details>
-          ))
+              <div className="payroll-export-actions">
+                <button
+                  type="button"
+                  disabled={ocupado}
+                  onClick={() => abrirEditor()}
+                >
+                  {soloConsulta
+                    ? "Ver libro guardado"
+                    : "Abrir editor de nómina"}
+                </button>
+                <button className="primary" disabled={ocupado}>
+                  Descargar Excel {exportar}
+                </button>
+                <button
+                  type="button"
+                  disabled={ocupado}
+                  onClick={() => abrirEditor(true)}
+                >
+                  Imprimir
+                </button>
+              </div>
+            </form>
+          </section>
         )}
-      </details>
+      </PanelSeccion>
+      <PanelSeccion activa={seccion === "modificar"}>
+        {editar && !soloConsulta && (
+          <section className="panel" aria-label="Modificar un mes">
+            <h2>Modificar un mes</h2>
+            <fieldset className="payroll-method">
+              <legend>¿Cómo quieres modificarlo?</legend>
+              <label>
+                <input
+                  type="radio"
+                  name="modo-nomina"
+                  value="manual"
+                  checked={modo === "manual"}
+                  onChange={() => setModo("manual")}
+                />{" "}
+                Editar datos manualmente
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="modo-nomina"
+                  value="archivo"
+                  checked={modo === "archivo"}
+                  onChange={() => setModo("archivo")}
+                />{" "}
+                Volver a subir archivo
+              </label>
+            </fieldset>
+            {modo === "archivo" ? (
+              <div>
+                <p>
+                  Sube el PDF corregido. Se detectarán automáticamente la
+                  empresa y el período cargado para actualizarlos.
+                </p>
+                <Campo
+                  label="Seleccionar PDF corregido"
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  disabled={ocupado}
+                  onChange={(e) => subir(e, true)}
+                />
+              </div>
+            ) : (
+              <>
+                <div className="formgrid">
+                  <Campo
+                    label="Nómina a modificar"
+                    as="select"
+                    value={periodoId}
+                    onChange={(e) => {
+                      setPeriodoId(e.target.value);
+                      setTrabajador("");
+                    }}
+                  >
+                    <option value="">Selecciona una nómina cargada…</option>
+                    {periodos.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {etiqueta(p)}
+                      </option>
+                    ))}
+                  </Campo>
+                  <Campo
+                    label="Trabajador de la nómina"
+                    as="select"
+                    value={trabajador}
+                    disabled={!periodo}
+                    onChange={(e) => setTrabajador(e.target.value)}
+                  >
+                    <option value="">Selecciona un trabajador…</option>
+                    {recibos.map((r) => (
+                      <option key={r.clave} value={r.clave}>
+                        {r.nombre}
+                      </option>
+                    ))}
+                  </Campo>
+                </div>
+                {recibo && (
+                  <EditarRecibo
+                    key={`${periodo.id}-${periodo.revision}-${recibo.clave}`}
+                    recibo={recibo}
+                    guardar={guardarManual}
+                    disabled={ocupado}
+                  />
+                )}
+              </>
+            )}
+          </section>
+        )}
+      </PanelSeccion>
+      <PanelSeccion activa={seccion === "archivos"}>
+        <details className="panel payroll-files">
+          <summary>
+            Archivos cargados ({periodos.length + libros.length})
+          </summary>
+          {libros.map((l) => (
+            <p key={`${l.empresa}-${l.anio}-${l.tipo}`}>
+              <strong>
+                {nombresEmpresas(data)[l.empresa]} · {l.anio} · {l.tipo}
+              </strong>{" "}
+              · Versión {l.revision}{" "}
+              <button
+                onClick={() =>
+                  setEditor({
+                    ambito: { empresa: l.empresa, anio: l.anio, tipo: l.tipo },
+                    periodosPdf: periodos.filter(
+                      (p) =>
+                        p.empresa_codigo === l.empresa && p.anio === l.anio,
+                    ),
+                  })
+                }
+              >
+                {soloConsulta ? "Ver libro" : "Abrir libro"}
+              </button>
+            </p>
+          ))}
+          {!periodos.length && !libros.length ? (
+            <p>Aún no hay nóminas cargadas.</p>
+          ) : (
+            periodos.map((p) => (
+              <details key={p.id} className="payroll-file">
+                <summary>{etiqueta(p)}</summary>
+                <p>
+                  {p.archivo} · Revisión {p.revision} ·{" "}
+                  {recibosNomina(p).length} trabajadores
+                </p>
+                <DesgloseNomina periodo={p} />
+              </details>
+            ))
+          )}
+        </details>
+      </PanelSeccion>
       {editor && (
         <EditorNomina
           {...editor}

@@ -1,3 +1,4 @@
+import { abrirSeccion } from "../soporte/secciones.js";
 import { readFile } from "node:fs/promises";
 import { inflateSync } from "node:zlib";
 import { expect, test } from "@playwright/test";
@@ -86,6 +87,7 @@ async function cerrarSesion(page) {
 
 async function asignarClave(page, id) {
   await navegacion(page, "Seguridad").click();
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page
     .getByLabel("Empresa del trabajador", { exact: true })
     .selectOption(
@@ -95,7 +97,9 @@ async function asignarClave(page, id) {
           ? "EDGAR"
           : "ALLAN",
     );
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Empleado", { exact: true }).selectOption(id);
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Acción", { exact: true }).selectOption("set");
   await page
     .getByLabel("Nueva contraseña", { exact: true })
@@ -111,6 +115,7 @@ async function asignarClave(page, id) {
 
 async function agregarEmpleado(page, nombre) {
   await navegacion(page, "Personal").click();
+  await abrirSeccion(page, "Personal", "Total de empleados");
   await page.getByRole("button", { name: "+ Agregar empleado" }).click();
   await page.getByLabel("Nombre completo *").fill(nombre);
   await page.getByLabel("Puesto / función *").fill("EMPLEADO GENERAL");
@@ -177,12 +182,15 @@ test("rechaza ingresos fallidos y respeta el bloqueo manual del acceso", async (
   await ingresarComoAdmin(page);
 
   await navegacion(page, "Seguridad").click();
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page
     .getByLabel("Empresa del trabajador", { exact: true })
     .selectOption("ESTUARDO");
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page
     .getByLabel("Empleado", { exact: true })
     .selectOption(TRABAJADORA_ESTUARDO);
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Acción", { exact: true }).selectOption("block");
   await page.getByRole("button", { name: "Guardar acceso" }).click();
   await expect(page.getByText("Estado: Bloqueado")).toBeVisible();
@@ -198,12 +206,15 @@ test("rechaza ingresos fallidos y respeta el bloqueo manual del acceso", async (
   await page.getByRole("button", { name: "Volver al inicio" }).click();
   await ingresarComoAdmin(page);
   await navegacion(page, "Seguridad").click();
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page
     .getByLabel("Empresa del trabajador", { exact: true })
     .selectOption("ESTUARDO");
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page
     .getByLabel("Empleado", { exact: true })
     .selectOption(TRABAJADORA_ESTUARDO);
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Acción", { exact: true }).selectOption("enable");
   await page.getByRole("button", { name: "Guardar acceso" }).click();
   await expect(page.getByText("Estado: Habilitado")).toBeVisible();
@@ -233,22 +244,28 @@ test("la trabajadora de demostración de Estuardo solo ve su empresa y bitácora
   await ingresarComoAdmin(page);
 
   await navegacion(page, "Seguridad").click();
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page
     .getByLabel("Empresa del trabajador", { exact: true })
     .selectOption("ESTUARDO");
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page
     .getByLabel("Empleado", { exact: true })
     .selectOption(TRABAJADORA_ESTUARDO);
+  await abrirSeccion(page, "Seguridad y permisos", "Autorizaciones");
   await page
     .getByLabel("Usuario activo", { exact: true })
     .selectOption(TRABAJADORA_ESTUARDO);
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page
     .getByLabel("Empresa del trabajador", { exact: true })
     .selectOption("ALLAN");
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Empleado", { exact: true }).selectOption("AL-01");
   await expect(page.getByLabel("Usuario activo", { exact: true })).toHaveValue(
     TRABAJADORA_ESTUARDO,
   );
+  await abrirSeccion(page, "Seguridad y permisos", "Autorizaciones");
   await page.getByLabel("Empresa autorizada").selectOption("ALLAN");
   await expect(page.getByLabel("Usuario activo", { exact: true })).toHaveValue(
     "",
@@ -262,7 +279,9 @@ test("la trabajadora de demostración de Estuardo solo ve su empresa y bitácora
   await expect(
     page.getByRole("button", { name: "Guardar permisos" }),
   ).toBeDisabled();
+  await abrirSeccion(page, "Seguridad y permisos", "Autorizaciones");
   await page.getByLabel("Empresa autorizada").selectOption("ESTUARDO");
+  await abrirSeccion(page, "Seguridad y permisos", "Autorizaciones");
   await page
     .getByLabel("Usuario activo", { exact: true })
     .selectOption(TRABAJADORA_ESTUARDO);
@@ -442,6 +461,7 @@ test("exporta el respaldo JSON, rechaza copias inválidas y restaura la descarga
   await agregarEmpleado(page, "PERSONA RESPALDO E2E");
   await navegacion(page, "Reportes y CSV").click();
   const promesa = page.waitForEvent("download");
+  await abrirSeccion(page, "Reportes y CSV", "Respaldos y restauración");
   await page.getByRole("button", { name: "Descargar respaldo JSON" }).click();
   const descarga = await promesa;
   expect(descarga.suggestedFilename()).toBe("respaldo_rey_pez.json");
@@ -461,6 +481,7 @@ test("exporta el respaldo JSON, rechaza copias inválidas y restaura la descarga
 
   await agregarEmpleado(page, "PERSONA AJENA AL RESPALDO");
   await navegacion(page, "Personal").click();
+  await abrirSeccion(page, "Personal", "Total de empleados");
   await page.getByLabel("Buscar personal").fill("PERSONA AJENA AL RESPALDO");
   await expect(page.locator("tbody").last()).toContainText(
     "PERSONA AJENA AL RESPALDO",
@@ -478,6 +499,7 @@ test("exporta el respaldo JSON, rechaza copias inválidas y restaura la descarga
     ["no-es-json.json", "no-es-json", /JSON/],
     ["ids-duplicados.json", JSON.stringify(corrupto), /IDs duplicados/],
   ]) {
+    await abrirSeccion(page, "Reportes y CSV", "Respaldos y restauración");
     await page.getByLabel("Restaurar respaldo JSON").setInputFiles({
       name: nombre,
       mimeType: "application/json",
@@ -505,6 +527,7 @@ test("exporta el respaldo JSON, rechaza copias inválidas y restaura la descarga
     });
   });
   await navegacion(page, "Reportes y CSV").click();
+  await abrirSeccion(page, "Reportes y CSV", "Respaldos y restauración");
   await page.getByLabel("Restaurar respaldo JSON").setInputFiles({
     name: "respaldo_rey_pez.json",
     mimeType: "application/json",
@@ -522,11 +545,13 @@ test("exporta el respaldo JSON, rechaza copias inválidas y restaura la descarga
   await navegacion(page, "Inicio").click();
   await expect(page.locator(".kvalue").nth(1)).toHaveText("31");
   await navegacion(page, "Personal").click();
+  await abrirSeccion(page, "Personal", "Total de empleados");
   await page.getByLabel("Buscar personal").fill("PERSONA RESPALDO E2E");
   await expect(page.locator("tbody").last()).toContainText(
     "PERSONA RESPALDO E2E",
   );
   await expect(page.locator("tbody .status")).toHaveText("Activo");
+  await abrirSeccion(page, "Personal", "Total de empleados");
   await page.getByLabel("Buscar personal").fill("PERSONA AJENA AL RESPALDO");
   await expect(page.locator("tbody").last()).toContainText("Sin resultados");
   await expect(page.locator("tbody").last()).not.toContainText(

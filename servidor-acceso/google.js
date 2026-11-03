@@ -257,7 +257,7 @@ export function crearGoogle(env, { fetchImpl = fetch, ahora = Date.now } = {}) {
   }
   const db = {
     doc: referencia,
-    async listarUso({ vista, desde, hasta, cursor }) {
+    async listarUso({ vista, desde, hasta, cursor, uidAdmin }) {
       const coleccion = vista === "diaria" ? "usoDiario" : "usoSesiones";
       const resultado = await api(`${origenDatos}:runQuery`, {
         body: {
@@ -319,7 +319,9 @@ export function crearGoogle(env, { fetchImpl = fetch, ahora = Date.now } = {}) {
       const registros = documentosUso.slice(0, 200);
       const ultimo = registros.at(-1);
       return {
-        registros,
+        registros: registros.filter(
+          (r) => r.uid !== uidAdmin && r.cuenta !== "MARIA",
+        ),
         cursor:
           documentosUso.length > 200
             ? { fecha: ultimo.fecha, id: ultimo.id }

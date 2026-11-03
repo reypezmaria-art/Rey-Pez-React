@@ -1,3 +1,4 @@
+import { abrirSeccion } from "../soporte/secciones.js";
 import { test, expect } from "@playwright/test";
 import { baseOperation } from "../../codigo/datos/operacionInicial.js";
 import { makeCredential } from "../../codigo/dominio/seguridad.js";
@@ -49,6 +50,7 @@ test("reintenta el módulo PDF después de un fallo de red sin volver a seleccio
     peticiones++;
     return peticiones === 1 ? route.abort("failed") : route.continue();
   });
+  await abrirSeccion(page, "Nómina", "Cargar nómina");
   await page
     .getByLabel("Seleccionar PDF de nómina", { exact: true })
     .setInputFiles(pdf());
@@ -63,6 +65,7 @@ test("si el módulo PDF sigue sin cargar muestra Actualizar página y conserva l
   await page.route("**/codigo/utilidades/pdfNomina.js*", (route) =>
     route.abort("failed"),
   );
+  await abrirSeccion(page, "Nómina", "Cargar nómina");
   await page
     .getByLabel("Seleccionar PDF de nómina", { exact: true })
     .setInputFiles(pdf());
@@ -82,6 +85,7 @@ test("si el módulo PDF sigue sin cargar muestra Actualizar página y conserva l
 test("cálculos informativos sin ISR retenido conservan los importes del recibo", async ({
   page,
 }) => {
+  await abrirSeccion(page, "Nómina", "Cargar nómina");
   await page
     .getByLabel("Seleccionar PDF de nómina", { exact: true })
     .setInputFiles(pdf({ empresa: "EDGAR", calculoInformativo: true }));
@@ -105,6 +109,7 @@ test("cálculos informativos sin ISR retenido conservan los importes del recibo"
 test("importa Infonavit CF sin duplicar el descuento cuando el recibo continúa en otra página", async ({
   page,
 }) => {
+  await abrirSeccion(page, "Nómina", "Cargar nómina");
   await page
     .getByLabel("Seleccionar PDF de nómina", { exact: true })
     .setInputFiles(
@@ -130,6 +135,7 @@ test("importa Infonavit CF sin duplicar el descuento cuando el recibo continúa 
 test("sube, acumula, corrige automáticamente un PDF y exporta XLSX mensual y anual con persistencia", async ({
   page,
 }) => {
+  await abrirSeccion(page, "Nómina", "Cargar nómina");
   const subir = page.getByLabel("Seleccionar PDF de nómina", { exact: true });
   await subir.setInputFiles({
     name: "nomina.pdf",
@@ -154,15 +160,14 @@ test("sube, acumula, corrige automáticamente un PDF y exporta XLSX mensual y an
   await subir.setInputFiles(pdf());
   await expect(page.getByRole("status")).toContainText("No se duplicó");
   await expect(page.locator(".payroll-files")).not.toHaveAttribute("open");
-  await page
-    .getByRole("button", { name: "Modificar un mes", exact: true })
-    .click();
+  await abrirSeccion(page, "Nómina", "Modificar un mes");
   await page
     .getByRole("radio", { name: "Volver a subir archivo", exact: true })
     .check();
   await expect(
     page.getByLabel("Nómina a modificar", { exact: true }),
   ).toHaveCount(0);
+  await abrirSeccion(page, "Nómina", "Modificar un mes");
   await page
     .getByLabel("Seleccionar PDF corregido", { exact: true })
     .setInputFiles(pdf({ importe: 550000 }, "corregido.pdf"));
@@ -173,12 +178,17 @@ test("sube, acumula, corrige automáticamente un PDF y exporta XLSX mensual y an
   expect(state.payroll).toHaveLength(3);
   expect(state.audit[0].anterior).toBeTruthy();
   for (const tipo of ["mensual", "anual"]) {
+    await abrirSeccion(page, "Nómina", "Libros y exportación");
+    await abrirSeccion(page, "Nómina", "Libros y exportación");
     await page
       .getByRole("button", { name: new RegExp("Generar " + tipo) })
       .click();
+    await abrirSeccion(page, "Nómina", "Libros y exportación");
     await page.getByLabel("Empresa para exportar nómina").selectOption("ALLAN");
+    await abrirSeccion(page, "Nómina", "Libros y exportación");
     await page.getByLabel("Año de nómina").fill("2026");
     const download = page.waitForEvent("download");
+    await abrirSeccion(page, "Nómina", "Libros y exportación");
     await page
       .getByRole("button", { name: "Descargar Excel " + tipo, exact: true })
       .click();
@@ -202,6 +212,7 @@ test("sube, acumula, corrige automáticamente un PDF y exporta XLSX mensual y an
   await expect(page.locator(".payroll-files summary").first()).toHaveText(
     "Archivos cargados (3)",
   );
+  await abrirSeccion(page, "Nómina", "Cargar nómina");
   await page.getByLabel("Seleccionar PDF de nómina").setInputFiles({
     name: "invalido.pdf",
     mimeType: "application/pdf",

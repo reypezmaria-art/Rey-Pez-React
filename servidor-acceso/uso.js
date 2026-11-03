@@ -62,11 +62,7 @@ export async function identidadUso(request, { auth, db }, modulo) {
   if (!token) throw fallo("unauthenticated", "Inicia sesión.");
   const { uid } = await auth.verifyIdToken(token);
   const admin = await db.doc("acceso/admin").get();
-  if (admin.get("uid") === uid) {
-    if ((await db.doc("controlAccesos/MARIA").get()).get("bloqueado"))
-      throw fallo("permission-denied", "Cuenta bloqueada.");
-    return { uid, cuenta: "MARIA", nombre: "María", empresa: "ADMINISTRACIÓN" };
-  }
+  if (admin.get("uid") === uid) return null;
   const usuario = await db.doc(`usuarios/${uid}`).get();
   const id = usuario.get("idEmpleado");
   if (
@@ -130,6 +126,7 @@ export async function registrarUso(
 ) {
   validarPulso(datos);
   const identidad = await identidadUso(request, servicios, datos.modulo);
+  if (!identidad) return { ok: true, excluida: true };
   const digest = await crypto.subtle.digest(
     "SHA-256",
     new TextEncoder().encode(identidad.uid),

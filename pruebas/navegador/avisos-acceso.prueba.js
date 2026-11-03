@@ -1,3 +1,4 @@
+import { abrirSeccion } from "../soporte/secciones.js";
 import { expect, test } from "@playwright/test";
 import { baseOperation } from "../../codigo/datos/operacionInicial.js";
 import { demoEmployees } from "../../codigo/datos/empleadosDemostracion.js";
@@ -71,13 +72,17 @@ test("cuarto fallo, regreso automático, siguiente usuario y desbloqueo de Marí
     .getByRole("navigation")
     .getByRole("button", { name: "Seguridad", exact: true })
     .click();
+  await abrirSeccion(page, "Seguridad y permisos", "Alertas de seguridad");
   await expect(
     page.getByRole("region", { name: "Alertas de seguridad" }),
   ).toContainText("Cuenta bloqueada");
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page
     .getByLabel("Empresa del trabajador", { exact: true })
     .selectOption("ALLAN");
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Empleado", { exact: true }).selectOption("AL-01");
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Acción", { exact: true }).selectOption("enable");
   await page.getByRole("button", { name: "Guardar acceso" }).click();
   await expect(page.getByText("Estado: Habilitado")).toBeVisible();
@@ -191,6 +196,7 @@ test("revisar una alerta la archiva debajo de Admin sin desbloquear ni borrar el
     .getByRole("navigation")
     .getByRole("button", { name: "Seguridad", exact: true })
     .click();
+  await abrirSeccion(page, "Seguridad y permisos", "Alertas de seguridad");
   const pendientes = page.getByRole("region", {
     name: "Alertas de seguridad",
     exact: true,
@@ -198,23 +204,29 @@ test("revisar una alerta la archiva debajo de Admin sin desbloquear ni borrar el
   const registro = page.locator("details.security-history");
   await expect(pendientes).toContainText("Cuenta bloqueada");
   await expect(registro).not.toHaveAttribute("open");
+  await abrirSeccion(page, "Seguridad y permisos", "Registro de incidencias");
   await registro.locator("summary").click();
   await expect(registro.getByText("Sin incidencias revisadas.")).toBeVisible();
+  await abrirSeccion(page, "Seguridad y permisos", "Registro de incidencias");
   await registro.locator("summary").click();
+  await abrirSeccion(page, "Seguridad y permisos", "Alertas de seguridad");
   await pendientes
     .getByRole("button", { name: "Marcar revisada", exact: true })
     .click();
+  await abrirSeccion(page, "Seguridad y permisos", "Alertas de seguridad");
   await expect(pendientes).toContainText("Sin alertas pendientes.");
   await expect(registro.getByRole("table")).not.toBeVisible();
+  await abrirSeccion(page, "Seguridad y permisos", "Registro de incidencias");
   await registro.locator("summary").click();
   await expect(registro.getByRole("table")).toBeVisible();
   await expect(registro).toContainText("Cuenta bloqueada");
   await expect(registro).toContainText("Por MARIA");
-  expect(
-    await page
-      .getByRole("region", { name: "Admin", exact: true })
-      .evaluate((el) => el.nextElementSibling.getAttribute("aria-label")),
-  ).toBe("Registro de incidencias");
+  await expect(
+    page.getByRole("button", {
+      name: "← Volver a Seguridad y permisos",
+      exact: true,
+    }),
+  ).toBeVisible();
   await expect(
     page.getByText(
       /El bloqueo afecta únicamente|La contraseña no se muestra ni se exporta/,
@@ -231,8 +243,10 @@ test("revisar una alerta la archiva debajo de Admin sin desbloquear ni borrar el
     .getByRole("navigation")
     .getByRole("button", { name: "Seguridad", exact: true })
     .click();
+  await abrirSeccion(page, "Seguridad y permisos", "Alertas de seguridad");
   await expect(pendientes).toContainText("Sin alertas pendientes.");
   await expect(registro.getByRole("table")).not.toBeVisible();
+  await abrirSeccion(page, "Seguridad y permisos", "Registro de incidencias");
   await registro.locator("summary").click();
   await expect(registro.getByRole("table")).toBeVisible();
   await expect(registro).toContainText("Cuenta bloqueada");
@@ -247,6 +261,7 @@ test("Acceso del trabajador exige empresa y limpia la selección y contraseña a
     .getByRole("navigation")
     .getByRole("button", { name: "Seguridad", exact: true })
     .click();
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   const empresa = page.getByLabel("Empresa del trabajador", { exact: true });
   const empleado = page.getByLabel("Empleado", { exact: true });
   await expect(empresa).toHaveValue("");
@@ -259,6 +274,7 @@ test("Acceso del trabajador exige empresa y limpia la selección y contraseña a
   expect(idsAllan.length).toBeGreaterThan(0);
   expect(idsAllan.every((id) => id.startsWith("AL-"))).toBe(true);
   await empleado.selectOption("AL-01");
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Acción", { exact: true }).selectOption("set");
   await page.getByLabel("Nueva contraseña", { exact: true }).fill("Prueba6");
   await page
@@ -277,6 +293,7 @@ test("Acceso del trabajador exige empresa y limpia la selección y contraseña a
   expect(idsEstuardo.every((id) => id.startsWith("ES-"))).toBe(true);
   await empresa.selectOption("ALLAN");
   await empleado.selectOption("AL-01");
+  await abrirSeccion(page, "Seguridad y permisos", "Acceso del trabajador");
   await page.getByLabel("Acción", { exact: true }).selectOption("set");
   await expect(
     page.getByLabel("Nueva contraseña", { exact: true }),
