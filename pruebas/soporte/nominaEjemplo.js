@@ -8,6 +8,9 @@ export function pdfNominaEjemplo({
   nombre = "PERSONA DEMO UNO",
   codigo = "001",
   nss,
+  rfc,
+  infonavitCf = 0,
+  continuar = false,
 } = {}) {
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   doc.setFontSize(9);
@@ -23,6 +26,7 @@ export function pdfNominaEjemplo({
   text(`Lista de Raya del ${desde} al ${hasta}`, 160, 40);
   text("Periodo Quincenal No. 1", 180, 55);
   text(`${codigo} ${nombre}`, 25, 90);
+  if (rfc) text(`RFC: ${rfc}`, 350, 120);
   text("Sal. diario: 350.00", 150, 105);
   text("Dias pagados: 15.00", 25, 120);
   if (nss) text(`Afiliacion IMSS: ${nss}`, 350, 105);
@@ -36,17 +40,28 @@ export function pdfNominaEjemplo({
     ["45 I.S.R. (mes)", 10000],
     ["52 I.M.S.S.", 12000],
     ["99 Ajuste al neto", -10],
+    ...(infonavitCf
+      ? [
+          ["16 Prestamo infonavit (CF)", infonavitCf],
+          ["180 Infonavit CF correspondiente", infonavitCf],
+        ]
+      : []),
   ].forEach(([label, value], i) => {
     text(label, 345, 140 + i * 14);
     text(money(value), 555, 140 + i * 14);
   });
-  text("Total Percepciones", 25, 230);
-  text(money(importe), 270, 230);
-  text("Total Deducciones", 345, 230);
-  text("219.90", 555, 230);
-  text("Neto a pagar", 25, 244);
-  text(money(importe - 21990), 270, 244);
-  text("Total de empleados : 1", 25, 270);
+  if (continuar) {
+    doc.addPage();
+    text("RFC: PATR-010101-AAA", 25, 25);
+  }
+  const y = infonavitCf ? 250 : 230;
+  text("Total Percepciones", 25, y);
+  text(money(importe), 270, y);
+  text("Total Deducciones", 345, y);
+  text(money(21990 + infonavitCf), 555, y);
+  text("Neto a pagar", 25, y + 14);
+  text(money(importe - 21990 - infonavitCf), 270, y + 14);
+  text("Total de empleados : 1", 25, y + 40);
   return new Uint8Array(doc.output("arraybuffer"));
 }
 export function entradaNominaEjemplo({

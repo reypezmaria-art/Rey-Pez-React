@@ -120,6 +120,16 @@ function terminar(r) {
     )
   )
     infonavit.informativo = true;
+  const creditoCf = porCodigo.get("16"),
+    correspondienteCf = porCodigo.get("180");
+  if (
+    creditoCf &&
+    correspondienteCf &&
+    /infonavit/i.test(creditoCf.concepto) &&
+    /^infonavit CF correspondiente(?:\s|$)/i.test(correspondienteCf.concepto) &&
+    creditoCf.importe === correspondienteCf.importe
+  )
+    correspondienteCf.informativo = true;
   return validarRecibo(r);
 }
 export function extraerNomina(paginas, aliases = {}) {
@@ -193,7 +203,9 @@ export function extraerNomina(paginas, aliases = {}) {
     const rfc = f.texto.match(
       /\bRFC:\s*([A-ZÑ&]{3,4}[- ]?\d{6}[- ]?[A-Z0-9]{3})\b/i,
     );
-    if (rfc)
+    // Un recibo puede continuar en otra página cuyo encabezado trae el RFC
+    // patronal. Conservar el RFC que ya se leyó dentro del recibo.
+    if (rfc && actual.clave === "COD:" + actual.codigo)
       actual.clave = "RFC:" + normalizarNomina(rfc[1]).replace(/[- ]/g, "");
     const nss = f.texto.match(/Afiliaci[oó]n\s+IMSS:\s*([0-9][0-9 -]*[0-9])/i);
     if (nss) actual.nss = nss[1].trim();

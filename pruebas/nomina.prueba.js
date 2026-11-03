@@ -61,6 +61,54 @@ test("extrae las tres empresas desde PDF sin seleccionar empresa; concilia subsi
     );
   }
 });
+test("Infonavit CF correspondiente conserva el desglose sin duplicar el descuento y el RFC patronal no cambia la identidad", async () => {
+  const bytes = pdfNominaEjemplo({
+    empresa: "EDGAR",
+    rfc: "DEMO-010101-AAA",
+    infonavitCf: 25000,
+    continuar: true,
+  });
+  const p = await leer(bytes.slice()),
+    r = JSON.parse(p.registrosJson)[0];
+  assert.equal(r.clave, "RFC:DEMO010101AAA");
+  assert.equal(r.totalDeducciones, 46990);
+  assert.equal(r.neto, 478010);
+  assert.equal(r.deducciones.find((c) => c.codigo === "16").informativo, false);
+  assert.equal(r.deducciones.find((c) => c.codigo === "180").informativo, true);
+  const tarea = getDocument({ data: bytes, useSystemFonts: true });
+  try {
+    const pdf = await tarea.promise;
+    const paginas = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const pagina = await pdf.getPage(i);
+      paginas.push({
+        ancho: 612,
+        items: (await pagina.getTextContent()).items,
+      });
+    }
+    const distintos = structuredClone(paginas);
+    for (const pagina of distintos) {
+      const resumen = pagina.items.find(
+        (item) => item.str === "180 Infonavit CF correspondiente",
+      );
+      if (resumen)
+        for (const item of pagina.items)
+          if (
+            item.str === "250.00" &&
+            item.transform[5] === resumen.transform[5]
+          )
+            item.str = "251.00";
+    }
+    assert.throws(() => extraerNomina(distintos), /totales/);
+    for (const pagina of paginas)
+      for (const item of pagina.items)
+        if (item.str === "180 Infonavit CF correspondiente")
+          item.str = "180 Otro descuento";
+    assert.throws(() => extraerNomina(paginas), /totales/);
+  } finally {
+    await tarea.destroy();
+  }
+});
 test("un PDF inconsistente no se guarda ni se sustituye parcialmente", async () => {
   const bytes = pdfNominaEjemplo();
   const t = getDocument({ data: bytes });

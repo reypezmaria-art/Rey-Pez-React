@@ -41,6 +41,31 @@ const pdf = (args, name = "ejemplo.pdf") => ({
   mimeType: "application/pdf",
   buffer: Buffer.from(pdfNominaEjemplo(args)),
 });
+test("importa Infonavit CF sin duplicar el descuento cuando el recibo continúa en otra página", async ({
+  page,
+}) => {
+  await page
+    .getByLabel("Seleccionar PDF de nómina", { exact: true })
+    .setInputFiles(
+      pdf({
+        empresa: "EDGAR",
+        rfc: "DEMO-010101-AAA",
+        infonavitCf: 25000,
+        continuar: true,
+      }),
+    );
+  await expect(page.getByRole("status")).toContainText("Nómina guardada");
+  const state = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem("reypez_react_v1")),
+  );
+  expect(state.payroll).toHaveLength(1);
+  const r = JSON.parse(state.payroll[0].registrosJson)[0];
+  expect(r.clave).toBe("RFC:DEMO010101AAA");
+  expect(r.totalDeducciones).toBe(46990);
+  expect(r.neto).toBe(478010);
+  expect(r.deducciones.find((c) => c.codigo === "16").informativo).toBe(false);
+  expect(r.deducciones.find((c) => c.codigo === "180").informativo).toBe(true);
+});
 test("sube, acumula, corrige automáticamente un PDF y exporta XLSX mensual y anual con persistencia", async ({
   page,
 }) => {
