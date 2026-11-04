@@ -422,7 +422,7 @@ export default function Nomina({ soloConsulta = false }) {
           Descargar Excel preparado
         </a>
       )}
-      <PanelSeccion activa={seccion === "cargar"}>
+      <PanelSeccion activa={!seccion || seccion === "cargar"}>
         {!soloConsulta && (
           <section
             className="panel"
@@ -480,7 +480,7 @@ export default function Nomina({ soloConsulta = false }) {
           </section>
         )}
       </PanelSeccion>
-      <PanelSeccion activa={seccion === "exportar"}>
+      <PanelSeccion activa={!seccion || seccion === "exportar"}>
         <div className="payroll-actions">
           <button
             className="panel payroll-export"

@@ -717,13 +717,17 @@ test("los módulos abren sus secciones por tarjetas y Asistencia 1 conserva el r
     ["Nómina", "Nómina", "Cargar nómina", "Seleccionar PDF de nómina"],
   ]) {
     await nav(page, modulo).click();
-    await expect(page.getByLabel(control, { exact: true })).toBeHidden();
+    await expect(page.getByLabel(control, { exact: true }))[
+      modulo === "Nómina" ? "toBeVisible" : "toBeHidden"
+    ]();
     await abrirSeccion(page, titulo, seccion);
     await expect(page.getByLabel(control, { exact: true })).toBeVisible();
     await page
       .getByRole("button", { name: `← Volver a ${titulo}`, exact: true })
       .click();
-    await expect(page.getByLabel(control, { exact: true })).toBeHidden();
+    await expect(page.getByLabel(control, { exact: true }))[
+      modulo === "Nómina" ? "toBeVisible" : "toBeHidden"
+    ]();
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,
