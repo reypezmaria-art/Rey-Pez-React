@@ -714,7 +714,6 @@ test("los módulos abren sus secciones por tarjetas y Asistencia 1 conserva el r
       "Reportes de operación",
       "Empresa del reporte",
     ],
-    ["Nómina", "Nómina", "Cargar nómina", "Seleccionar PDF de nómina"],
   ]) {
     await nav(page, modulo).click();
     await expect(page.getByLabel(control, { exact: true }))[
@@ -734,6 +733,15 @@ test("los módulos abren sus secciones por tarjetas y Asistencia 1 conserva el r
       ),
     ).toBe(true);
   }
+  await nav(page, "Nómina").click();
+  await expect(
+    page.getByLabel("Seleccionar PDF de nómina", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Generar mensual/ }),
+  ).toBeVisible();
+  const tarjetas = page.locator('[data-secciones="Nómina"] .folder-card');
+  await expect(tarjetas).toHaveText([/Modificar un mes/, /Archivos cargados/]);
   await nav(page, "Asistencia 1 · Trabajador").click();
   await expect(
     page

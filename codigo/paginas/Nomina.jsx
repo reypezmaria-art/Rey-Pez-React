@@ -364,51 +364,6 @@ export default function Nomina({ soloConsulta = false }) {
         title="Nómina"
         subtitle="Carga, consulta y exportación por empresa"
       />
-      <SeccionesPagina
-        titulo="Nómina"
-        seleccion={seccion}
-        disabled={ocupado}
-        onSeleccion={(valor) => {
-          setSeccion(valor);
-          setEditar(valor === "modificar");
-        }}
-        opciones={[
-          ...(!soloConsulta
-            ? [
-                {
-                  id: "cargar",
-                  titulo: "Cargar nómina",
-                  icono: "↑",
-                  descripcion:
-                    "Subir Excel o PDF para identificar empresa, períodos y trabajadores.",
-                },
-              ]
-            : []),
-          {
-            id: "exportar",
-            titulo: "Libros y exportación",
-            icono: "▤",
-            descripcion: "Abrir el editor, generar mensual o anual e imprimir.",
-          },
-          ...(!soloConsulta
-            ? [
-                {
-                  id: "modificar",
-                  titulo: "Modificar un mes",
-                  icono: "✎",
-                  descripcion:
-                    "Corregir un período o volver a subir su archivo.",
-                },
-              ]
-            : []),
-          {
-            id: "archivos",
-            titulo: "Archivos cargados",
-            icono: "▣",
-            descripcion: `${periodos.length + libros.length} archivos y libros guardados.`,
-          },
-        ]}
-      />
       <Mensaje>{aviso}</Mensaje>
       <Mensaje error>{error}</Mensaje>
       {error && errorCarga && (
@@ -422,7 +377,7 @@ export default function Nomina({ soloConsulta = false }) {
           Descargar Excel preparado
         </a>
       )}
-      <PanelSeccion activa={!seccion || seccion === "cargar"}>
+      <PanelSeccion activa={true}>
         {!soloConsulta && (
           <section
             className="panel"
@@ -480,7 +435,7 @@ export default function Nomina({ soloConsulta = false }) {
           </section>
         )}
       </PanelSeccion>
-      <PanelSeccion activa={!seccion || seccion === "exportar"}>
+      <PanelSeccion activa={true}>
         <div className="payroll-actions">
           <button
             className="panel payroll-export"
@@ -499,6 +454,34 @@ export default function Nomina({ soloConsulta = false }) {
             <span>Una hoja por trabajador · todos sus períodos</span>
           </button>
         </div>
+        <SeccionesPagina
+          titulo="Nómina"
+          seleccion={seccion}
+          disabled={ocupado}
+          onSeleccion={(valor) => {
+            setSeccion(valor);
+            setEditar(valor === "modificar");
+          }}
+          opciones={[
+            ...(!soloConsulta
+              ? [
+                  {
+                    id: "modificar",
+                    titulo: "Modificar un mes",
+                    icono: "✎",
+                    descripcion:
+                      "Corregir un período o volver a subir su archivo.",
+                  },
+                ]
+              : []),
+            {
+              id: "archivos",
+              titulo: "Archivos cargados",
+              icono: "▣",
+              descripcion: `${periodos.length + libros.length} archivos y libros guardados.`,
+            },
+          ]}
+        />
         {exportar && (
           <section
             className="panel"

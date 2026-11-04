@@ -1,4 +1,9 @@
 export async function abrirSeccion(page, grupo, titulo) {
+  if (
+    grupo === "Nómina" &&
+    ["Cargar nómina", "Libros y exportación"].includes(titulo)
+  )
+    return;
   const menu = page.locator(`[data-secciones="${grupo}"]`);
   await menu.waitFor({ state: "attached" });
   if ((await menu.getAttribute("data-titulo-activo")) === titulo) return;
