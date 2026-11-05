@@ -17,3 +17,11 @@ Fuentes consultadas el 05/11/2026:
 - https://www.diputados.gob.mx/LeyesBiblio/pdf/LFT.pdf (artículos 74 y 76–81).
 - https://www.gob.mx/profedet/articulos/persona-trabajadora-las-vacaciones-son-tu-derecho?idiom=es
 - https://www.gob.mx/profedet/articulos/sabes-cuales-son-los-dias-de-descanso-obligatorio-para-este-2026?facet=app&mode=light
+
+## Cálculo automático y captura de vacaciones ya disfrutadas
+
+Al seleccionar al trabajador, se muestran automáticamente los años cumplidos y los días que corresponden al aniversario seleccionado. «Días laborables a disfrutar» toma el saldo disponible (derecho anual menos días usados fuera del apartado y demás períodos vigentes registrados); se permite reducirlo para una salida parcial. En una nueva salida, cambiar los días usados recalcula ese valor. Al modificar un período existente se conservan sus días hasta que el usuario los cambie expresamente. Al editar un período, ese mismo registro se excluye de la disponibilidad para su reemplazo.
+
+El marcador informa los días disponibles antes del nuevo período. Si aún no se han capturado los días usados, muestra «Por capturar», sin suponer cero. Cuando el saldo está en cero, se permite guardar los usados pero no otra salida.
+
+«Guardar días ya usados» permite capturar vacaciones disfrutadas fuera de este apartado sin una fecha de salida y sin agregar un registro de vacaciones ni modificar asistencia. Se conserva por trabajador y aniversario, con auditoría del saldo anterior, nuevo y responsable. No incluir aquí días que ya estén representados en el historial. El campo de motivo/acuerdo se retira del formulario: al guardar se genera una descripción administrativa automáticamente. La cancelación conserva su motivo específico.

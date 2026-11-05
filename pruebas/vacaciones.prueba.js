@@ -6,6 +6,8 @@ import {
   diasPorAntiguedad,
   festivosMexico,
   guardarVacaciones,
+  guardarDiasUsados,
+  saldoVacaciones,
   cancelarVacaciones,
   vacacionesDelMes,
 } from "../codigo/dominio/vacaciones.js";
@@ -180,4 +182,53 @@ test("vacaciones programadas retiran la ausencia pendiente y cancelarlas la rest
   const id = s.employees[0].vacaciones.registros[0].id;
   const c = cancelarVacaciones(s, "E-01", id, "Se posponen", "MARIA", ahora);
   assert.equal(pendingAbsences(c, dia).length, 1);
+});
+
+test("saldo automático: doce días, diez usados y dos disponibles sin inventar otra salida", () => {
+  const s = base();
+  s.employees[0].fecha_ingreso = "2025-01-27";
+  assert.equal(saldoVacaciones(s.employees[0], 2026).disponibles, null);
+  const entrada = { ...form(), previos: 10, inicio: "", dias: "", motivo: "" };
+  const actualizado = guardarDiasUsados(s, entrada, "MARIA", ahora);
+  assert.equal(actualizado.employees[0].vacaciones.registros, undefined);
+  assert.equal(saldoVacaciones(actualizado.employees[0], 2026).dias, 12);
+  assert.equal(saldoVacaciones(actualizado.employees[0], 2026).anios, 1);
+  assert.equal(saldoVacaciones(actualizado.employees[0], 2026).disponibles, 2);
+  assert.equal(s.employees[0].vacaciones, undefined);
+  const salida = guardarVacaciones(
+    actualizado,
+    { ...entrada, inicio: "2026-11-06" },
+    "MARIA",
+    ahora,
+  );
+  assert.equal(salida.employees[0].vacaciones.registros[0].dias, 2);
+  assert.equal(saldoVacaciones(salida.employees[0], 2026).disponibles, 0);
+  assert.equal(
+    saldoVacaciones(salida.employees[0], 2026, {
+      excluirId: salida.employees[0].vacaciones.registros[0].id,
+    }).disponibles,
+    2,
+  );
+  assert.ok(salida.audit[0].motivo.includes("2 días"));
+  assert.throws(
+    () =>
+      guardarDiasUsados(salida, { ...entrada, previos: 11 }, "MARIA", ahora),
+    /superan/,
+  );
+  const completo = guardarDiasUsados(
+    actualizado,
+    { ...entrada, previos: 12 },
+    "MARIA",
+    ahora,
+  );
+  assert.equal(saldoVacaciones(completo.employees[0], 2026).disponibles, 0);
+  assert.equal(completo.employees[0].vacaciones.registros, undefined);
+  assert.equal(completo.audit[0].anterior.usadosPrevios, 10);
+  for (const previos of ["", null, -1, 1.5, 13])
+    assert.throws(() =>
+      guardarDiasUsados(s, { ...entrada, previos }, "MARIA", ahora),
+    );
+  assert.throws(() =>
+    guardarDiasUsados(s, { ...entrada, confirmado: false }, "MARIA", ahora),
+  );
 });

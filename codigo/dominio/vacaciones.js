@@ -120,43 +120,105 @@ export function vacacionesDelMes(empleados, mes, empresa = "") {
     )
     .sort((a, b) => a.inicio.localeCompare(b.inicio));
 }
-export function guardarVacaciones(state, form, responsable, now = new Date()) {
+// El saldo previo solo incluye días que no estén representados por registros vigentes.
+export function saldoVacaciones(empleado, anio, { previos, excluirId } = {}) {
+  const ingreso = normalizeDate(empleado?.fecha_ingreso || "");
+  const year = Number(anio);
+  if (
+    !fechaValida(ingreso) ||
+    !Number.isInteger(year) ||
+    year < 2023 ||
+    year <= Number(ingreso.slice(0, 4))
+  )
+    return null;
+  const referencia = derechoVacaciones(empleado, aniversario(ingreso, year));
+  const valor =
+    previos === undefined
+      ? empleado.vacaciones?.usadosPrevios?.[year]
+      : previos;
+  const usadosPrevios = valor === "" || valor == null ? null : Number(valor);
+  const registros = (empleado.vacaciones?.registros || []).filter(
+    (r) =>
+      r.estado !== "Cancelada" && Number(r.anio) === year && r.id !== excluirId,
+  );
+  const registrados = registros.reduce((total, r) => total + Number(r.dias), 0);
+  const validos = Number.isInteger(usadosPrevios) && usadosPrevios >= 0;
+  return {
+    ...referencia,
+    previos: usadosPrevios,
+    registrados,
+    disponibles: validos ? referencia.dias - usadosPrevios - registrados : null,
+  };
+}
+function validarSaldo(state, form, responsable, now) {
   const e = state.employees.find((e) => e.id_empleado === form.empleadoId);
   if (!e || !esPersonalVacaciones(e))
     throw Error("Selecciona un trabajador activo.");
-  if (!responsable || !form.motivo?.trim())
-    throw Error("Indica responsable y motivo.");
+  if (!responsable) throw Error("Indica el responsable.");
   if (!form.confirmado)
     throw Error(
       "Confirma la antigüedad, la relación continua y los días previamente usados.",
     );
-  const ingreso = normalizeDate(e.fecha_ingreso || "");
-  const anio = Number(form.anio);
-  if (
-    !fechaValida(ingreso) ||
-    !Number.isInteger(anio) ||
-    anio < 2023 ||
-    anio > Number(calendarDate(now).slice(0, 4))
-  )
+  const saldo = saldoVacaciones(e, form.anio, {
+    previos: form.previos,
+    excluirId: form.id,
+  });
+  if (!saldo || saldo.aniversario > calendarDate(now))
     throw Error(
-      "Revisa la fecha de ingreso y el año del aniversario (desde 2023).",
+      "Revisa la fecha de ingreso y el año del aniversario ya cumplido (desde 2023).",
     );
-  const desde = aniversario(ingreso, anio);
-  if (desde > calendarDate(now) || desde > form.inicio)
-    throw Error(
-      "El aniversario debe haberse cumplido antes de la salida y de hoy.",
-    );
-  const derecho = diasPorAntiguedad(anio - Number(ingreso.slice(0, 4)));
-  const previos = Number(form.previos);
-  if (
-    form.previos === "" ||
-    !Number.isInteger(previos) ||
-    previos < 0 ||
-    previos > derecho
-  )
+  if (saldo.disponibles === null || saldo.previos > saldo.dias)
     throw Error(
       "Indica los días ya utilizados fuera de este apartado para ese aniversario.",
     );
+  if (saldo.disponibles < 0)
+    throw Error(
+      `Los días ya utilizados y registrados superan los ${saldo.dias} días de ese aniversario.`,
+    );
+  return { e, saldo };
+}
+export function guardarDiasUsados(state, form, responsable, now = new Date()) {
+  // Guardar un saldo no crea una salida ni una ausencia y tampoco modifica períodos existentes.
+  const { e, saldo } = validarSaldo(
+    state,
+    { ...form, id: undefined },
+    responsable,
+    now,
+  );
+  const anterior = e.vacaciones?.usadosPrevios?.[saldo.anio] ?? null;
+  const motivo = `Actualización de días ya usados del aniversario ${saldo.anio}: ${saldo.previos}. Días disponibles: ${saldo.disponibles}.`;
+  return actualizar(
+    state,
+    e,
+    {
+      ...e.vacaciones,
+      usadosPrevios: {
+        ...e.vacaciones?.usadosPrevios,
+        [saldo.anio]: saldo.previos,
+      },
+    },
+    {
+      anterior: { anio: saldo.anio, usadosPrevios: anterior },
+      siguiente: {
+        anio: saldo.anio,
+        usadosPrevios: saldo.previos,
+        derecho: saldo.dias,
+        disponibles: saldo.disponibles,
+      },
+    },
+    responsable,
+    motivo,
+    now,
+  );
+}
+export function guardarVacaciones(state, form, responsable, now = new Date()) {
+  const { e, saldo } = validarSaldo(state, form, responsable, now);
+  const ingreso = normalizeDate(e.fecha_ingreso || "");
+  const anio = saldo.anio,
+    derecho = saldo.dias,
+    previos = saldo.previos;
+  if (saldo.aniversario > form.inicio)
+    throw Error("El aniversario debe haberse cumplido antes de la salida.");
   const v = e.vacaciones || {},
     registros = v.registros || [];
   const anterior = form.id ? registros.find((r) => r.id === form.id) : null;
@@ -164,7 +226,9 @@ export function guardarVacaciones(state, form, responsable, now = new Date()) {
     throw Error("El registro ya no se puede modificar.");
   const salida = calcularSalida(
     form.inicio,
-    Number(form.dias),
+    form.dias === "" || form.dias == null
+      ? saldo.disponibles
+      : Number(form.dias),
     state.holidays || [],
   );
   const otros = registros.filter(
@@ -172,13 +236,12 @@ export function guardarVacaciones(state, form, responsable, now = new Date()) {
   );
   if (otros.some((r) => r.inicio < salida.regreso && r.regreso > salida.inicio))
     throw Error("Este período se cruza con vacaciones ya programadas.");
-  const usados = otros
-    .filter((r) => r.anio === anio)
-    .reduce((s, r) => s + r.dias, 0);
+  const usados = saldo.registrados;
   if (previos + usados + salida.dias > derecho)
     throw Error(
       `El período supera los ${derecho} días de ese aniversario: ${previos + usados} ya utilizados o programados.`,
     );
+  const motivo = `Registro de vacaciones del aniversario ${anio}: ${salida.dias} días laborables, del ${salida.inicio} al ${salida.fin}. Regreso: ${salida.regreso}.`;
   const registro = {
     ...salida,
     id: anterior?.id || crypto.randomUUID(),
@@ -186,7 +249,7 @@ export function guardarVacaciones(state, form, responsable, now = new Date()) {
     empresa: e.empresa_codigo,
     estado: "Programada",
     por: responsable,
-    motivo: form.motivo.trim(),
+    motivo,
     actualizado: now.toISOString(),
     ingresoReconocido: ingreso,
     derecho,
@@ -204,7 +267,7 @@ export function guardarVacaciones(state, form, responsable, now = new Date()) {
     },
     { anterior: anterior || null, siguiente: registro },
     responsable,
-    form.motivo,
+    motivo,
     now,
   );
 }
