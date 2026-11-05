@@ -1,3 +1,4 @@
+import VacacionesPersonal from "../componentes/VacacionesPersonal.jsx";
 import SeccionesPagina, {
   PanelSeccion,
 } from "../componentes/SeccionesPagina.jsx";
@@ -89,6 +90,13 @@ export default function Personal({ detalleInicial, navigate }) {
               "Consultar por empresa, agregar empleados y administrar expedientes.",
           },
           {
+            id: "vacaciones",
+            titulo: "Vacaciones",
+            icono: "☀",
+            descripcion:
+              "Consultar salidas, regresos, antigüedad y descansos por empresa.",
+          },
+          {
             id: "importar",
             titulo: "Importar y organizar personal",
             icono: "▤",
@@ -155,6 +163,7 @@ export default function Personal({ detalleInicial, navigate }) {
           </select>
         </div>
       </PanelSeccion>
+      {seccion === "vacaciones" && <VacacionesPersonal />}
       <PanelSeccion activa={seccion === "importar"}>
         <div className="panel">
           <h2>Importar y organizar personal</h2>

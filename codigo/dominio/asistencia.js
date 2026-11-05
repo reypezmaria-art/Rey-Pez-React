@@ -1,3 +1,4 @@
+import { estaDeVacaciones } from "./vacaciones.js";
 import { isSameDay, localDate } from "../utilidades/fechas.js";
 export function timeToMinutes(time) {
   if (!/^\d{2}:\d{2}$/.test(time || "")) return null;
@@ -137,6 +138,7 @@ export function pendingAbsences(state, now = new Date()) {
   return state.employees.filter((e) => {
     if (
       e.estatus === "Baja" ||
+      estaDeVacaciones(e, localDate(now)) ||
       (e.fecha_ingreso &&
         /^\d{4}-/.test(e.fecha_ingreso) &&
         e.fecha_ingreso > localDate(now))
