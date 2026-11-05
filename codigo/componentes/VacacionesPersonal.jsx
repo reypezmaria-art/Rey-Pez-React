@@ -5,32 +5,28 @@ import {
   Mensaje,
   Tabla,
   OpcionesEmpresa,
-  OpcionesEmpleado,
 } from "./ElementosInterfaz.jsx";
 import { nombresEmpresas } from "../dominio/empresas.js";
 import { calendarDate } from "../utilidades/fechas.js";
 import {
-  calcularSalida,
   cancelarVacaciones,
   derechoVacaciones,
   esPersonalVacaciones,
   festivosMexico,
-  guardarVacaciones,
-  guardarDiasUsados,
+  guardarVacacionesPorFechas,
+  resumenVacacionesPorFechas,
   saldoVacaciones,
   vacacionesDelMes,
 } from "../dominio/vacaciones.js";
 
 const mostrar = (fecha) =>
   fecha ? fecha.split("-").reverse().join("/") : "Pendiente";
-const vacio = () => ({
-  empleadoId: "",
-  inicio: "",
-  dias: "",
-  anio: "",
-  previos: "",
-  confirmado: false,
-});
+const vacio = () => ({ empleadoId: "", busqueda: "", inicio: "", regreso: "" });
+const normalizar = (texto) =>
+  String(texto)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 export default function VacacionesPersonal() {
   const { data, commit, pending, session, clock } = useAplicacion();
   const hoy = calendarDate(clock),
@@ -61,43 +57,38 @@ export default function VacacionesPersonal() {
   const empleado = data.employees.find(
     (e) => e.id_empleado === form?.empleadoId,
   );
-  const saldo =
-    empleado && form
-      ? saldoVacaciones(empleado, form.anio, {
-          previos: form.previos,
-          excluirId: form.id,
-        })
-      : null;
-  const diasAutomaticos = saldo
-    ? Math.max(0, saldo.disponibles ?? saldo.dias)
-    : "";
-  const diasDisfrutar = form?.dias === "" ? diasAutomaticos : form?.dias;
-  let vista = null,
+  const coincidencias =
+    form && !form.empleadoId && form.busqueda.trim()
+      ? personas.filter((e) =>
+          normalizar(form.busqueda)
+            .trim()
+            .split(/\s+/)
+            .every((p) =>
+              normalizar(`${e.id_empleado} ${e.nombre_completo}`).includes(p),
+            ),
+        )
+      : [];
+  let resumen = null,
     errorVista = "";
-  if (form?.inicio && Number(diasDisfrutar) > 0) {
+  if (empleado && form.inicio && form.regreso) {
     try {
-      vista = calcularSalida(
-        form.inicio,
-        Number(diasDisfrutar),
-        data.holidays || [],
-      );
+      resumen = resumenVacacionesPorFechas(data, form);
     } catch (err) {
       errorVista = err.message;
     }
   }
+  const vista = resumen?.salida;
   const festivos = Object.entries(
     festivosMexico(Number(mes.slice(0, 4))),
   ).filter(([fecha]) => fecha.startsWith(mes));
   function editar(e, v) {
-    const d = derechoVacaciones(e, hoy),
-      anio = v?.anio || d?.anio || "";
     setForm({
       ...vacio(),
-      ...v,
+      id: v?.id,
       empleadoId: e.id_empleado,
-      anio,
-      previos: e.vacaciones?.usadosPrevios?.[anio] ?? "",
-      confirmado: false,
+      busqueda: `${e.id_empleado} — ${e.nombre_completo}`,
+      inicio: v?.inicio || "",
+      regreso: v?.regreso || "",
     });
     setCancelar(null);
     setError("");
@@ -106,7 +97,12 @@ export default function VacacionesPersonal() {
   function field(nombre) {
     return {
       value: form[nombre],
-      onChange: (e) => setForm({ ...form, [nombre]: e.target.value }),
+      onChange: (e) =>
+        setForm({
+          ...form,
+          [nombre]: e.target.value,
+          incluidasEnPrevios: false,
+        }),
     };
   }
   async function guardar(event) {
@@ -114,32 +110,9 @@ export default function VacacionesPersonal() {
     setError("");
     setMensaje("");
     try {
-      await commit((s) =>
-        guardarVacaciones(s, { ...form, dias: diasDisfrutar }, session.id),
-      );
+      await commit((s) => guardarVacacionesPorFechas(s, form, session.id));
       setForm(null);
       setMensaje("Vacaciones guardadas.");
-    } catch (err) {
-      setError(err.message);
-    }
-  }
-  async function guardarUsados() {
-    setError("");
-    setMensaje("");
-    try {
-      let guardado;
-      await commit((s) => {
-        const siguiente = guardarDiasUsados(s, form, session.id);
-        guardado = saldoVacaciones(
-          siguiente.employees.find((e) => e.id_empleado === form.empleadoId),
-          form.anio,
-        );
-        return siguiente;
-      });
-      setForm(null);
-      setMensaje(
-        `Días ya usados guardados. Le quedan ${guardado.disponibles} días disponibles. No se agregó otro período de vacaciones.`,
-      );
     } catch (err) {
       setError(err.message);
     }
@@ -225,115 +198,112 @@ export default function VacacionesPersonal() {
           <h2>{form.id ? "Modificar vacaciones" : "Programar vacaciones"}</h2>
           <div className="formgrid">
             <Campo
-              label="Trabajador de vacaciones"
-              as="select"
+              label="Buscar trabajador por nombre o ID"
+              placeholder="Escribe el nombre o ID…"
+              autoComplete="off"
               required
               disabled={Boolean(form.id)}
-              value={form.empleadoId}
-              onChange={(e) => {
-                const p = data.employees.find(
-                  (x) => x.id_empleado === e.target.value,
-                );
-                if (p) editar(p);
-                else setForm(vacio());
-              }}
-            >
-              <OpcionesEmpleado employees={personas} />
-            </Campo>
-            <Campo
-              label="Año del aniversario al que se aplican"
-              type="number"
-              min="2023"
-              max={Number(hoy.slice(0, 4))}
-              required
-              {...field("anio")}
+              value={form.busqueda}
               onChange={(e) =>
                 setForm({
                   ...form,
-                  anio: e.target.value,
-                  previos:
-                    empleado?.vacaciones?.usadosPrevios?.[e.target.value] ?? "",
-                  confirmado: false,
-                  dias: form.id ? form.dias : "",
+                  busqueda: e.target.value,
+                  empleadoId: "",
+                  incluidasEnPrevios: false,
                 })
               }
             />
+            <div>
+              {coincidencias.length > 0 && (
+                <div
+                  role="group"
+                  aria-label="Trabajadores encontrados"
+                  className="actions"
+                >
+                  {coincidencias.map((e) => (
+                    <button
+                      type="button"
+                      key={e.id_empleado}
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          empleadoId: e.id_empleado,
+                          busqueda: `${e.id_empleado} — ${e.nombre_completo}`,
+                        })
+                      }
+                    >
+                      {e.id_empleado} — {e.nombre_completo}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {form.busqueda.trim() &&
+                !form.empleadoId &&
+                coincidencias.length === 0 && (
+                  <p role="status">No se encontraron trabajadores.</p>
+                )}
+              {empleado && (
+                <p>
+                  <strong>{nombres[empleado.empresa_codigo]}</strong> · Ingreso:{" "}
+                  {mostrar(empleado.fecha_ingreso)}
+                </p>
+              )}
+            </div>
             <Campo
-              label="Primer día de vacaciones"
+              label="Fecha de salida de vacaciones"
               type="date"
               required
               {...field("inicio")}
             />
             <Campo
-              label="Antigüedad al cumplir ese aniversario"
-              readOnly
-              value={
-                saldo
-                  ? `${saldo.anios} ${saldo.anios === 1 ? "año" : "años"}`
-                  : "Pendiente"
-              }
-            />
-            <Campo
-              label="Días que le corresponden (automático)"
-              readOnly
-              value={saldo?.dias ?? "Pendiente"}
-            />
-            <Campo
-              label="Días ya usados fuera de este apartado para ese aniversario"
-              type="number"
-              min="0"
+              label="Fecha de regreso a trabajar"
+              type="date"
               required
-              {...field("previos")}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  previos: e.target.value,
-                  dias: form.id ? form.dias : "",
-                  confirmado: false,
-                })
-              }
-            />
-            <Campo
-              label="Días laborables a disfrutar"
-              type="number"
-              min="1"
-              max={Math.max(1, saldo?.disponibles ?? 366)}
-              required
-              value={diasDisfrutar ?? ""}
-              onChange={(e) => setForm({ ...form, dias: e.target.value })}
+              {...field("regreso")}
             />
           </div>
-          {empleado && (
-            <p>
-              Empresa: <strong>{nombres[empleado.empresa_codigo]}</strong> ·
-              Ingreso registrado: {mostrar(empleado.fecha_ingreso)}. Los días
-              anteriores deben incluir vacaciones que aún no estén registradas
-              aquí.
-            </p>
-          )}
-          {saldo && (
+          <p className="small">
+            El regreso es el primer día que vuelve a trabajar; ese día no se
+            cuenta como vacaciones.
+          </p>
+          {resumen?.previosOriginal > 0 &&
+            resumen.previosOriginal >= vista?.dias &&
+            !form.id && (
+              <label>
+                <input
+                  type="checkbox"
+                  checked={Boolean(form.incluidasEnPrevios)}
+                  onChange={(e) =>
+                    setForm({ ...form, incluidasEnPrevios: e.target.checked })
+                  }
+                />{" "}
+                Estas vacaciones ya estaban incluidas en los{" "}
+                {resumen.previosOriginal} días guardados sin fechas.
+              </label>
+            )}
+          {resumen && (
             <div
-              className={saldo.disponibles < 0 ? "note" : "toast"}
+              className={resumen.restantes < 0 ? "note" : "toast"}
               role="status"
               aria-label="Saldo de vacaciones"
             >
               <strong>
-                {saldo.disponibles === null
-                  ? "Captura los días ya usados para calcular cuántos le quedan."
-                  : saldo.disponibles < 0
-                    ? "Los días capturados superan los que le corresponden."
-                    : `Le quedan ${saldo.disponibles} días disponibles.`}
+                {resumen.restantes < 0
+                  ? `El período excede el saldo por ${-resumen.restantes} días.`
+                  : `Después de este período le quedan ${resumen.restantes} ${resumen.restantes === 1 ? "día disponible" : "días disponibles"}.`}
               </strong>
               <p>
-                Le corresponden {saldo.dias} días · Ya usados fuera de este
-                apartado: {saldo.previos ?? "Por capturar"} · Otros días
-                registrados o programados: {saldo.registrados}.
+                Antigüedad: {resumen.saldo.anios}{" "}
+                {resumen.saldo.anios === 1 ? "año" : "años"} · Le corresponden:{" "}
+                {resumen.saldo.dias} días · Este período: {vista.dias} días
+                laborables.
               </p>
               <p className="small">
-                Los días a disfrutar se completan automáticamente con el saldo
-                disponible. Puedes reducirlos si tomará solo una parte. Si solo
-                estás capturando lo que ya tomó, usa «Guardar días ya usados» y
-                no llenes una nueva salida.
+                Aniversario: {resumen.anio} · Otros períodos registrados:{" "}
+                {resumen.saldo.registrados} días
+                {resumen.previos === null
+                  ? " · Saldo según los períodos registrados."
+                  : ` · Días anteriores sin fechas: ${resumen.previos}.`}
               </p>
             </div>
           )}
@@ -354,34 +324,13 @@ export default function VacacionesPersonal() {
             </div>
           )}
           <Mensaje error>{errorVista}</Mensaje>
-          <label>
-            <input
-              type="checkbox"
-              required
-              checked={form.confirmado}
-              onChange={(e) =>
-                setForm({ ...form, confirmado: e.target.checked })
-              }
-            />{" "}
-            Confirmo la antigüedad reconocida, que la relación es continua (no
-            de temporada), el saldo previo y las fechas acordadas con el
-            trabajador.
-          </label>
           <div className="actions">
             <button
-              type="button"
               className="primary"
-              disabled={
-                pending ||
-                !saldo ||
-                saldo.disponibles === null ||
-                saldo.disponibles < 0
-              }
-              onClick={guardarUsados}
+              disabled={pending || !vista || resumen.restantes < 0}
             >
-              Guardar días ya usados
+              Guardar vacaciones
             </button>
-            <button disabled={pending || !vista}>Guardar vacaciones</button>
             <button type="button" onClick={() => setForm(null)}>
               Cancelar
             </button>
@@ -473,19 +422,21 @@ export default function VacacionesPersonal() {
           ))}
         </Tabla>
       </div>
-      <div className="panel">
-        <h2>Días de vacaciones por revisar</h2>
+      <details className="panel">
+        <summary>
+          <strong>Días de vacaciones por revisar</strong>
+        </summary>
         <p>
-          Calculamos los días por antigüedad. Captura los días que ya tomó cada
-          trabajador para ver cuántos le quedan; los períodos registrados aquí
-          se descuentan automáticamente.
+          Los días se calculan con la fecha de ingreso y las vacaciones
+          registradas. Agrega cada salida y regreso para mantener el saldo
+          actualizado.
         </p>
         <Tabla
           headings={[
             "Trabajador / empresa",
             "Aniversario",
             "Le corresponden",
-            "Ya usados fuera de este apartado",
+            "Días anteriores sin fechas",
             "Registrados / programados",
             "Días disponibles",
             "Plazo para conceder",
@@ -503,10 +454,12 @@ export default function VacacionesPersonal() {
               </td>
               <td>{mostrar(d.aniversario)}</td>
               <td>{d.dias}</td>
-              <td>{e.vacaciones?.usadosPrevios?.[d.anio] ?? "Por capturar"}</td>
+              <td>{e.vacaciones?.usadosPrevios?.[d.anio] ?? "Sin datos"}</td>
               <td>{saldoVacaciones(e, d.anio)?.registrados ?? 0}</td>
               <td>
-                {saldoVacaciones(e, d.anio)?.disponibles ?? "Por capturar"}
+                {saldoVacaciones(e, d.anio, {
+                  previos: e.vacaciones?.usadosPrevios?.[d.anio] ?? 0,
+                })?.disponibles ?? "Pendiente"}
               </td>
               <td>{mostrar(d.limite)}</td>
               <td>
@@ -520,7 +473,7 @@ export default function VacacionesPersonal() {
             </tr>
           ))}
         </Tabla>
-      </div>
+      </details>
       <details className="panel">
         <summary>
           <strong>Antigüedad y referencia anual por trabajador</strong>

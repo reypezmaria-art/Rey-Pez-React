@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { baseOperation } from "../../codigo/datos/operacionInicial.js";
 import { makeCredential } from "../../codigo/dominio/seguridad.js";
 const credencial = await makeCredential("Clave6");
-test("vacaciones conserva períodos, filtra meses y empresa, calcula regreso y permite cancelar", async ({
+test("vacaciones por salida y regreso, búsqueda por nombre, saldo, persistencia y secciones contraídas", async ({
   page,
 }) => {
   await page.clock.setFixedTime(new Date("2026-11-05T18:00:00Z"));
@@ -22,7 +22,7 @@ test("vacaciones conserva períodos, filtra meses y empresa, calcula regreso y p
       },
       {
         id_empleado: "X-03",
-        nombre_completo: "PERSONA FICTICIA RECIENTE",
+        nombre_completo: "ÁNGEL PERSONA RECIENTE",
         puesto: "General",
         empresa_codigo: "ALLAN",
         fecha_ingreso: "2025-01-27",
@@ -56,63 +56,78 @@ test("vacaciones conserva períodos, filtra meses y empresa, calcula regreso y p
       .click();
     await page.getByRole("button", { name: "Vacaciones", exact: true }).click();
   }
+  const tabla = page.getByRole("region", {
+    name: "Trabajador / empresa, Salida, Último día, Regreso, Días laborables, Estado, Acciones",
+    exact: true,
+  });
   await abrir();
-  await expect(page.getByText(/16\/11\/2026 · Conmemoración/)).toBeVisible();
+  const plegable = page.locator("details").filter({
+    has: page
+      .locator("summary")
+      .filter({ hasText: "Días de vacaciones por revisar" }),
+  });
+  await expect(plegable).not.toHaveAttribute("open");
+  await plegable.locator("summary").click();
+  await expect(plegable).toHaveAttribute("open", "");
+  await plegable.locator("summary").click();
   await page
     .getByRole("button", { name: "Programar vacaciones", exact: true })
     .click();
-  await expect(
-    page
-      .getByLabel("Trabajador de vacaciones")
-      .getByRole("option", { name: /prueba/ }),
-  ).toHaveCount(0);
-  await page.getByLabel("Trabajador de vacaciones").selectOption("X-01");
-  await page.getByLabel("Primer día de vacaciones").fill("2026-10-30");
+  const buscar = page.getByLabel("Buscar trabajador por nombre o ID");
+  await buscar.fill("prueba");
+  await expect(page.getByText("No se encontraron trabajadores.")).toBeVisible();
+  await buscar.fill("reciente angel");
   await page
-    .getByLabel("Días ya usados fuera de este apartado para ese aniversario")
-    .fill("0");
-  await expect(page.getByLabel("Días laborables a disfrutar")).toHaveValue(
-    "22",
-  );
-  await page.getByLabel("Días laborables a disfrutar").fill("21");
-  await expect(page.getByLabel("Motivo / acuerdo de las fechas")).toHaveCount(
-    0,
-  );
-  await page.getByRole("checkbox", { name: /Confirmo la antigüedad/ }).check();
+    .getByRole("group", { name: "Trabajadores encontrados" })
+    .getByRole("button", { name: /X-03/ })
+    .click();
+  await page.getByLabel("Fecha de salida de vacaciones").fill("2026-02-14");
+  await page.getByLabel("Fecha de regreso a trabajar").fill("2026-02-26");
+  const saldo = page.getByRole("status", {
+    name: "Saldo de vacaciones",
+    exact: true,
+  });
+  await expect(saldo).toContainText("le quedan 2 días");
+  await expect(saldo).toContainText("Antigüedad: 1 año");
+  await expect(saldo).toContainText("10 días laborables");
   await expect(
     page.getByRole("status").filter({ hasText: "Salida:" }),
-  ).toContainText("25/11/2026");
+  ).toContainText("25/02/2026");
+  await expect(page.getByLabel("Días laborables a disfrutar")).toHaveCount(0);
+  await expect(
+    page.getByLabel("Año del aniversario al que se aplican"),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Guardar días ya usados", exact: true }),
+  ).toHaveCount(0);
+  await page.screenshot({
+    path: test.info().outputPath("captura-fechas.png"),
+    fullPage: true,
+  });
   await page
     .getByRole("button", { name: "Guardar vacaciones", exact: true })
     .click();
   await expect(
     page.getByText("Vacaciones guardadas.", { exact: true }),
   ).toBeVisible();
-  const tabla = page.getByRole("region", {
-    name: "Trabajador / empresa, Salida, Último día, Regreso, Días laborables, Estado, Acciones",
-    exact: true,
-  });
-  await expect(tabla).toContainText("24/11/2026");
-  await expect(tabla).toContainText("En vacaciones");
-  await page.screenshot({
-    path: test.info().outputPath("vacaciones.png"),
-    fullPage: true,
-  });
-  await page.getByLabel("Mes de vacaciones").fill("2026-10");
-  await expect(tabla).toContainText("PERSONA FICTICIA");
-  await page.getByLabel("Empresa de vacaciones").selectOption("EDGAR");
-  await expect(tabla).toContainText("No hay vacaciones programadas");
+  await page.getByLabel("Mes de vacaciones").fill("2026-02");
+  await expect(tabla).toContainText("26/02/2026");
+  await expect(tabla).toContainText("Finalizadas");
   await page.reload();
   await abrir();
-  await expect(tabla).toContainText("25/11/2026");
+  await page.getByLabel("Mes de vacaciones").fill("2026-02");
+  await expect(tabla).toContainText("26/02/2026");
   await tabla.getByRole("button", { name: "Modificar", exact: true }).click();
-  await page
-    .getByLabel("Días ya usados fuera de este apartado para ese aniversario")
-    .fill("0");
-  await expect(page.getByLabel("Días laborables a disfrutar")).toHaveValue(
-    "21",
+  await expect(page.getByLabel("Fecha de regreso a trabajar")).toHaveValue(
+    "2026-02-26",
   );
-  await page.getByRole("button", { name: "Cancelar", exact: true }).click();
+  await expect(saldo).toContainText("le quedan 2 días");
+  await page.getByLabel("Fecha de regreso a trabajar").fill("2026-02-27");
+  await expect(saldo).toContainText("le quedan 1 día");
+  await page
+    .getByRole("button", { name: "Guardar vacaciones", exact: true })
+    .click();
+  await expect(tabla).toContainText("27/02/2026");
   await tabla
     .getByRole("button", { name: "Cancelar período", exact: true })
     .click();
@@ -124,59 +139,21 @@ test("vacaciones conserva períodos, filtra meses y empresa, calcula regreso y p
   await page
     .getByRole("button", { name: "Programar vacaciones", exact: true })
     .click();
-  await page.getByLabel("Trabajador de vacaciones").selectOption("X-03");
-  await expect(
-    page.getByLabel("Antigüedad al cumplir ese aniversario"),
-  ).toHaveValue("1 año");
-  await expect(
-    page.getByLabel("Días que le corresponden (automático)"),
-  ).toHaveValue("12");
-  await expect(page.getByLabel("Días laborables a disfrutar")).toHaveValue(
-    "12",
-  );
+  await buscar.fill("X-01");
   await page
-    .getByLabel("Días ya usados fuera de este apartado para ese aniversario")
-    .fill("10");
-  await expect(page.getByLabel("Días laborables a disfrutar")).toHaveValue("2");
-  await expect(
-    page.getByRole("status", { name: "Saldo de vacaciones", exact: true }),
-  ).toContainText("Le quedan 2 días disponibles.");
-  await page.screenshot({
-    path: test.info().outputPath("saldo-automatico.png"),
-    fullPage: true,
-  });
-  await page.getByRole("checkbox", { name: /Confirmo la antigüedad/ }).check();
-  await page
-    .getByRole("button", { name: "Guardar días ya usados", exact: true })
+    .getByRole("group", { name: "Trabajadores encontrados" })
+    .getByRole("button", { name: /X-01/ })
     .click();
-  await expect(page.getByText(/Días ya usados guardados/)).toBeVisible();
+  await page.getByLabel("Fecha de salida de vacaciones").fill("2026-10-30");
+  await page.getByLabel("Fecha de regreso a trabajar").fill("2026-11-25");
+  await expect(saldo).toContainText("21 días laborables");
+  await page
+    .getByRole("button", { name: "Guardar vacaciones", exact: true })
+    .click();
+  await page.getByLabel("Mes de vacaciones").fill("2026-11");
+  await expect(tabla).toContainText("25/11/2026");
+  await page.getByLabel("Empresa de vacaciones").selectOption("EDGAR");
   await expect(tabla).toContainText("No hay vacaciones programadas");
-  await page.reload();
-  await abrir();
-  await page
-    .getByRole("button", { name: "Programar vacaciones", exact: true })
-    .click();
-  await page.getByLabel("Trabajador de vacaciones").selectOption("X-03");
-  await expect(
-    page.getByLabel(
-      "Días ya usados fuera de este apartado para ese aniversario",
-    ),
-  ).toHaveValue("10");
-  await expect(
-    page.getByRole("status", { name: "Saldo de vacaciones", exact: true }),
-  ).toContainText("Le quedan 2 días disponibles.");
-  await page
-    .getByLabel("Días ya usados fuera de este apartado para ese aniversario")
-    .fill("12");
-  await expect(page.getByLabel("Días laborables a disfrutar")).toHaveValue("0");
-  await expect(
-    page.getByRole("button", { name: "Guardar vacaciones", exact: true }),
-  ).toBeDisabled();
-  await page.getByRole("checkbox", { name: /Confirmo la antigüedad/ }).check();
-  await page
-    .getByRole("button", { name: "Guardar días ya usados", exact: true })
-    .click();
-  await expect(page.getByText(/Días ya usados guardados/)).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

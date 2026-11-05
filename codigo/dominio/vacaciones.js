@@ -91,6 +91,131 @@ export function calcularSalida(inicio, dias, adicionales = []) {
   }
   return { inicio, fin, regreso: fecha, dias, descansos };
 }
+export function calcularVacacionesPorFechas(inicio, regreso, adicionales = []) {
+  if (!fechaValida(inicio) || !fechaValida(regreso) || regreso <= inicio)
+    throw Error(
+      "Indica una salida y un regreso posterior. El regreso es el día en que vuelve a trabajar.",
+    );
+  const duracion =
+    (Date.parse(`${regreso}T12:00:00Z`) - Date.parse(`${inicio}T12:00:00Z`)) /
+    86400000;
+  if (duracion > 366)
+    throw Error("El período no puede superar un año. Revisa las fechas.");
+  if (motivoDescanso(regreso, adicionales))
+    throw Error(
+      "El regreso a trabajar debe ser un día laborable. Revisa la fecha.",
+    );
+  const descansos = [];
+  let dias = 0;
+  for (let fecha = inicio; fecha < regreso; fecha = sumarDias(fecha, 1)) {
+    const motivo = motivoDescanso(fecha, adicionales);
+    if (motivo) descansos.push({ fecha, motivo });
+    else dias++;
+  }
+  if (!dias)
+    throw Error("Las fechas no incluyen días laborables de vacaciones.");
+  return { inicio, regreso, fin: sumarDias(regreso, -1), dias, descansos };
+}
+// Las fechas introducidas se conservan: el saldo nunca mueve el regreso elegido.
+export function resumenVacacionesPorFechas(state, form) {
+  const e = state.employees.find((e) => e.id_empleado === form.empleadoId);
+  if (!e || !esPersonalVacaciones(e))
+    throw Error("Busca y selecciona un trabajador activo.");
+  const salida = calcularVacacionesPorFechas(
+    form.inicio,
+    form.regreso,
+    state.holidays || [],
+  );
+  const anterior = (e.vacaciones?.registros || []).find(
+    (r) => r.id === form.id,
+  );
+  const referencia = derechoVacaciones(e, salida.inicio);
+  const anio =
+    anterior && anterior.inicio === salida.inicio
+      ? anterior.anio
+      : referencia?.anio;
+  const previoOriginal = e.vacaciones?.usadosPrevios?.[anio];
+  if (
+    form.incluidasEnPrevios &&
+    (form.id ||
+      !Number.isInteger(previoOriginal) ||
+      salida.dias > previoOriginal)
+  )
+    throw Error(
+      "El período no puede vincularse a esos días anteriores. Revisa el registro.",
+    );
+  const previo = form.incluidasEnPrevios
+    ? previoOriginal - salida.dias
+    : previoOriginal;
+  const saldo = saldoVacaciones(e, anio, {
+    previos: previo ?? 0,
+    excluirId: form.id,
+  });
+  if (!saldo)
+    throw Error(
+      "Revisa la fecha de ingreso: debe haber cumplido al menos un año antes de salir (períodos desde 2023).",
+    );
+  return {
+    salida,
+    saldo,
+    anio,
+    previos: previo ?? null,
+    previosOriginal: previoOriginal ?? null,
+    restantes: saldo.disponibles - salida.dias,
+  };
+}
+export function guardarVacacionesPorFechas(
+  state,
+  form,
+  responsable,
+  now = new Date(),
+) {
+  const resumen = resumenVacacionesPorFechas(state, form);
+  const e = state.employees.find((e) => e.id_empleado === form.empleadoId);
+  const anteriores = e.vacaciones?.usadosPrevios;
+  const siguiente = guardarVacaciones(
+    state,
+    {
+      ...form,
+      anio: resumen.anio,
+      previos: resumen.previos ?? 0,
+      dias: resumen.salida.dias,
+      confirmado: true,
+      capturaPorFechas: true,
+    },
+    responsable,
+    now,
+  );
+  if (resumen.previos !== null)
+    return form.incluidasEnPrevios
+      ? {
+          ...siguiente,
+          audit: [
+            {
+              ...siguiente.audit[0],
+              diasSinFechas: {
+                anio: resumen.anio,
+                anterior: resumen.previosOriginal,
+                siguiente: resumen.previos,
+              },
+            },
+            ...siguiente.audit.slice(1),
+          ],
+        }
+      : siguiente;
+  // No se inventa un saldo previo de cero al registrar las primeras fechas.
+  return {
+    ...siguiente,
+    employees: siguiente.employees.map((x) => {
+      if (x.id_empleado !== e.id_empleado) return x;
+      const vacaciones = { ...x.vacaciones };
+      if (anteriores) vacaciones.usadosPrevios = anteriores;
+      else delete vacaciones.usadosPrevios;
+      return { ...x, vacaciones };
+    }),
+  };
+}
+
 export function esPersonalVacaciones(e) {
   return (
     e.estatus !== "Baja" &&
@@ -224,13 +349,19 @@ export function guardarVacaciones(state, form, responsable, now = new Date()) {
   const anterior = form.id ? registros.find((r) => r.id === form.id) : null;
   if (form.id && (!anterior || anterior.estado === "Cancelada"))
     throw Error("El registro ya no se puede modificar.");
-  const salida = calcularSalida(
-    form.inicio,
-    form.dias === "" || form.dias == null
-      ? saldo.disponibles
-      : Number(form.dias),
-    state.holidays || [],
-  );
+  const salida = form.capturaPorFechas
+    ? calcularVacacionesPorFechas(
+        form.inicio,
+        form.regreso,
+        state.holidays || [],
+      )
+    : calcularSalida(
+        form.inicio,
+        form.dias === "" || form.dias == null
+          ? saldo.disponibles
+          : Number(form.dias),
+        state.holidays || [],
+      );
   const otros = registros.filter(
     (r) => r.id !== form.id && r.estado !== "Cancelada",
   );
@@ -253,7 +384,12 @@ export function guardarVacaciones(state, form, responsable, now = new Date()) {
     actualizado: now.toISOString(),
     ingresoReconocido: ingreso,
     derecho,
-    previosConfirmados: previos,
+    previosConfirmados:
+      form.capturaPorFechas &&
+      !Object.hasOwn(e.vacaciones?.usadosPrevios || {}, anio)
+        ? null
+        : previos,
+    ...(form.capturaPorFechas ? { captura: "fechas" } : {}),
   };
   return actualizar(
     state,

@@ -232,3 +232,117 @@ test("saldo automático: doce días, diez usados y dos disponibles sin inventar 
     guardarDiasUsados(s, { ...entrada, confirmado: false }, "MARIA", ahora),
   );
 });
+
+test("fechas reales: salida 14 de febrero, regreso 26, diez días y saldo dos sin inventar historia", async () => {
+  const {
+    calcularVacacionesPorFechas,
+    guardarVacacionesPorFechas,
+    resumenVacacionesPorFechas,
+  } = await import("../codigo/dominio/vacaciones.js");
+  const e = { ...empleado, fecha_ingreso: "2025-01-27" },
+    s = { ...base(), employees: [e] };
+  const f = {
+    empleadoId: e.id_empleado,
+    inicio: "2026-02-14",
+    regreso: "2026-02-26",
+  };
+  const v = calcularVacacionesPorFechas(f.inicio, f.regreso);
+  assert.equal(v.dias, 10);
+  assert.equal(v.fin, "2026-02-25");
+  assert.equal(v.regreso, f.regreso);
+  assert.deepEqual(
+    v.descansos.map((d) => d.fecha),
+    ["2026-02-15", "2026-02-22"],
+  );
+  assert.equal(resumenVacacionesPorFechas(s, f).restantes, 2);
+  const guardado = guardarVacacionesPorFechas(s, f, "MARIA", ahora);
+  const registro = guardado.employees[0].vacaciones.registros[0];
+  assert.equal(registro.regreso, f.regreso);
+  assert.equal(registro.dias, 10);
+  assert.equal(registro.previosConfirmados, null);
+  assert.equal(guardado.employees[0].vacaciones.usadosPrevios, undefined);
+  assert.deepEqual(guardado.audit[0].siguiente, registro);
+  assert.throws(
+    () => guardarVacacionesPorFechas(guardado, f, "MARIA", ahora),
+    /cruza|supera/,
+  );
+  const editado = guardarVacacionesPorFechas(
+    guardado,
+    { ...f, id: registro.id, regreso: "2026-02-27" },
+    "MARIA",
+    ahora,
+  );
+  assert.equal(editado.employees[0].vacaciones.registros[0].dias, 11);
+  assert.equal(editado.audit[0].anterior.dias, 10);
+  assert.equal(calcularVacacionesPorFechas("2026-11-14", "2026-11-17").dias, 1);
+  for (const [inicio, regreso] of [
+    ["2026-02-14", "2026-02-14"],
+    ["2026-02-26", "2026-02-14"],
+    ["2026-02-30", "2026-03-03"],
+    ["2026-02-14", "2026-02-22"],
+    ["2026-01-01", "2027-02-01"],
+  ])
+    assert.throws(() => calcularVacacionesPorFechas(inicio, regreso));
+  const previo = guardarDiasUsados(
+    s,
+    { ...form(), previos: 1 },
+    "MARIA",
+    ahora,
+  );
+  assert.equal(resumenVacacionesPorFechas(previo, f).restantes, 1);
+  assert.equal(
+    guardarVacacionesPorFechas(previo, f, "MARIA", ahora).employees[0]
+      .vacaciones.usadosPrevios[2026],
+    1,
+  );
+  assert.throws(
+    () =>
+      guardarVacacionesPorFechas(
+        s,
+        { ...f, regreso: "2026-03-03" },
+        "MARIA",
+        ahora,
+      ),
+    /supera/,
+  );
+  // El aniversario se elige en la fecha de salida, no en la fecha de hoy.
+  assert.equal(
+    resumenVacacionesPorFechas(base(), {
+      ...f,
+      inicio: "2026-02-14",
+      regreso: "2026-02-26",
+    }).anio,
+    2025,
+  );
+});
+
+test("vincular fechas a días antiguos requiere una elección expresa y conserva auditoría sin duplicar", async () => {
+  const { guardarVacacionesPorFechas, resumenVacacionesPorFechas } =
+    await import("../codigo/dominio/vacaciones.js");
+  const s = base();
+  s.employees[0].fecha_ingreso = "2025-01-27";
+  const previo = guardarDiasUsados(
+    s,
+    { ...form(), previos: 10 },
+    "MARIA",
+    ahora,
+  );
+  const f = { empleadoId: "E-01", inicio: "2026-02-14", regreso: "2026-02-26" };
+  assert.equal(resumenVacacionesPorFechas(previo, f).restantes, -8);
+  assert.throws(
+    () => guardarVacacionesPorFechas(previo, f, "MARIA", ahora),
+    /supera/,
+  );
+  const unido = guardarVacacionesPorFechas(
+    previo,
+    { ...f, incluidasEnPrevios: true },
+    "MARIA",
+    ahora,
+  );
+  assert.equal(unido.employees[0].vacaciones.usadosPrevios[2026], 0);
+  assert.equal(unido.employees[0].vacaciones.registros[0].dias, 10);
+  assert.equal(saldoVacaciones(unido.employees[0], 2026).disponibles, 2);
+  assert.equal(unido.audit[0].diasSinFechas.anterior, 10);
+  assert.equal(unido.audit[0].diasSinFechas.siguiente, 0);
+  assert.equal(previo.employees[0].vacaciones.usadosPrevios[2026], 10);
+});
