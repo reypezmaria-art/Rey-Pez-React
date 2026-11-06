@@ -153,7 +153,7 @@ test("flujo de personal, asistencia, incidencia y persistencia", async ({
     .getByRole("button", { name: "Guardar empleado", exact: true })
     .click();
   await credential(page, "RP-0001");
-  await nav(page, "Asistencia 1 · Trabajador").click();
+  await nav(page, "Asistencia - Trabajador").click();
   await page.getByLabel("ID de empleado", { exact: true }).fill("RP-0001");
   await page.getByLabel("Contraseña", { exact: true }).fill("Trab06");
   await page.getByRole("button", { name: "Registrar", exact: true }).click();
@@ -165,7 +165,7 @@ test("flujo de personal, asistencia, incidencia y persistencia", async ({
   await page
     .getByRole("button", { name: "Salir de pantalla de trabajador" })
     .click();
-  await nav(page, "Asistencia 2 · Administración").click();
+  await nav(page, "Asistencia - Administración").click();
   await page.getByRole("button", { name: /^Registros de asistencia/ }).click();
   await expect(page.locator("tbody").last()).toContainText(
     "PERSONA PRUEBA REACT",
@@ -175,20 +175,22 @@ test("flujo de personal, asistencia, incidencia y persistencia", async ({
       name: "Registrar / justificar una incidencia",
     }),
   ).toHaveCount(0);
-  await page.getByRole("button", { name: "← Volver a Asistencia 2" }).click();
+  await page
+    .getByRole("button", { name: "← Volver a Asistencia - Administración" })
+    .click();
   await page.getByRole("button", { name: /^Revisar ausencias/ }).click();
   await expect(page.locator(".company-incidents")).toHaveCount(1);
   await page.reload();
   await access(page);
   await expect(page.locator(".kvalue").nth(1)).toHaveText("31");
-  await nav(page, "Asistencia 2 · Administración").click();
+  await nav(page, "Asistencia - Administración").click();
   await nav(page, "Personal").click();
   await abrirSeccion(page, "Personal", "Total de empleados");
   await page.getByLabel("Buscar personal").fill("PERSONA PRUEBA REACT");
   page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Dar de baja", exact: true }).click();
   await expect(page.locator("tbody .status")).toHaveText("Baja");
-  await nav(page, "Asistencia 1 · Trabajador").click();
+  await nav(page, "Asistencia - Trabajador").click();
   await page.getByLabel("ID de empleado", { exact: true }).fill("RP-0001");
   await page.getByLabel("Contraseña", { exact: true }).fill("Trab06");
   await page.getByRole("button", { name: "Registrar", exact: true }).click();
@@ -303,7 +305,7 @@ test("todas las pantallas adaptan su ancho al dispositivo", async ({
   for (const name of [
     "Inicio",
     "Personal",
-    "Asistencia 2 · Administración",
+    "Asistencia - Administración",
     "Bitácoras de salud",
     "Bitácora de EPP",
     "Normas de la Secretaría del Trabajo",
@@ -319,7 +321,7 @@ test("todas las pantallas adaptan su ancho al dispositivo", async ({
       ),
     ).toBe(true);
   }
-  await nav(page, "Asistencia 1 · Trabajador").click();
+  await nav(page, "Asistencia - Trabajador").click();
   expect(
     await page
       .locator("dialog")
@@ -620,7 +622,7 @@ test("EPP fijo, cloro aislado y PDF por fechas", async ({ page }) => {
   ).saveAs(
     test.info().outputPath(`reporte-cloro-${test.info().project.name}.pdf`),
   );
-  await nav(page, "Asistencia 2 · Administración").click();
+  await nav(page, "Asistencia - Administración").click();
   await page.getByRole("button", { name: /^Revisar ausencias/ }).click();
   await expect(page.locator(".company-incidents")).toHaveCount(1);
   await expect(
@@ -641,12 +643,16 @@ test("EPP fijo, cloro aislado y PDF por fechas", async ({ page }) => {
     .getByRole("button", { name: "Guardar revisión de ausencia", exact: true })
     .first()
     .click();
-  await page.getByRole("button", { name: "← Volver a Asistencia 2" }).click();
+  await page
+    .getByRole("button", { name: "← Volver a Asistencia - Administración" })
+    .click();
   await page.getByRole("button", { name: /^Historial de incidencias/ }).click();
   await expect(page.locator("tbody").first()).toContainText(
     "Permiso de ausencia de prueba",
   );
-  await page.getByRole("button", { name: "← Volver a Asistencia 2" }).click();
+  await page
+    .getByRole("button", { name: "← Volver a Asistencia - Administración" })
+    .click();
   await page.getByRole("button", { name: /^Reporte en PDF/ }).click();
   const waitAttendance = page.waitForEvent("download");
   await page.getByRole("button", { name: "Generar PDF", exact: true }).click();
@@ -659,7 +665,7 @@ test("EPP fijo, cloro aislado y PDF por fechas", async ({ page }) => {
   );
 });
 
-test("Administración es exclusiva y Asistencia 2 abre solo el apartado elegido", async ({
+test("Administración es exclusiva y Asistencia - Administración abre solo el apartado elegido", async ({
   page,
 }) => {
   await page.goto("/");
@@ -672,7 +678,7 @@ test("Administración es exclusiva y Asistencia 2 abre solo el apartado elegido"
   await expect(
     page.getByText(/La copia local no registra sesiones compartidas/),
   ).toBeVisible();
-  await nav(page, "Asistencia 2 · Administración").click();
+  await nav(page, "Asistencia - Administración").click();
   await expect(page.locator(".folder-card")).toHaveCount(6);
   await expect(
     page.getByRole("heading", { name: "Historial de incidencias · ALLAN" }),
@@ -680,7 +686,9 @@ test("Administración es exclusiva y Asistencia 2 abre solo el apartado elegido"
   await page.getByRole("button", { name: /^Historial de incidencias/ }).click();
   await expect(page.getByLabel("Buscar incidencia")).toBeVisible();
   await expect(page.locator(".folder-card")).toHaveCount(0);
-  await page.getByRole("button", { name: "← Volver a Asistencia 2" }).click();
+  await page
+    .getByRole("button", { name: "← Volver a Asistencia - Administración" })
+    .click();
   await page.getByLabel("Empresa de asistencia").selectOption("EDGAR");
   await page.getByRole("button", { name: /^Alertas pendientes/ }).click();
   await expect(
@@ -689,7 +697,7 @@ test("Administración es exclusiva y Asistencia 2 abre solo el apartado elegido"
   await expect(page.getByLabel("Buscar incidencia")).toHaveCount(0);
 });
 
-test("los módulos abren sus secciones por tarjetas y Asistencia 1 conserva el registro directo", async ({
+test("los módulos abren sus secciones por tarjetas y Asistencia - Trabajador conserva el registro directo", async ({
   page,
 }) => {
   await page.goto("/");
@@ -742,7 +750,7 @@ test("los módulos abren sus secciones por tarjetas y Asistencia 1 conserva el r
   ).toBeVisible();
   const tarjetas = page.locator('[data-secciones="Nómina"] .folder-card');
   await expect(tarjetas).toHaveText([/Modificar un mes/, /Archivos cargados/]);
-  await nav(page, "Asistencia 1 · Trabajador").click();
+  await nav(page, "Asistencia - Trabajador").click();
   await expect(
     page
       .getByRole("dialog")

@@ -108,7 +108,7 @@ export default function Asistencia({ navigate, openKiosk }) {
   return (
     <section>
       <EncabezadoPagina
-        title="Asistencia 2 — Administración"
+        title="Asistencia - Administración"
         subtitle="Revisión y reportes de asistencia por empresa."
       >
         <button onClick={() => navigate("employees")}>Ver personal</button>
@@ -209,7 +209,7 @@ export default function Asistencia({ navigate, openKiosk }) {
               setBuscar("");
             }}
           >
-            ← Volver a Asistencia 2
+            ← Volver a Asistencia - Administración
           </button>
           <span>{companyNames[company]}</span>
         </div>
@@ -342,7 +342,7 @@ export default function Asistencia({ navigate, openKiosk }) {
           <LogoMarca variant="attendance" />
           <h2 className="center">Pantalla de registro</h2>
           <p className="sub center">
-            Para registrar como trabajador, abre Asistencia 1 · Trabajador.
+            Para registrar como trabajador, abre Asistencia - Trabajador.
           </p>
           <button className="attbtn primary" onClick={openKiosk}>
             Abrir pantalla de trabajador

@@ -31,7 +31,7 @@ export const modulosUso = {
   dashboard: "Inicio",
   employees: "Personal",
   payroll: "Nómina",
-  attendance: "Asistencia 2",
+  attendance: "Asistencia - Administración",
   logs: "Bitácoras de salud",
   epp: "EPP",
   labor: "Normas del Trabajo",
@@ -41,7 +41,7 @@ export const modulosUso = {
   security: "Seguridad",
   administration: "Administración",
   capture: "Bitácoras",
-  kiosk: "Asistencia 1",
+  kiosk: "Asistencia - Trabajador",
 };
 export function duracionUso(ms = 0) {
   const minutos = Math.floor(ms / 60000);

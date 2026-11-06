@@ -343,14 +343,14 @@ for (const [ruta, id] of [
       ).toBeVisible();
   });
 }
-test("Asistencia 1 muestra el ID en mayúsculas y borra la contraseña incorrecta antes de reintentar", async ({
+test("Asistencia - Trabajador muestra el ID en mayúsculas y borra la contraseña incorrecta antes de reintentar", async ({
   page,
 }) => {
   await page.goto("/#administracion");
   await ingreso(page, "MARIA");
   await page
     .getByRole("navigation")
-    .getByRole("button", { name: "Asistencia 1 · Trabajador", exact: true })
+    .getByRole("button", { name: "Asistencia - Trabajador", exact: true })
     .click();
   const dialogo = page.getByRole("dialog");
   const campoId = dialogo.getByLabel("ID de empleado", { exact: true });
