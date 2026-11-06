@@ -253,6 +253,62 @@ th {
   border: 1px solid var(--line);
   border-radius: 9px;
 }
+.vacaciones-mes {
+  container-type: inline-size;
+}
+.vacaciones-mes > summary {
+  font-size: 1.2rem;
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+@container (max-width: 850px) {
+  .vacaciones-mes .tablewrap {
+    border: 0;
+    overflow: visible;
+  }
+  .vacaciones-mes table,
+  .vacaciones-mes tbody,
+  .vacaciones-mes tr,
+  .vacaciones-mes td {
+    display: block;
+    width: 100%;
+  }
+  .vacaciones-mes thead {
+    display: none;
+  }
+  .vacaciones-mes tr {
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+  .vacaciones-mes td {
+    display: grid;
+    grid-template-columns: minmax(110px, 35%) minmax(0, 1fr);
+    gap: 8px;
+    overflow-wrap: anywhere;
+  }
+  .vacaciones-mes td::before {
+    content: attr(data-label);
+    color: #617386;
+    font-weight: 700;
+  }
+  .vacaciones-mes td:first-child {
+    display: block;
+    background: #f6f9fb;
+  }
+  .vacaciones-mes td:first-child::before {
+    display: block;
+    margin-bottom: 4px;
+  }
+  .vacaciones-mes td:last-child {
+    display: block;
+  }
+  .vacaciones-mes td:last-child::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+}
 .status {
   display: inline-block;
   border-radius: 20px;

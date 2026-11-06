@@ -368,8 +368,10 @@ export default function VacacionesPersonal() {
           </div>
         </form>
       )}
-      <div className="panel">
-        <h2>Vacaciones y regresos del mes</h2>
+      <details className="panel vacaciones-mes" open>
+        <summary>
+          <strong>Vacaciones y regresos del mes</strong>
+        </summary>
         <Tabla
           headings={[
             "Trabajador / empresa",
@@ -385,23 +387,23 @@ export default function VacacionesPersonal() {
         >
           {registros.map((v) => (
             <tr key={`${v.empleado.id_empleado}-${v.id}`}>
-              <td>
+              <td data-label="Trabajador / empresa">
                 <strong>{v.empleado.nombre_completo}</strong>
                 <br />
                 {nombres[v.empresa || v.empleado.empresa_codigo]}
               </td>
-              <td>{mostrar(v.inicio)}</td>
-              <td>{mostrar(v.fin)}</td>
-              <td>{mostrar(v.regreso)}</td>
-              <td>{v.dias}</td>
-              <td>
+              <td data-label="Salida">{mostrar(v.inicio)}</td>
+              <td data-label="Último día">{mostrar(v.fin)}</td>
+              <td data-label="Regreso">{mostrar(v.regreso)}</td>
+              <td data-label="Días laborables">{v.dias}</td>
+              <td data-label="Estado">
                 {hoy < v.inicio
                   ? "Próximas"
                   : hoy < v.regreso
                     ? "En vacaciones"
                     : "Finalizadas"}
               </td>
-              <td>
+              <td data-label="Acciones">
                 <div className="table-actions">
                   <button
                     disabled={pending}
@@ -434,7 +436,7 @@ export default function VacacionesPersonal() {
             </tr>
           ))}
         </Tabla>
-      </div>
+      </details>
       <details className="panel">
         <summary>
           <strong>Incidentes de vacaciones</strong>
