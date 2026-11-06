@@ -33,6 +33,7 @@ export default function VacacionesPersonal() {
     nombres = nombresEmpresas(data);
   const [mes, setMes] = useState(hoy.slice(0, 7)),
     [empresa, setEmpresa] = useState("");
+  const [busquedaHistorial, setBusquedaHistorial] = useState("");
   const [form, setForm] = useState(null),
     [mensaje, setMensaje] = useState(""),
     [error, setError] = useState("");
@@ -565,16 +566,49 @@ export default function VacacionesPersonal() {
       </details>
       <details className="panel">
         <summary>
-          <strong>Historial de vacaciones</strong>
+          <strong>Buscar y modificar vacaciones anteriores</strong>
         </summary>
-        {personas.flatMap((e) =>
-          (e.vacaciones?.registros || []).map((v) => (
-            <p key={`${e.id_empleado}-${v.id}`}>
-              {e.nombre_completo} · {mostrar(v.inicio)} al {mostrar(v.fin)} ·{" "}
-              {v.estado} · {v.motivoCancelacion || v.motivo}
-            </p>
-          )),
-        )}
+        <p>
+          Escribe el nombre o ID del trabajador para encontrar sus registros de
+          cualquier mes.
+        </p>
+        <Campo
+          label="Buscar en el historial"
+          value={busquedaHistorial}
+          onChange={(e) => setBusquedaHistorial(e.target.value)}
+          placeholder="Nombre o ID del trabajador"
+        />
+        {busquedaHistorial.trim() &&
+          data.employees
+            .filter((e) =>
+              normalizar(`${e.id_empleado} ${e.nombre_completo}`).includes(
+                normalizar(busquedaHistorial.trim()),
+              ),
+            )
+            .flatMap((e) =>
+              (e.vacaciones?.registros || []).map((v) => (
+                <div className="note" key={`${e.id_empleado}-${v.id}`}>
+                  <p>
+                    <strong>{e.nombre_completo}</strong> · {mostrar(v.inicio)}{" "}
+                    al {mostrar(v.fin)} · Regreso: {mostrar(v.regreso)} ·{" "}
+                    {v.estado}
+                  </p>
+                  <p>{v.motivoCancelacion || v.motivo}</p>
+                  {v.estado !== "Cancelada" && esPersonalVacaciones(e) && (
+                    <button
+                      type="button"
+                      disabled={pending}
+                      onClick={() => {
+                        editar(e, v);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                    >
+                      Modificar
+                    </button>
+                  )}
+                </div>
+              )),
+            )}
         <p className="small">
           Las modificaciones y cancelaciones conservan la versión anterior, el
           motivo y el responsable en el registro administrativo.
