@@ -45,7 +45,8 @@ export function scheduleForEmployee(
       schedule = eligible.find((s) => s.codigo === "EDG-ROT");
   }
   if (!schedule) return undefined;
-  if (!schedule.rotativo || exception) return { ...schedule };
+  if (!schedule.rotativo || exception)
+    return aplicarHorario2027({ ...schedule }, now, Boolean(exception));
   const [y, m, d] = (schedule.rotacion_desde || "2026-09-28")
     .split("-")
     .map(Number);
@@ -61,14 +62,53 @@ export function scheduleForEmployee(
     ["12:00", "20:00", "16:00", "16:30"],
   ];
   const [hora_inicio, hora_fin, comida_inicio, comida_fin] = shifts[index];
+  return aplicarHorario2027(
+    {
+      ...schedule,
+      hora_inicio,
+      hora_fin,
+      comida_inicio,
+      comida_fin,
+      comida_minutos: 30,
+      semana_rotacion: index + 1,
+    },
+    now,
+    false,
+  );
+}
+function aplicarHorario2027(schedule, now, excepcion) {
+  const codigo = schedule.codigo;
+  const fecha = localDate(now);
+  if (
+    excepcion ||
+    (schedule.vigente_desde && schedule.vigente_desde >= "2027-01-01") ||
+    !fecha.startsWith("2027-") ||
+    ![
+      "ALL-GEN",
+      "ALL-ADM",
+      "EDG-ROT",
+      "EDG-PED",
+      "EDG-ADM",
+      "EST-GEN",
+      "EST-ADM",
+    ].includes(codigo)
+  )
+    return schedule;
+  const sabado = now.getDay() === 6;
+  const comidaCuenta = codigo.endsWith("ADM") || codigo === "EDG-ROT";
+  const hora_fin = sabado
+    ? codigo === "EDG-ROT"
+      ? `${String(Number(schedule.hora_inicio.slice(0, 2)) + 6).padStart(2, "0")}:00`
+      : comidaCuenta
+        ? "15:00"
+        : "16:00"
+    : schedule.hora_fin;
   return {
     ...schedule,
-    hora_inicio,
     hora_fin,
-    comida_inicio,
-    comida_fin,
-    comida_minutos: 30,
-    semana_rotacion: index + 1,
+    comida_cuenta_jornada: comidaCuenta,
+    minutos_programados: sabado ? 360 : 480,
+    version_jornada: "2027-adendas",
   };
 }
 export function isWorkingDay(now, holidays = []) {

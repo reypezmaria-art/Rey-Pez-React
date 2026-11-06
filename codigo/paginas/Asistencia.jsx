@@ -14,6 +14,9 @@ import { nombresEmpresas } from "../dominio/empresas.js";
 import { formatDateTime } from "../utilidades/fechas.js";
 import { concordar } from "../utilidades/textos.js";
 import { reviewAlerts } from "../dominio/operaciones.js";
+import { calcularJornada2027 } from "../dominio/jornada2027.js";
+import { calendarDate } from "../utilidades/fechas.js";
+import { motivoDescanso } from "../dominio/vacaciones.js";
 export default function Asistencia({ navigate, openKiosk }) {
   const { data, commit, pending, clock } = useAplicacion();
   const companyNames = nombresEmpresas(data);
@@ -39,6 +42,54 @@ export default function Asistencia({ navigate, openKiosk }) {
       .includes(buscar.trim().toLocaleLowerCase("es-MX"));
   const registrosFiltrados = records.filter(coincide);
   const historialFiltrado = historial.filter(coincide);
+  const jornadas = new Map();
+  for (const marca of records) {
+    const fecha = calendarDate(marca.fecha_hora);
+    if (
+      !fecha.startsWith("2027-") ||
+      marca.movimiento === "REVISION_ADMINISTRATIVA"
+    )
+      continue;
+    const clave = `${marca.id_empleado}|${fecha}`;
+    if (!jornadas.has(clave)) jornadas.set(clave, []);
+    jornadas.get(clave).push(marca);
+  }
+  const revisionesJornada = [];
+  const adicionales = [...jornadas.values()]
+    .map((marcas) => {
+      const entrada = marcas.find((m) => m.movimiento === "ENTRADA");
+      const horario = entrada?.horario_aplicado;
+      const fecha = calendarDate((entrada || marcas[0]).fecha_hora);
+      const motivo = !entrada
+        ? "Falta la entrada"
+        : horario?.version_jornada !== "2027-adendas"
+          ? "Horario especial o sin configuración de 2027"
+          : motivoDescanso(fecha, data.holidays || [])
+            ? "Domingo o día de descanso"
+            : "";
+      if (motivo) {
+        revisionesJornada.push({ marca: entrada || marcas[0], fecha, motivo });
+        return null;
+      }
+      const calculo = calcularJornada2027(
+        marcas,
+        horario.minutos_programados,
+        horario.comida_cuenta_jornada,
+        horario.comida_minutos || 30,
+        horario.hora_fin,
+      );
+      if (!calculo)
+        revisionesJornada.push({
+          marca: entrada,
+          fecha,
+          motivo: "Marcaciones incompletas o repetidas",
+        });
+      return calculo?.minutosAdicionales > 0
+        ? { entrada, fecha, ...calculo }
+        : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => b.fecha.localeCompare(a.fecha));
   const pdfRecords = [
     ...records,
     ...(data.absenceReviews || []).filter(belongs),
@@ -83,6 +134,13 @@ export default function Asistencia({ navigate, openKiosk }) {
       {!apartado ? (
         <div className="folder-grid" aria-label="Apartados de asistencia">
           {[
+            [
+              "adicionales",
+              "◷",
+              "Tiempo adicional",
+              `${adicionales.length} jornadas`,
+              "Consultar tiempo trabajado después de cumplir la jornada.",
+            ],
             [
               "ausencias",
               "♙",
@@ -190,6 +248,54 @@ export default function Asistencia({ navigate, openKiosk }) {
               )}
             </details>
           ))}
+        </div>
+      )}
+      {apartado === "adicionales" && (
+        <div className="panel">
+          <h2>Tiempo adicional desde 2027</h2>
+          <p>
+            Se calcula al completar las cuatro marcaciones, después de cumplir
+            la jornada del día. Días festivos, domingos, excepciones y registros
+            incompletos requieren revisión. El cálculo no determina
+            automáticamente el pago.
+          </p>
+          <Tabla
+            headings={[
+              "Fecha",
+              "Trabajador",
+              "Tiempo trabajado",
+              "Jornada",
+              "Tiempo adicional",
+            ]}
+            count={adicionales.length}
+            empty="Sin jornadas con tiempo adicional."
+          >
+            {adicionales.map((a) => (
+              <tr key={`${a.entrada.id_empleado}-${a.fecha}`}>
+                <td>{a.fecha}</td>
+                <td>{a.entrada.nombre_completo}</td>
+                <td>
+                  {Math.floor(a.minutosTrabajados / 60)} h{" "}
+                  {Math.round(a.minutosTrabajados % 60)} min
+                </td>
+                <td>{a.minutosProgramados / 60} h</td>
+                <td>
+                  {Math.floor(a.minutosAdicionales / 60)} h{" "}
+                  {Math.round(a.minutosAdicionales % 60)} min
+                </td>
+              </tr>
+            ))}
+          </Tabla>
+          <details>
+            <summary>
+              Jornadas que necesitan revisión ({revisionesJornada.length})
+            </summary>
+            {revisionesJornada.map((r) => (
+              <p key={`${r.marca.id_empleado}-${r.fecha}`}>
+                {r.fecha} · {r.marca.nombre_completo} · {r.motivo}
+              </p>
+            ))}
+          </details>
         </div>
       )}
       {apartado === "pdf" && (
