@@ -89,6 +89,7 @@ export default function VacacionesPersonal() {
       busqueda: `${e.id_empleado} — ${e.nombre_completo}`,
       inicio: v?.inicio || "",
       regreso: v?.regreso || "",
+      motivoIncidente: v?.incidente?.motivo || "",
     });
     setCancelar(null);
     setError("");
@@ -324,10 +325,22 @@ export default function VacacionesPersonal() {
             </div>
           )}
           <Mensaje error>{errorVista}</Mensaje>
+          {resumen?.restantes < 0 && (
+            <Campo
+              label="Motivo del incidente de vacaciones"
+              required
+              maxLength={500}
+              {...field("motivoIncidente")}
+            />
+          )}
           <div className="actions">
             <button
               className="primary"
-              disabled={pending || !vista || resumen.restantes < 0}
+              disabled={
+                pending ||
+                !vista ||
+                (resumen.restantes < 0 && !form.motivoIncidente?.trim())
+              }
             >
               Guardar vacaciones
             </button>
@@ -422,6 +435,22 @@ export default function VacacionesPersonal() {
           ))}
         </Tabla>
       </div>
+      <details className="panel">
+        <summary>
+          <strong>Incidentes de vacaciones</strong>
+        </summary>
+        {personas.flatMap((e) =>
+          (e.vacaciones?.registros || [])
+            .filter((v) => v.incidente)
+            .map((v) => (
+              <p key={`${e.id_empleado}-${v.id}`}>
+                {e.nombre_completo} · {mostrar(v.inicio)} al {mostrar(v.fin)} ·{" "}
+                {v.estado} · Exceso al registrar: {v.incidente.exceso} días ·{" "}
+                {v.incidente.motivo}
+              </p>
+            )),
+        )}
+      </details>
       <details className="panel">
         <summary>
           <strong>Días de vacaciones por revisar</strong>

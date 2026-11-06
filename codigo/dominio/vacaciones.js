@@ -296,7 +296,7 @@ function validarSaldo(state, form, responsable, now) {
     throw Error(
       "Indica los días ya utilizados fuera de este apartado para ese aniversario.",
     );
-  if (saldo.disponibles < 0)
+  if (saldo.disponibles < 0 && !form.capturaPorFechas)
     throw Error(
       `Los días ya utilizados y registrados superan los ${saldo.dias} días de ese aniversario.`,
     );
@@ -368,9 +368,10 @@ export function guardarVacaciones(state, form, responsable, now = new Date()) {
   if (otros.some((r) => r.inicio < salida.regreso && r.regreso > salida.inicio))
     throw Error("Este período se cruza con vacaciones ya programadas.");
   const usados = saldo.registrados;
-  if (previos + usados + salida.dias > derecho)
+  const exceso = Math.max(0, previos + usados + salida.dias - derecho);
+  if (exceso && (!form.capturaPorFechas || !form.motivoIncidente?.trim()))
     throw Error(
-      `El período supera los ${derecho} días de ese aniversario: ${previos + usados} ya utilizados o programados.`,
+      `El período supera el saldo. Indica el motivo del incidente para guardarlo.`,
     );
   const motivo = `Registro de vacaciones del aniversario ${anio}: ${salida.dias} días laborables, del ${salida.inicio} al ${salida.fin}. Regreso: ${salida.regreso}.`;
   const registro = {
@@ -381,6 +382,16 @@ export function guardarVacaciones(state, form, responsable, now = new Date()) {
     estado: "Programada",
     por: responsable,
     motivo,
+    ...(exceso
+      ? {
+          incidente: {
+            motivo: form.motivoIncidente.trim(),
+            exceso,
+            responsable,
+            fecha: now.toISOString(),
+          },
+        }
+      : {}),
     actualizado: now.toISOString(),
     ingresoReconocido: ingreso,
     derecho,

@@ -233,6 +233,33 @@ test("saldo automático: doce días, diez usados y dos disponibles sin inventar 
   );
 });
 
+test("permite registrar un exceso con motivo y conserva el incidente", async () => {
+  const { guardarVacacionesPorFechas } =
+    await import("../codigo/dominio/vacaciones.js");
+  const e = { ...empleado, fecha_ingreso: "2025-01-27" };
+  const s = { ...base(), employees: [e] };
+  const f = {
+    empleadoId: e.id_empleado,
+    inicio: "2026-02-14",
+    regreso: "2026-03-04",
+  };
+  assert.throws(
+    () => guardarVacacionesPorFechas(s, f, "MARIA", ahora),
+    /motivo/,
+  );
+  const guardado = guardarVacacionesPorFechas(
+    s,
+    { ...f, motivoIncidente: "Días pendientes anteriores" },
+    "MARIA",
+    ahora,
+  );
+  assert.equal(
+    guardado.employees[0].vacaciones.registros[0].incidente.motivo,
+    "Días pendientes anteriores",
+  );
+  assert.ok(guardado.employees[0].vacaciones.registros[0].incidente.exceso > 0);
+});
+
 test("fechas reales: salida 14 de febrero, regreso 26, diez días y saldo dos sin inventar historia", async () => {
   const {
     calcularVacacionesPorFechas,
